@@ -1,11 +1,58 @@
 <?xml version="1.0" encoding="utf-8"?>
-<odoo noupdate="1">
+<odoo>
 
     <!-- Multicompay rules-->
     <record model="ir.rule" id="repair_order_rule">
         <field name="name">repair order multi-company</field>
         <field name="model_id" search="[('model','=','repair.order')]" model="ir.model"/>
         <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <!-- Catégorie -->
+    <record id="module_category_repair_custom" model="ir.module.category">
+        <field name="name">Gestion des Réparations/Catalogue</field>
+        <field name="description">Gérer les ordres de réparation, les appareils et les techniciens.</field>
+        <field name="sequence">25</field>
+    </record>
+
+    <!-- Groupes d'utilisateurs -->
+     <record id="group_repair_technician" model="res.groups">
+        <field name="name">Technicien</field>
+        <field name="category_id" ref="repair_custom.module_category_repair_custom"/>
+    </record>
+    <record id="group_repair_manager" model="res.groups">
+        <field name="name">Gestionnaire</field>
+        <field name="implied_ids" eval="[(4, ref('repair_custom.group_repair_technician'))]"/>
+        <field name="category_id" ref="repair_custom.module_category_repair_custom"/>
+    </record>
+    <record id="group_repair_admin" model="res.groups">
+        <field name="name">Administrateur</field>
+        <field name="implied_ids" eval="[(4, ref('repair_custom.group_repair_manager'))]"/>
+        <field name="category_id" ref="repair_custom.module_category_repair_custom"/>
+    </record>
+    <!--=================-->
+
+    <!-- Règles -->
+
+    <record id="repair_orders_technician_rule" model="ir.rule">
+        <field name="name">Affichage réparations technicien</field>
+        <field name="model_id" ref="model_repair_order"/>
+        <field name="groups" eval="[(4, ref('repair_custom.group_repair_technician'))]" />
+        <field name="domain_force">[('state', 'not in', ['done', 'cancel', 'draft'])]</field>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+    <record id="repair_orders_manager_rule" model="ir.rule">
+        <field name="name">Affichage réparations gestionnaire</field>
+        <field name="model_id" ref="model_repair_order"/>
+        <field name="groups" eval="[(4, ref('repair_custom.group_repair_manager'))]" />
+        <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
+    <record id="repair_orders_admin_rule" model="ir.rule">
+        <field name="name">Affichage réparations administrateur</field>
+        <field name="model_id" ref="model_repair_order"/>
+        <field name="groups" eval="[(4, ref('repair_custom.group_repair_admin'))]" />
+        <field name="domain_force">[(1, '=', 1)]</field>
     </record>
 
 </odoo>

@@ -521,7 +521,7 @@ msgstr "Quantité en réparation"
 #. module: repair
 #: model:ir.model.fields,field_description:repair_custom.field_repair_order__internal_notes
 msgid "Internal Notes"
-msgstr "Notes internes"
+msgstr "Notes de réparation"
 
 #. module: repair
 #: model:ir.model.fields,field_description:repair_custom.field_repair_order__move_id

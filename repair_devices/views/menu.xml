@@ -48,24 +48,21 @@
 
 
     <menuitem id="menu_repair_device" name="Appareils Hi-Fi" sequence="29"
-            web_icon="repair_devices,static/description/icon.png"/>
+            web_icon="repair_devices,static/description/icon.png" groups="repair_custom.group_repair_technician"/>
 
     <menuitem id="repair_device_menu" name="Catalogue" parent="menu_repair_device" 
-            action="action_repair_device"/>
+            action="action_repair_device" groups="repair_custom.group_repair_technician"/>
 
     <menuitem id="menu_repair_device_unit" name="Appareils physiques" parent="menu_repair_device"
-            action="action_repair_device_unit"/>
+            action="action_repair_device_unit" groups="repair_custom.group_repair_technician"/>
 
-    <menuitem id="repair_menu_config" name="Configuration" parent="menu_repair_device" groups="stock.group_stock_manager" sequence="30"/>
+    <menuitem id="repair_menu_config" name="Configuration" parent="menu_repair_device" groups="repair_custom.group_repair_manager" sequence="30"/>
 
-    <menuitem id="menu_repair_device_category" name="Catégories" parent="repair_menu_config" 
-            action="action_repair_device_category"/>
+    <menuitem id="menu_repair_device_category" name="Catégories" parent="repair_menu_config"  action="action_repair_device_category"/>
 
-    <menuitem id="menu_repair_device_brand" name="Marques" parent="repair_menu_config" 
-            action="action_repair_device_brand"/>
+    <menuitem id="menu_repair_device_brand" name="Marques" parent="repair_menu_config" action="action_repair_device_brand"/>
 
-    <menuitem id="menu_repair_device_variant" name="Variantes" parent="repair_menu_config"
-        action="action_repair_device_variant"/>
+    <menuitem id="menu_repair_device_variant" name="Variantes" parent="repair_menu_config" action="action_repair_device_variant"/>
 
     </data>
 </odoo>

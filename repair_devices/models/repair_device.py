@@ -189,7 +189,7 @@ class RepairDeviceUnit(models.Model):
     def _compute_is_admin(self):
         user = self.env.user
         for rec in self:
-            rec.is_admin = user.has_group('base.group_system')
+            rec.is_admin = user.has_group('rapair_custom.group_repair_admin')
 
     @api.depends("device_id", "variant_id", "serial_number")
     def _compute_display_name(self):

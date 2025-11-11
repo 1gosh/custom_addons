@@ -65,9 +65,8 @@
                     <field name="show_unit_field" invisible="1"/>
                 </header>
                 <sheet>
-                    <div class="oe_button_box" name="button_box">
-        
-                    </div>
+                    <!-- <div class="oe_button_box" name="button_box">
+                    </div> -->
                     <div class="oe_title">
                         <label class="o_form_label" for="entry_date"/>
                         <h1 class="d-flex">
@@ -137,9 +136,12 @@
                                 </group>
                             </group>
                         </page>
-                        <page string="Technique">
+                        <page string="Atelier">
                             <group>
-                                <field name="technician_employee_id" readonly="1"/>
+                                <field name="unit_id"
+                                        invisible="not unit_id"
+                                        readonly="1"/>
+                                <field name="technician_employee_id" readonly="1" invisible="not technician_employee_id"/>
                             </group>
                             <group for="internal_notes">
                                 <field name="internal_notes" widget="html" placeholder="ex: - Remplacement des condensateurs d'alimentation"/>
@@ -380,15 +382,15 @@
             </field>
         </record>
 
-        <menuitem id="menu_repair_order" groups="stock.group_stock_user" name="Repairs" sequence="28"
+        <menuitem id="menu_repair_order" groups="repair_custom.group_repair_technician" name="Repairs" sequence="28"
                   web_icon="repair_custom,static/description/icon.png"/>
 
-        <menuitem id="repair_order_menu" name="Orders" action="action_repair_order_tree" groups="stock.group_stock_user"
+        <menuitem id="repair_order_menu" name="Orders" action="action_repair_order_tree" groups="repair_custom.group_repair_technician"
                   parent="menu_repair_order"/>
 
-        <menuitem id="repair_menu_reporting" name="Reporting" parent="menu_repair_order" groups="stock.group_stock_manager"/>
+        <menuitem id="repair_menu_reporting" name="Reporting" parent="menu_repair_order" groups="repair_custom.group_repair_manager"/>
 
-        <menuitem id="repair_menu_config" name="Configuration" parent="menu_repair_order" groups="stock.group_stock_manager"/>
+        <menuitem id="repair_menu_config" name="Configuration" parent="menu_repair_order" groups="repair_custom.group_repair_manager"/>
 
         <menuitem id="menu_repair_pickup_location" name="Lieux" parent="repair_menu_config" action="action_repair_pickup_location"/>
 

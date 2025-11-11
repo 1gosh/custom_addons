@@ -1,4 +1,8 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_repair_user,Repair user,model_repair_order,stock.group_stock_user,1,1,1,1
-access_repair_tag_user,Repair Tags user,model_repair_tags,stock.group_stock_user,1,1,1,1
-access_repair_pickup_location_user,repair.pickup.location user,model_repair_pickup_location,stock.group_stock_user,1,1,1,1
+access_repair_technician,Ordres de réparation technicien,model_repair_order,repair_custom.group_repair_technician,1,1,0,0
+access_repair_manager,Ordres de réparation gestionnaire,model_repair_order,repair_custom.group_repair_manager,1,1,1,0
+access_repair_admin,Ordres de réparation administrateur,model_repair_order,repair_custom.group_repair_admin,1,1,1,1
+access_repair_tag_technician,Liste des pannes technicien,model_repair_tags,group_repair_technician,1,0,0,0
+access_repair_tag_manager,Liste des pannes gestionnaire,model_repair_tags,group_repair_manager,1,1,1,1
+access_repair_pickup_location_technician,Lieux de prises en charge technicien,model_repair_pickup_location,repair_custom.group_repair_technician,1,0,0,0
+access_repair_pickup_location_admin,Lieux de prises en charge administrateur,model_repair_pickup_location,repair_custom.group_repair_admin,1,1,1,1

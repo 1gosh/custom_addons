@@ -98,7 +98,6 @@
             <tree>
                 <field name="serial_number"/>
                 <field name="device_name"/>
-                <field name="variant_id"/>
                 <field name="partner_id"/>
             </tree>
         </field>
@@ -115,13 +114,13 @@
                             type="object"
                             string="Modifier"
                             class="btn-primary"
-                            groups="base.group_system"
+                            groups="repair_custom.group_repair_admin"
                             invisible="context.get('edit_admin')"/>
                     <button name="action_toggle_edit"
                             type="object"
                             string="Annuler"
                             class="btn-secondary"
-                            groups="base.group_system"
+                            groups="repair_custom.group_repair_admin"
                             invisible="not context.get('edit_admin')"/>
                 </header>
                 <sheet>

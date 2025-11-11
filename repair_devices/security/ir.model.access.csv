@@ -1,6 +1,18 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_repair_device_user,repair.device user,model_repair_device,stock.group_stock_user,1,1,1,1
-access_repair_device_variant,repair.device.variant user,model_repair_device_variant,stock.group_stock_user,1,1,1,1
-access_repair_device_unit_user,repair.device.unit user,model_repair_device_unit,stock.group_stock_user,1,1,1,1
-access_repair_device_brand_user,access_repair.device.brand user,model_repair_device_brand,stock.group_stock_user,1,1,1,1
-access_repair_device_category_user,repair.device.category user,model_repair_device_category,stock.group_stock_user,1,1,1,1
+access_repair_device_technician,Catalogue d'appareils technicien,model_repair_device,repair_custom.group_repair_technician,1,0,0,0
+access_repair_device_variant_technician,Variantes d'appareils technicien,model_repair_device_variant,repair_custom.group_repair_technician,1,0,0,0
+access_repair_device_unit_technician,Appareils (unités) technicien,model_repair_device_unit,repair_custom.group_repair_technician,1,0,0,0
+access_repair_device_brand_technician,Marques technicien,model_repair_device_brand,repair_custom.group_repair_technician,1,0,0,0
+access_repair_device_category_technician,Catégories technicien,model_repair_device_category,repair_custom.group_repair_technician,1,0,0,0
+
+access_repair_device_manager,Catalogue d'appareils gestionnaire,model_repair_device,repair_custom.group_repair_manager,1,1,1,0
+access_repair_device_variant_manager,Variantes d'appareils gestionnaire,model_repair_device_variant,repair_custom.group_repair_manager,1,1,1,0
+access_repair_device_unit_manager,Appareils (unités) gestionnaire,model_repair_device_unit,repair_custom.group_repair_manager,1,1,0,0
+access_repair_device_brand_manager,Marques gestionnaire,model_repair_device_brand,repair_custom.group_repair_manager,1,1,1,0
+access_repair_device_category_manager,Catégories gestionnaire,model_repair_device_category,repair_custom.group_repair_manager,1,1,1,0
+
+access_repair_device_admin,Catalogue d'appareils administrateur,model_repair_device,repair_custom.group_repair_admin,1,1,1,1
+access_repair_device_variant_admin,Variantes d'appareils administrateur,model_repair_device_variant,repair_custom.group_repair_admin,1,1,1,1
+access_repair_device_unit_admin,Appareils (unités) administrateur,model_repair_device_unit,repair_custom.group_repair_admin,1,1,1,1
+access_repair_device_brand_admin,Marques administrateur,model_repair_device_brand,repair_custom.group_repair_admin,1,1,1,1
+access_repair_device_category_admin,Catégories administrateur,model_repair_device_category,repair_custom.group_repair_admin,1,1,1,1
