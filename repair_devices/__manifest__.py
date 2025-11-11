@@ -10,6 +10,7 @@
         "views/device_views.xml",
         "views/menu.xml",
     ],
+    'pre_init_hook': 'cleanup_old_records',
     'installable': True,
     'application': True,
 }
