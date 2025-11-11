@@ -37,7 +37,6 @@ The following topics are covered by this module:
             'repair_custom/static/src/css/views.css',
         ],
     },
-    'pre_init_hook': 'cleanup_old_records',
     'installable': True,
     'application': True,
 }
