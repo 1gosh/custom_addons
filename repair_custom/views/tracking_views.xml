@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<template id="tracking_page" name="Repair Tracking Page">
+    <t t-call="web.layout">
+        <t t-set="head">
+            <link rel="stylesheet" type="text/css"
+                href="/repair_custom/static/src/css/tracking.css" />
+        </t>
+        <div class="repair-tracking-page">
+            <h1>Suivi de votre réparation</h1>
+            <div class="tracking-header">
+                <span class="ref">Référence : <t t-esc="order.name" /></span>
+                <span class="customer">
+                    <t t-esc="order.partner_id.name" />
+                </span>
+            </div>
+
+            <div class="tracking-status">
+                <t t-if="order.state == 'draft'">
+                    <div class="status draft">En attente de confirmation</div>
+                </t>
+                <t t-elif="order.state == 'confirmed'">
+                    <div class="status confirmed">Réparation confirmée</div>
+                </t>
+                <t t-elif="order.state == 'under_repair'">
+                    <div class="status progress">Réparation en cours</div>
+                </t>
+                <t t-elif="order.state == 'done'">
+                    <div class="status done">Réparation terminée</div>
+                </t>
+                <t t-else="">
+                    <div class="status cancelled">Réparation annulée</div>
+                </t>
+            </div>
+
+            <div class="timeline">
+                <div
+                    t-att-class="'step ' + ('active' if order.state in ['draft','confirmed','under_repair','done'] else '')">
+                    Création</div>
+                <div
+                    t-att-class="'step ' + ('active' if order.state in ['confirmed','under_repair','done'] else '')">
+                    Confirmée</div>
+                <div
+                    t-att-class="'step ' + ('active' if order.state in ['under_repair','done'] else '')">En
+                    cours</div>
+                <div t-att-class="'step ' + ('active' if order.state == 'done' else '')">
+                    Terminée</div>
+            </div>
+
+            <div class="order-details">
+                <h2>Détails</h2>
+                <ul>
+                    <li>
+                        <strong>Produit :</strong>
+                        <t t-esc="order.product_id.display_name" />
+                    </li>
+                    <li>
+                        <strong>Date d'entrée :</strong>
+                        <t
+                            t-esc="order.create_date.strftime('%d/%m/%Y') if order.create_date else ''" />
+                    </li>
+                    <!-- <li>
+                        <strong>Technicien :</strong>
+                        <t t-esc="dict(order._fields['technician'].selection).get(order.technician, '')"/>
+                    </li> -->
+                    <li>
+                        <strong>Lieu de prise en charge :</strong>
+                        <t
+                            t-esc="order.pickup_location_id.display_name" />
+                    </li>
+                    <li>
+                        <strong>Notes :</strong>
+                        <t t-esc="order.internal_notes or '—'" />
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </t>
+</template>
+
+<template id="tracking_not_found" name="Repair Tracking Not Found">
+    <t t-call="web.layout">
+        <t t-set="head">
+            <link rel="stylesheet" type="text/css"
+                href="/repair_custom/static/src/css/tracking.css" />
+        </t>
+        <div class="repair-tracking-page">
+            <h2>Aucune réparation trouvée</h2>
+            <p>Le lien que vous avez utilisé semble invalide ou expiré.</p>
+        </div>
+    </t>
+</template>
+</odoo>

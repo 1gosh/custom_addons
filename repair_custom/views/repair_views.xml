@@ -1,0 +1,397 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+    <record id="repair_order_view_activity" model="ir.ui.view">
+        <field name="name">repair.order.view.activity</field>
+        <field name="model">repair.order</field>
+        <field name="arch" type="xml">
+            <activity string="Activity view">
+                <templates>
+                    <div t-name="activity-box">
+                        <field name="user_id" widget="many2one_avatar_user" domain="[('share', '=', False)]"/>
+                        <div>
+                            <field name="name" display="full" class="o_text_block o_text_bold"/>
+                            <!-- <field name="product_id" class="o_text_block"/> -->
+                            <!-- <field name="schedule_date" widget="date" class="d-block"/> -->
+                        </div>
+                    </div>
+                </templates>
+            </activity>
+        </field>
+    </record>
+
+    <record id="view_repair_order_tree" model="ir.ui.view">
+        <field name="name">repair.tree</field>
+        <field name="model">repair.order</field>
+        <field name="arch" type="xml">
+            <tree string="Repairs order" multi_edit="1" sample="1" decoration-info="state == 'draft'">
+                <field name="priority" optional="show" widget="priority" nolabel="1" />
+                <field name="entry_date" optional="show" string="Date d'entrée" readonly="True"
+                    width="50" widget="datetime" options="{'show_time':false}" />
+                <field name="state" optional="show" widget="badge" decoration-success="state == 'done'"
+                    decoration-info="state == 'confirmed'" decoration-warning="state == 'under_repair'"
+                    decoration-danger="state == 'cancel'" decoration-muted="state == 'draft'" readonly="True"
+                    width="50" on_change="1" />
+                <field name="device_id_name" optional="show"></field>
+                <field name="partner_id" readonly="1" optional="show" string="Client" width="100" on_change="1" />
+                <field name="repair_warranty" optional="show" readonly="True" />
+                <field name="pickup_location_id" optional="hide" readonly="True" />
+                <field name="technician_employee_id" optional="show"/>
+                <field name="notes" optional="show" />
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_repair_order_form" model="ir.ui.view">
+        <field name="name">repair.form</field>
+        <field name="model">repair.order</field>
+        <field name="arch" type="xml">
+            <form string="Ordre de réparation">
+                <field name="company_id" invisible="1"/>
+                <field name="sale_order_id" invisible="1"/>
+                <field name="sale_order_line_id" invisible="1"/>
+                <field name="technician_user_id" force_save="1" readonly="1" invisible="1"/>
+                <header>
+                    <button name="action_validate" invisible="state != 'draft'" type="object" string="Confirmer la réparation" class="oe_highlight" data-hotkey="v"/>
+                    <button name="action_repair_start" invisible="state != 'confirmed'" type="object" string="Commencer la réparation" class="oe_highlight" data-hotkey="q"/>
+                    <button name="action_repair_end" invisible="state != 'under_repair'" type="object" string="Terminer la réparation" class="btn-success" data-hotkey="x"/>
+                    <button name="action_create_sale_order" type="object" string="Créer le devis" invisible="False"/>
+                    <button name="action_repair_cancel" string="Annuler la réparation" type="object" invisible="state in ('done', 'cancel')" data-hotkey="l" class="btn-danger"/>
+                    <button name="action_repair_cancel_draft" invisible="False" string="Marquer comme brouillon" type="object" data-hotkey="z"/>
+                    <button name="action_open_unit" string="Voir l’appareil" type="object" icon="fa-external-link" invisible="not unit_id" class="btn-info"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,under_repair,done" on_change="1"/>
+                    <field name="variant_ids_available" invisible="1"/>
+                    <field name="show_unit_field" invisible="1"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+        
+                    </div>
+                    <div class="oe_title">
+                        <label class="o_form_label" for="entry_date"/>
+                        <h1 class="d-flex">
+                            <!-- <field name="priority" widget="priority" class="me-3"/> -->
+                            <field name="entry_date" string="Date d'entrée" widget="datetime" options="{'show_time':false}" readonly="state != 'draft'" />
+                            <!-- <field name="device_picture" widget="image" class="ml-3 mb-5 h4"
+                                options="{'convert_to_webp':true,'zoom':true,'size':[0,90]}"
+                                invisible="not device_picture and state != 'draft'" /> -->
+                        </h1>
+                    </div>
+                    <group>
+                        <group> 
+                            <field class="partner_custom" name="partner_id"
+                                widget="res_partner_many2one"
+                                context="{'res_partner_search_mode': 'customer', 'show_email': True, 'show_phone': True}"
+                                readonly="state != 'draft'"
+                                force_save="1"
+                                options="{'no_quick_create':true}"
+                                required="True"
+                                on_change="1"
+                                can_create="True"
+                                can_write="True"/>
+                        </group>
+                        <group>
+                            <field name="repair_warranty" required="False" force_save="1" readonly="state != 'draft'"/>
+                            <field name="pickup_location_id" placeholder="Sélectionner un lieu..." readonly="state not in ['draft']"/>
+                        </group>
+                    </group>
+                    <!-- <p class="text-muted small">
+                        Réf. 
+                    </p> -->
+                    <notebook>
+                        <page string="Appareil">
+                            <group>
+                                <group>
+                                    <field name="unit_id"
+                                        domain="[('partner_id', '=', partner_id)]"
+                                        options="{'no_create': True, 'no_open': False}"
+                                        invisible="not show_unit_field"
+                                        readonly="state != 'draft'"/>
+                                    <field name="device_id"
+                                        required="True"
+                                        context="{'default_brand_id': False}"
+                                        options="{'no_create_edit': False}"
+                                        readonly="state != 'draft'"
+                                        placeholder="Sélectionner ou créer un modèle d'appareil..."/>
+                                    <field name="variant_id"
+                                        domain="[('id','in', variant_ids_available)]"
+                                        context="{'default_device_id': device_id}"
+                                        readonly="state != 'draft'"
+                                        placeholder="Sélectionner une variante (optionnel)"
+                                        invisible ="(not device_id) or (not variant_id and (state != 'draft'))"/>
+                                    <field name="serial_number" placeholder="Numéro de série (ou laisser vide pour auto)" readonly="state != 'draft'" invisible ="not device_id"/>
+                                </group>
+                                <group>
+                                    <field name="tag_ids"   
+                                        widget="many2many_tags"
+                                        options="{'color_field': 'color', 'no_create_edit': True}"
+                                        force_save="1"
+                                        placeholder="Entrer les pannes"
+                                        readonly="state != 'draft'"
+                                        required="True"
+                                        string="Pannes"
+                                        can_create="True"
+                                        can_write="True"/>
+                                    <field name="notes" required="False" placeholder="Écrire ici ..." string="Notes"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Technique">
+                            <group>
+                                <field name="technician_employee_id" readonly="1"/>
+                            </group>
+                            <group for="internal_notes">
+                                <field name="internal_notes" widget="html" placeholder="ex: - Remplacement des condensateurs d'alimentation"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_repair_kanban" model="ir.ui.view">
+        <field name="name">repair.kanban</field>
+        <field name="model">repair.order</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" sample="1" quick_create="false">
+                <field name="company_id" invisible="1"/>
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="state"/>
+                <field name="activity_state"/>
+                <progressbar field="activity_state" colors='{"planned": "success", "today": "warning", "overdue": "danger"}'/>
+                <templates>
+                    <t t-name="kanban-box">
+                        <div t-attf-class="oe_kanban_card oe_kanban_global_click">
+                            <div class="row mb4">
+                                <div class="col-6">
+                                    <strong><span><t t-esc="record.name.value"/></span></strong>
+                                </div>
+                                <div class="col-6 text-end">
+                                    <field name="state" widget="label_selection" options="{'classes': {'draft': 'info', 'cancel': 'danger', 'done': 'success', 'under_repair': 'secondary'}}"/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-6 text-muted">
+                                    <!-- <span><t t-esc="record.product_id.value"/></span> -->
+                                    <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}"/>
+                                </div>
+                                <div class="col-6">
+                                    <span class="float-end">
+                                        <field name="partner_id"/>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_repair_order_form_filter" model="ir.ui.view">
+        <field name="name">repair.select</field>
+        <field name="model">repair.order</field>
+        <field name="arch" type="xml">
+            <search string="Search Repair Orders">
+                <!-- <field name="name" string="Repair Order" filter_domain="['|', ('name', 'ilike', self), ('product_id', 'ilike', self)]"/> -->
+                <!-- <field name="product_id"/> -->
+                <field name="partner_id" filter_domain="[('partner_id', 'child_of', self)]"/>
+                <field name="sale_order_id"/>
+                <filter string="New" domain="[('state', '=', 'draft')]" name="filter_draft" />
+                <filter string="Confirmed" domain="[('state', '=', 'confirmed')]" name="filter_confirmed" />
+                <filter string="Under Repair" name="filter_under_repair" domain="[('state', '=', 'under_repair')]"/>
+                <filter string="Repaired" name="filter_done" domain="[('state', '=', 'done')]"/>
+                <filter string="Cancelled" name="filter_cancel" domain="[('state', '=', 'cancel')]"/>
+                <separator/>
+                <filter string="Ready" name="ready" domain="[('state', 'in', 'confirmed')]" invisible="True"/>
+                <filter name="filter_create_date" date="create_date"/>
+                <separator/>
+                <filter invisible="1" string="Late Activities" name="activities_overdue"
+                    domain="[('my_activity_date_deadline', '&lt;', context_today().strftime('%Y-%m-%d'))]"
+                    help="Show all records which has next action date is before today"/>
+                <filter invisible="1" string="Today Activities" name="activities_today"
+                    domain="[('my_activity_date_deadline', '=', context_today().strftime('%Y-%m-%d'))]"/>
+                <filter invisible="1" string="Future Activities" name="activities_upcoming_all"
+                    domain="[('my_activity_date_deadline', '&gt;', context_today().strftime('%Y-%m-%d'))]"/>
+                <group expand="0" string="Group By">
+                    <filter string="Customer" name="partner" domain="[]" context="{'group_by': 'partner_id'}"/>
+                    <!-- <filter string="Product" name="product" domain="[]" context="{'group_by': 'product_id'}"/> -->
+                    <filter string="Status" name="status" domain="[]" context="{'group_by': 'state'}"/>
+                    <filter string="Company" name="company" domain="[]" context="{'group_by': 'company_id'}" groups="base.group_multi_company"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_repair_graph" model="ir.ui.view">
+        <field name="name">repair.graph</field>
+        <field name="model">repair.order</field>
+        <field name="arch" type="xml">
+            <graph string="Repair Orders" sample="1">
+                <field name="create_date"/>
+                <!-- <field name="product_id"/> -->
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_repair_pivot" model="ir.ui.view">
+        <field name="name">repair.pivot</field>
+        <field name="model">repair.order</field>
+        <field name="arch" type="xml">
+            <pivot string="Repair Orders" sample="1">
+                <field name="create_date" type="row"/>
+                <!-- <field name="product_id" type="col"/> -->
+            </pivot>
+        </field>
+    </record>
+
+    <record id="action_repair_order_form" model="ir.actions.act_window">
+        <field name="name">Repair Orders</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">repair.order</field>
+        <field name="view_mode">form</field>
+    </record>
+
+         <record id="action_repair_order_tree" model="ir.actions.act_window">
+            <field name="name">Repair Orders</field>
+            <field name="res_model">repair.order</field>
+            <field name="view_mode">tree,kanban,graph,pivot,form,activity</field>
+            <field name="search_view_id" ref="view_repair_order_form_filter"/>
+            <field name="help" type="html">
+              <p class="o_view_nocontent_smiling_face">
+                No repair order found. Let's create one!
+              </p><p>
+                In a repair order, you can detail the components you remove,
+                add or replace and record the time you spent on the different
+                operations.
+              </p>
+            </field>
+        </record>
+
+        <record id="action_repair_order_graph" model="ir.actions.act_window">
+            <field name="name">Repair Orders</field>
+            <field name="context">{
+                'search_default_product': 1,
+                'search_default_createDate': 1,
+            }
+            </field>
+            <field name="res_model">repair.order</field>
+            <field name="view_mode">tree,kanban,graph,pivot,form</field>
+            <field name="view_id" ref="view_repair_graph"/>
+        </record>
+
+        <record id="view_repair_tag_form" model="ir.ui.view">
+            <field name="name">repair.tag.form</field>
+            <field name="model">repair.tags</field>
+            <field name="arch" type="xml">
+                <form string="Pannes">
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="view_repair_tag_tree" model="ir.ui.view">
+            <field name="name">repair.tag.tree</field>
+            <field name="model">repair.tags</field>
+            <field name="arch" type="xml">
+                <tree string="Pannes" editable="bottom">
+                    <field name="name"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_repair_tag_search" model="ir.ui.view">
+            <field name="name">repair.tag.search</field>
+            <field name="model">repair.tags</field>
+            <field name="arch" type="xml">
+                <search string="Tags">
+                    <field name="name"/>
+                </search>
+            </field>
+        </record>
+
+        <record id="action_repair_order_tag" model="ir.actions.act_window">
+            <field name="name">Tags</field>
+            <field name="res_model">repair.tags</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                Créer une panne type
+              </p>
+            </field>
+        </record>
+
+        <record id="action_repair_pickup_location" model="ir.actions.act_window">
+            <field name="name">Lieux de prise en charge</field>
+            <field name="res_model">repair.pickup.location</field>
+            <field name="view_mode">tree,form</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Créer un nouveau lieu
+                </p>
+            </field>
+        </record>
+
+        <record id="view_repair_pickup_location_tree" model="ir.ui.view">
+            <field name="name">repair.pickup.location.tree</field>
+            <field name="model">repair.pickup.location</field>
+            <field name="arch" type="xml">
+                <tree string="Lieux de prise en charge">
+                    <field name="name"/>
+                    <field name="city"/>
+                    <field name="country_id"/>
+                    <field name="company_id"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_repair_pickup_location_form" model="ir.ui.view">
+            <field name="name">repair.pickup.location.form</field>
+            <field name="model">repair.pickup.location</field>
+            <field name="arch" type="xml">
+                <form string="Lieu de prise en charge">
+                    <sheet>
+                        <div class="oe_title">
+                            <h1><field name="name"/></h1>
+                        </div>
+
+                        <group>
+                            <group string="Adresse">
+                                <field name="street"/>
+                                <field name="street2"/>
+                                <field name="zip" placeholder="Code postal"/>
+                                <field name="city" placeholder="Ville"/>
+                                <field name="country_id"/>
+                            </group>
+
+                            <group string="Informations supplémentaires">
+                                <field name="contact_id"/>
+                                <field name="company_id"/>
+                            </group>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <menuitem id="menu_repair_order" groups="stock.group_stock_user" name="Repairs" sequence="28"
+                  web_icon="repair_custom,static/description/icon.png"/>
+
+        <menuitem id="repair_order_menu" name="Orders" action="action_repair_order_tree" groups="stock.group_stock_user"
+                  parent="menu_repair_order"/>
+
+        <menuitem id="repair_menu_reporting" name="Reporting" parent="menu_repair_order" groups="stock.group_stock_manager"/>
+
+        <menuitem id="repair_menu_config" name="Configuration" parent="menu_repair_order" groups="stock.group_stock_manager"/>
+
+        <menuitem id="menu_repair_pickup_location" name="Lieux" parent="repair_menu_config" action="action_repair_pickup_location"/>
+
+        <menuitem id="repair_menu_tag" name="Pannes" parent="repair_menu_config" action="action_repair_order_tag"/>
+    </data>
+</odoo>

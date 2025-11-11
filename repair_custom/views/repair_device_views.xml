@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+    <record id="view_repair_device_unit_tree_inherit" model="ir.ui.view">
+        <field name="name">repair.device.unit.tree.inherit.repair_custom</field>
+        <field name="model">repair.device.unit</field>
+        <field name="inherit_id" ref="repair_devices.view_repair_device_unit_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='partner_id']" position="after">
+                <field name="repair_order_count"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_repair_device_unit_form_inherit" model="ir.ui.view">
+        <field name="name">repair.device.unit.form.inherit.repair_custom</field>
+        <field name="model">repair.device.unit</field>
+        <field name="inherit_id" ref="repair_devices.view_repair_device_unit_form"/>
+        <field name="arch" type="xml">
+            <sheet position="inside">
+                <div name="button_box" class="oe_button_box" position="inside">
+                    <button name="action_view_repairs"
+                            type="object"
+                            class="oe_stat_button"
+                            icon="fa-wrench">
+                        <field name="repair_order_count" widget="statinfo" string="Réparations"/>
+                    </button>
+                </div>
+                <notebook>
+                    <page string="Réparations associées">
+                        <field name="repair_order_ids" readonly="1">
+                            <tree string="Repairs order" multi_edit="1" sample="1" decoration-info="state == 'draft'">
+                                <field name="name" string="Référence" optional="show"/>
+                                <field name="entry_date" optional="show" string="Date d'entrée" readonly="True"
+                                    widget="datetime" options="{'show_time':false}" />
+                                <field name="state" optional="show" widget="badge" decoration-success="state == 'done'"
+                                    decoration-info="state == 'confirmed'" decoration-warning="state == 'under_repair'"
+                                    decoration-danger="state == 'cancel'" decoration-muted="state == 'draft'" readonly="True"
+                                    width="50" on_change="1" />
+                                <field name="partner_id" readonly="1" optional="show" string="Client" width="100" on_change="1" />
+                                <field name="technician_employee_id" optional="show"/>
+                            </tree>
+                        </field>
+                    </page>
+                </notebook>
+            </sheet>
+        </field>
+    </record>
+
+    </data>
+</odoo>

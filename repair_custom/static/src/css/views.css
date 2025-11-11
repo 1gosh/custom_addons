@@ -1,0 +1,18 @@
+.o_form_view .partner_custom .o_input,
+.o_form_view .partner_custom .o_form_uri > span:first-child {
+    font-size: 1.8em;
+}
+
+.o_form_view .partner_custom .o_form_uri {
+    line-height: 1.3;
+}
+
+.o_form_view .partner_custom span {     
+    color: #8f8f8f;
+}
+
+.o_form_view .oe_title > h1 {
+    /* min-height: 0;
+    margin: 0; */
+    line-height: 1;
+}

@@ -1,0 +1,93 @@
+.repair-tracking-page {
+    font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+    max-width: 800px;
+    margin: 60px auto;
+    color: #222;
+    padding: 20px;
+}
+
+.repair-tracking-page h1 {
+    font-size: 28px;
+    letter-spacing: -0.5px;
+    border-bottom: 2px solid #000;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.tracking-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 30px;
+}
+
+.status {
+    padding: 12px 18px;
+    border: 1px solid #000;
+    display: inline-block;
+    text-transform: uppercase;
+    font-weight: 500;
+    font-size: 14px;
+    letter-spacing: 0.8px;
+}
+
+.status.draft { background: #f7f7f7; }
+.status.confirmed { background: #dcdcdc; }
+.status.progress { background: #ffd966; }
+.status.done { background: #a6d785; }
+.status.cancelled { background: #f8b4a0; }
+
+.timeline {
+    display: flex;
+    justify-content: space-between;
+    margin: 40px 0;
+    position: relative;
+}
+
+.timeline::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 5%;
+    right: 5%;
+    height: 2px;
+    background: #ccc;
+}
+
+.step {
+    position: relative;
+    text-align: center;
+    flex: 1;
+    font-size: 13px;
+    color: #999;
+}
+
+.step::before {
+    content: "";
+    display: block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #ccc;
+    margin: 0 auto 10px;
+}
+
+.step.active {
+    color: #000;
+}
+
+.step.active::before {
+    background: #000;
+}
+
+.order-details ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.order-details li {
+    margin: 6px 0;
+    font-size: 15px;
+}

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+    <!-- MARQUES -->
+    <record id="action_repair_device_brand" model="ir.actions.act_window">
+        <field name="name">Marques</field>
+        <field name="res_model">repair.device.brand</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <!-- Catégories-->
+
+    <record id="action_repair_device_category" model="ir.actions.act_window">
+        <field name="name">Catégories</field>
+        <field name="res_model">repair.device.category</field>
+        <field name="search_view_id" ref="view_repair_device_category_search"/>
+        <field name="view_id" ref="view_repair_device_category_tree"/>
+    </record>
+    
+    <!-- Catalogue -->
+    <record id="action_repair_device" model="ir.actions.act_window">
+        <field name="name">Catalogue d'appareils</field>
+        <field name="res_model">repair.device</field>
+        <field name="view_mode">tree,kanban,form</field>
+    </record>
+
+    <!-- Variantes -->
+
+    <record id="action_repair_device_variant" model="ir.actions.act_window">
+        <field name="name">Variantes</field>
+        <field name="res_model">repair.device.variant</field>
+        <field name="view_mode">tree,form</field>
+        <field name="help" type="html">
+            <p>Gérez les variantes des appareils.</p>
+        </field>
+    </record>
+
+    <!-- Appareils physiques -->
+    <record id="action_repair_device_unit" model="ir.actions.act_window">
+        <field name="name">Appareils physiques</field>
+        <field name="res_model">repair.device.unit</field>
+        <field name="view_mode">tree,form</field>
+        <field name="help" type="html">
+            <p>Gérez les unités physiques des appareils (numéros de série).</p>
+        </field>
+    </record>
+
+
+    <menuitem id="menu_repair_device" name="Appareils Hi-Fi" sequence="29"
+            web_icon="repair_devices,static/description/icon.png"/>
+
+    <menuitem id="repair_device_menu" name="Catalogue" parent="menu_repair_device" 
+            action="action_repair_device"/>
+
+    <menuitem id="menu_repair_device_unit" name="Appareils physiques" parent="menu_repair_device"
+            action="action_repair_device_unit"/>
+
+    <menuitem id="repair_menu_config" name="Configuration" parent="menu_repair_device" groups="stock.group_stock_manager" sequence="30"/>
+
+    <menuitem id="menu_repair_device_category" name="Catégories" parent="repair_menu_config" 
+            action="action_repair_device_category"/>
+
+    <menuitem id="menu_repair_device_brand" name="Marques" parent="repair_menu_config" 
+            action="action_repair_device_brand"/>
+
+    <menuitem id="menu_repair_device_variant" name="Variantes" parent="repair_menu_config"
+        action="action_repair_device_variant"/>
+
+    </data>
+</odoo>

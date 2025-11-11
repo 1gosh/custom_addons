@@ -1,0 +1,6 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_repair_device_user,repair.device user,model_repair_device,stock.group_stock_user,1,1,1,1
+access_repair_device_variant,repair.device.variant user,model_repair_device_variant,stock.group_stock_user,1,1,1,1
+access_repair_device_unit_user,repair.device.unit user,model_repair_device_unit,stock.group_stock_user,1,1,1,1
+access_repair_device_brand_user,access_repair.device.brand user,model_repair_device_brand,stock.group_stock_user,1,1,1,1
+access_repair_device_category_user,repair.device.category user,model_repair_device_category,stock.group_stock_user,1,1,1,1

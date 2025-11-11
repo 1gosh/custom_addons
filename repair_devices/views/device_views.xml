@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <data>
+
+    <!-- VUE : Catalogue -->
+    <record id="view_repair_device_tree" model="ir.ui.view">
+        <field name="name">repair.device.tree</field>
+        <field name="model">repair.device</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="brand_id"/>
+                <field name="name"/>
+                <field name="variant_ids" widget="many2many_tags" options="{'color_field': 'color', 'no_create_edit': True}" string="Variantes"/>
+                <field name="production_year"/>
+                <field name="category_id"/>
+                <field name="unit_count" string="Nb d'enregistrements"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_repair_device_form" model="ir.ui.view">
+        <field name="name">repair.device.form</field>
+        <field name="model">repair.device</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div name="button_box" class="oe_button_box" position="inside">
+                        <button name="action_view_units"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-cube">
+                            <field name="unit_count" widget="statinfo" string="Appareils physiques"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <label for="display_name" string="Nom de l'appareil"/>
+                        <h1><field name="display_name"/></h1>
+                    </div>
+                    <group>
+                        <field name="brand_id"/>
+                        <field name="name"/>
+                        <field name="variant_ids"
+                            widget="many2many_tags"
+                            options="{'color_field': 'color', 'no_create_edit': True}"
+                            placeholder="Ajouter des variantes (ex: MKII, Silver Edition, US)"
+                            string="Variantes"
+                            can_create="True"
+                            can_write="True"/>
+                        <field name="category_id"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_repair_device_kanban" model="ir.ui.view">
+        <field name="name">repair.device.kanban</field>
+        <field name="model">repair.device</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="brand_id">
+                <templates>
+                    <t t-name="kanban-box">
+                        <div class="oe_kanban_global_click">
+                            <div class="oe_kanban_details">
+                                <strong><field name="brand_id"/></strong>
+                                <div><field name="name"/></div>
+                                <div><field name="category_id"/></div>
+                                <div class="text-muted">Année : <field name="production_year"/></div>
+                                <div>Variantes : <field name="variant_ids" widget="many2many_tags"/></div>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+    
+    <!-- VUE : Variantes -->
+
+    <record id="view_repair_device_variant_tree" model="ir.ui.view">
+        <field name="name">repair.device.variant.tree</field>
+        <field name="model">repair.device.variant</field>
+        <field name="arch" type="xml">
+            <tree string="Variantes" editable="bottom">
+                <field name="name" string="Nom de la variante" placeholder="Ajouter ou créer une variante"/>
+                <field name="device_ids" widget="many2many_tags" options="{'no_create_edit': True}"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- VUE : Unité -->
+
+    <record id="view_repair_device_unit_tree" model="ir.ui.view">
+        <field name="name">repair.device.unit.tree</field>
+        <field name="model">repair.device.unit</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="serial_number"/>
+                <field name="device_name"/>
+                <field name="variant_id"/>
+                <field name="partner_id"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_repair_device_unit_form" model="ir.ui.view">
+        <field name="name">repair.device.unit.form</field>
+        <field name="model">repair.device.unit</field>
+        <field name="arch" type="xml">
+            <form>
+                <field name="is_admin" invisible="1"/>
+                <header>
+                    <button name="action_toggle_edit"
+                            type="object"
+                            string="Modifier"
+                            class="btn-primary"
+                            groups="base.group_system"
+                            invisible="context.get('edit_admin')"/>
+                    <button name="action_toggle_edit"
+                            type="object"
+                            string="Annuler"
+                            class="btn-secondary"
+                            groups="base.group_system"
+                            invisible="not context.get('edit_admin')"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="serial_number" string="Numéro de série"/>
+                        <h1><field name="serial_number" readonly="not context.get('edit_admin')" placeholder="SN inconnu"/></h1>
+                    </div>
+
+                    <group>
+                        <group>
+                            <field name="device_id" readonly="not context.get('edit_admin')"/>
+                            <field name="partner_id" readonly="not context.get('edit_admin')"/>
+                            <field name="variant_id" readonly="not context.get('edit_admin')" placeholder="Pas de variante"/>
+                        </group>
+                        <group>
+                            <field name="notes" placeholder="Notes techniques, observations..."/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- VUE : Marques -->
+    <record id="view_repair_device_brand_tree" model="ir.ui.view">
+        <field name="name">repair.device.brand.tree</field>
+        <field name="model">repair.device.brand</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name"/>
+                <field name="country"/>
+                <field name="founded_year"/>
+                <field name="website"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_repair_device_brand_form" model="ir.ui.view">
+        <field name="name">repair.device.brand.form</field>
+        <field name="model">repair.device.brand</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" string="Marque"/>
+                        <h1><field name="name" placeholder="i.e. Marantz"/></h1>
+                    </div>
+                    <group>
+                        <field name="country"/>
+                        <field name="founded_year"/>
+                        <field name="website"/>
+                        <field name="description"/>
+                        <field name="logo" widget="image"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- VUE : Catégories -->
+     
+    <record id="view_repair_device_category_form" model="ir.ui.view">
+        <field name="name">repair.device.category.form</field>
+        <field name="model">repair.device.category</field>
+        <field name="arch" type="xml">
+            <form string="Catégories d'appareils">
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" string="Catégorie"/>
+                        <h1><field name="name" placeholder="i.e. Ampli"/></h1>
+                    </div>
+                    <group name="first" col="2">
+                        <field name="parent_id" class="oe_inline"/>
+                    </group>
+                    <notebook>
+                        <page string="Appareils">
+                            <field name="device_model_ids"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_repair_device_category_tree" model="ir.ui.view">
+        <field name="name">repair.device.category.tree</field>
+        <field name="model">repair.device.category</field>
+        <field name="priority">1</field>
+        <field name="arch" type="xml">
+            <tree string="Catégories d'appareils">
+                <field name="display_name" string="Product Category"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_repair_device_category_search" model="ir.ui.view">
+        <field name="name">repair.device.category.search</field>
+        <field name="model">repair.device.category</field>
+        <field name="arch" type="xml">
+            <search string="Product Categories">
+                <field name="name" string="Product Categories"/>
+                <field name="parent_id"/>
+            </search>
+        </field>
+    </record>
+
+    </data>
+
+</odoo>

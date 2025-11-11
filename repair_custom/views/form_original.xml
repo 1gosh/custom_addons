@@ -1,0 +1,145 @@
+<form string="Ordre de réparation">
+    <field name="has_uncomplete_moves" invisible="1" />
+    <field name="unreserve_visible" invisible="1" />
+    <field name="reserve_visible" invisible="1" />
+    <header>
+        <button name="action_validate" invisible="state != 'draft'" type="object"
+            string="Confirmer la réparation" class="oe_highlight" data-hotkey="v" />
+        <button name="action_repair_start" invisible="state != 'confirmed'" type="object"
+            string="Commencer la réparation" class="oe_highlight" data-hotkey="q" />
+        <button name="action_repair_end"
+            invisible="state != 'under_repair' or not has_uncomplete_moves" type="object"
+            string="Terminer la réparation" class="oe_highlight" data-hotkey="x"
+            confirm="Pour certaines pièces, il y a une différence entre la demande initiale et la quantité actuelle utilisée. Êtes-vous sûr de vouloir confirmer ?" />
+        <button name="action_repair_end" invisible="state != 'under_repair' or has_uncomplete_moves"
+            type="object" string="Terminer la réparation" class="oe_highlight" data-hotkey="x" />
+        <button name="action_assign" invisible="True" string="Vérifier la disponibilité"
+            type="object" />
+        <button name="action_unreserve" type="object" string="Annuler la réservation"
+            invisible="not unreserve_visible" data-hotkey="w" />
+        <button name="action_create_sale_order" type="object" string="Créer le devis"
+            invisible="False" />
+        <button name="action_repair_cancel" string="Annuler la réparation" type="object"
+            invisible="state in ('done', 'cancel')" data-hotkey="l" />
+        <button name="action_repair_cancel_draft" invisible="False" string="Marquer comme brouillon"
+            type="object" data-hotkey="z" />
+        <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,under_repair,done"
+            on_change="1" />
+        <button string="Imprimer" type="action"
+            name="studio_customization.prise_en_charge_de_r_d8723654-aa48-40d4-bd76-045fcf40ee1c"
+            invisible="state == 'draft'" class="btn-info" />
+    </header>
+    <sheet string="Ordre de réparation">
+        <div class="oe_button_box" name="button_box">
+            <!-- No groups attribute on the next button as "stock.group_stock_user" is needed for
+            Repair, and as this group is granted 'sale.order' read/write accesses in sale_stock
+            module (forcefully loaded as transitive dependency) -->
+            <button name="action_view_sale_order" type="object" string="Commande client"
+                icon="fa-dollar" class="oe_stat_button" invisible="not sale_order_id">
+                <div class="o_field_widget o_stat_info">
+                    <span class="o_stat_value">
+                        <field name="sale_order_id" widget="statinfo" nolabel="1" class="mr4" />
+                    </span>
+                    <span class="o_stat_text">Commande client</span>
+                </div>
+            </button>
+            <button class="oe_stat_button" name="action_view_purchase_orders" type="object"
+                icon="fa-credit-card" invisible="purchase_count == 0 or state == 'draft'">
+                <div class="o_field_widget o_stat_info">
+                    <field name="purchase_count" string="Bons de commande fournisseur"
+                        widget="statinfo" />
+                </div>
+            </button>
+            <button name="528" type="action" string="Mouvements de produits" class="oe_stat_button"
+                icon="fa-exchange" invisible="state not in ['done', 'cancel']" />
+        </div>
+        <div class="oe_title">
+            <label class="o_form_label" for="name" />
+            <h1 class="d-flex">
+                <field name="name" />
+                <field name="x_avatar_image" widget="image" class="ml-3 mb-5 h4"
+                    options="{'convert_to_webp':true,'zoom':true,'size':[0,90]}"
+                    invisible="not x_avatar_image and state != 'draft'" />
+            </h1>
+        </div>
+        <group>
+            <group>
+                <field name="allowed_lot_ids" invisible="1" />
+                <field name="repair_request" invisible="not sale_order_line_id" />
+                <field name="create_date" force_save="0" readonly="False" required="False"
+                    string="Date d'entrée"
+                    options="{'condensed':false,'show_time':false,'show_seconds':false}"
+                    widget="datetime" />
+                <field name="partner_id" widget="res_partner_many2one"
+                    context="{'res_partner_search_mode': 'customer', 'show_vat': True}"
+                    readonly="state != 'draft'" force_save="1" options="{'no_quick_create':true}"
+                    required="True" on_change="1" can_create="True" can_write="True" />
+                <field name="product_id" readonly="state != 'draft'" force_save="1" required="True"
+                    on_change="1" can_create="True" can_write="True" />
+                <field name="x_studio_many2one_field_5ec_1j777fnf5"
+                    options="{'create_name_field':'complete_name','no_create':true}"
+                    string="Type d'appareil" required="True" force_save="1"
+                    readonly="state != 'draft'" can_create="True" can_write="True" />
+                <field name="tag_ids" widget="many2many_tags"
+                    options="{'color_field': 'color', 'no_create_edit': True}" force_save="1"
+                    placeholder="Entrer les pannes" readonly="state != 'draft'" required="True"
+                    string="Pannes" can_create="True" can_write="True" />
+                <label for="lot_id" invisible="tracking not in ['serial', 'lot']" />
+                <div class="o_row" invisible="tracking not in ['serial', 'lot']">
+                    <button name="action_generate_serial" type="object"
+                        class="btn btn-primary fa fa-plus-square-o"
+                        aria-label="Créez un nouveau numéro de lot/série"
+                        title="Créez un nouveau numéro de lot/série" role="img" invisible="lot_id" />
+                </div>
+                <div class="o_row" invisible="not product_id">
+                </div>
+                <field name="picking_id" invisible="not is_returned" options="{'no_create': True}"
+                    on_change="1" can_create="True" can_write="True" />
+            </group>
+            <group>
+                <field name="x_studio_plusieurs_appareils" widget="boolean_toggle" force_save="1"
+                    readonly="state != 'draft'" />
+                <field name="x_studio_garantie" required="False" force_save="1"
+                    readonly="state != 'draft'" />
+                <field name="x_studio_many2one_field_1uq_1j774gfgq"
+                    options="{'create_name_field':'x_name','no_create':true}"
+                    string="Lieu de prise en charge" required="True" force_save="1"
+                    readonly="state != 'draft'" can_create="True" can_write="True" />
+                <field name="x_studio_notes_additionelles" required="False"
+                    placeholder="Écrire ici ..." string="Notes" />
+                <field name="x_studio_technicien" force_save="1"
+                    readonly="state not in ['draft', 'confirmed']" required="state == 'confirmed'" />
+                <field name="x_studio_tarif"
+                    options="{'human_readable':false,'no_symbol':false,'hide_trailing_zeros':true}"
+                    widget="integer" force_save="0" readonly="False" required="state == 'confirmed'" />
+
+                <field name="parts_availability_state" invisible="True" />
+                <field name="picking_type_id" options="{'no_create': True}"
+                    readonly="state in ('done', 'cancel')" invisible="not picking_type_visible"
+                    on_change="1" can_create="True" can_write="True" />
+            </group>
+        </group>
+        <notebook>
+            <page string="Notes de la réparation" name="repair_notes">
+                <field name="internal_notes" placeholder="Ajouter des notes internes." widget="html" />
+            </page>
+        </notebook>
+    </sheet>
+    <field name="sale_order_line_id" invisible="True" readonly="True"
+        data-used-by="invisible='not sale_order_line_id' (field,repair_request)" on_change="1" />
+    <field name="company_id" invisible="True" readonly="True"
+        data-used-by="domain='(company_id and [('company_id', 'in', [company_id] + [False])] or [('company_id', '=', False)]) + ([('code', '=', 'repair_operation'), ('company_id', '=', company_id)])' (field,picking_type_id)"
+        on_change="1" />
+    <field name="picking_product_ids" invisible="True" readonly="True"
+        data-used-by="domain='(company_id and ['|', ('company_id', '=', False), ('company_id', 'parent_of', [company_id])] or ['|', ('company_id', '=', False), ('company_id', 'parent_of', '')]) + ([('type', '=', 'consu'), '|', ('company_id', '=', company_id), ('company_id', '=', False), '|', ('id', 'in', picking_product_ids), ('id', '=?', picking_product_id)])' (field,product_id)" />
+    <field name="picking_product_id" invisible="True" readonly="True"
+        data-used-by="domain='(company_id and ['|', ('company_id', '=', False), ('company_id', 'parent_of', [company_id])] or ['|', ('company_id', '=', False), ('company_id', 'parent_of', '')]) + ([('type', '=', 'consu'), '|', ('company_id', '=', company_id), ('company_id', '=', False), '|', ('id', 'in', picking_product_ids), ('id', '=?', picking_product_id)])' (field,product_id)" />
+    <field name="tracking" invisible="True" readonly="True"
+        data-used-by="invisible='tracking not in ['serial', 'lot']' (div,None); required='state=='done' and tracking in ['serial', 'lot']' (field,lot_id)" />
+    <field name="lot_id" invisible="True" readonly="True"
+        data-used-by="invisible='lot_id' (button,action_generate_serial)" />
+    <field name="is_returned" invisible="True" readonly="True"
+        data-used-by="invisible='not is_returned' (field,picking_id)" />
+    <field name="picking_type_visible" invisible="True" readonly="True"
+        data-used-by="invisible='not picking_type_visible' (field,picking_type_id)" />
+</form>
