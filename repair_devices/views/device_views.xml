@@ -12,7 +12,6 @@
                 <field name="brand_id"/>
                 <field name="name"/>
                 <field name="variant_ids" widget="many2many_tags" options="{'color_field': 'color', 'no_create_edit': True}" string="Variantes"/>
-                <field name="production_year"/>
                 <field name="category_id"/>
                 <field name="unit_count" string="Nb d'enregistrements"/>
             </tree>
