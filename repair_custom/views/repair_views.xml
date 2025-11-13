@@ -53,12 +53,12 @@
                 <field name="sale_order_line_id" invisible="1"/>
                 <field name="technician_user_id" force_save="1" readonly="1" invisible="1"/>
                 <header>
-                    <button name="action_validate" invisible="state != 'draft'" type="object" string="Confirmer la réparation" class="oe_highlight" data-hotkey="v"/>
+                    <button name="action_validate" groups="repair_custom.group_repair_manager" invisible="state != 'draft'" type="object" string="Confirmer la réparation" class="oe_highlight" data-hotkey="v"/>
                     <button name="action_repair_start" invisible="state != 'confirmed'" type="object" string="Commencer la réparation" class="oe_highlight" data-hotkey="q"/>
                     <button name="action_repair_end" invisible="state != 'under_repair'" type="object" string="Terminer la réparation" class="btn-success" data-hotkey="x"/>
-                    <button name="action_create_sale_order" type="object" string="Créer le devis" invisible="False"/>
-                    <button name="action_repair_cancel" string="Annuler la réparation" type="object" invisible="state in ('done', 'cancel')" data-hotkey="l" class="btn-danger"/>
-                    <button name="action_repair_cancel_draft" invisible="False" string="Marquer comme brouillon" type="object" data-hotkey="z"/>
+                    <button name="action_create_sale_order" groups="repair_custom.group_repair_manager" type="object" string="Créer le devis" invisible="False"/>
+                    <button name="action_repair_cancel" groups="repair_custom.group_repair_manager" string="Annuler la réparation" type="object" invisible="state in ('done', 'cancel')" data-hotkey="l" class="btn-danger"/>
+                    <button name="action_repair_cancel_draft" groups="repair_custom.group_repair_manager" invisible="False" string="Marquer comme brouillon" type="object" data-hotkey="z"/>
                     <button name="action_open_unit" string="Voir l’appareil" type="object" icon="fa-external-link" invisible="not unit_id" class="btn-info"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,under_repair,done" on_change="1"/>
                     <field name="variant_ids_available" invisible="1"/>
@@ -99,7 +99,7 @@
                         Réf. 
                     </p> -->
                     <notebook>
-                        <page string="Appareil">
+                        <page string="Appareil" groups="repair_custom.group_repair_manager">
                             <group>
                                 <group>
                                     <field name="unit_id"
