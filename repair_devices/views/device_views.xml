@@ -57,16 +57,17 @@
         <field name="name">repair.device.kanban</field>
         <field name="model">repair.device</field>
         <field name="arch" type="xml">
-            <kanban default_group_by="brand_id">
+            <kanban class="o_kanban_mobile" sample="1" quick_create="false">
                 <templates>
                     <t t-name="kanban-box">
-                        <div class="oe_kanban_global_click">
-                            <div class="oe_kanban_details">
-                                <strong><field name="brand_id"/></strong>
-                                <div><field name="name"/></div>
-                                <div><field name="category_id"/></div>
-                                <div class="text-muted">Année : <field name="production_year"/></div>
-                                <div>Variantes : <field name="variant_ids" widget="many2many_tags"/></div>
+                        <div t-attf-class="oe_kanban_card oe_kanban_global_click">
+                            <div class="row mb-0">
+                                <div class="col-6">
+                                    <strong><field name="brand_id"/></strong> <field name="name"/>
+                                </div>
+                                <div class="col-6 text-end">
+                                    <field name="category_id"/>
+                                </div>
                             </div>
                         </div>
                     </t>

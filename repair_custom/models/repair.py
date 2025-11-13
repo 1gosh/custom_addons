@@ -142,6 +142,16 @@ class Repair(models.Model):
     tag_ids = fields.Many2many('repair.tags', string="Tags")
     internal_notes = fields.Text("Notes de réparation")
 
+    def action_create_device(self):
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Créer un modèle d’appareil',
+            'res_model': 'repair.device',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_brand_id': False},
+        }
+
     @api.onchange('unit_id')
     def _onchange_unit_id(self):
         """Remplit les champs liés quand une unité est sélectionnée"""

@@ -67,10 +67,10 @@
                                 </li>
                             </t>
                         </ul>
-                        <p t-if="o.additional_notes" class="mb-0">
+                        <p t-if="o.notes" class="mb-0">
                             <strong>Notes :</strong>
                         </p>
-                        <span t-field="o.additional_notes"/>
+                        <span t-field="o.notes"/>
                     </div>
                 </div>
                 <!-- Mentions légales / société -->
@@ -94,7 +94,7 @@
                             <span t-field="o.partner_id.phone" class="small text-muted"/>
                         </p>
                         <p class="m-0">
-                            <span t-field="o.product_id.display_name"/>
+                            <span t-field="o.device_id_name"/>
                         </p>
                         <p class="m-0">
                             Garantie :

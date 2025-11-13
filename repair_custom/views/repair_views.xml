@@ -59,7 +59,8 @@
                     <button name="action_create_sale_order" groups="repair_custom.group_repair_manager" type="object" string="Créer le devis" invisible="False"/>
                     <button name="action_repair_cancel" groups="repair_custom.group_repair_manager" string="Annuler la réparation" type="object" invisible="state in ('done', 'cancel')" data-hotkey="l" class="btn-danger"/>
                     <button name="action_repair_cancel_draft" groups="repair_custom.group_repair_manager" invisible="False" string="Marquer comme brouillon" type="object" data-hotkey="z"/>
-                    <button name="action_open_unit" string="Voir l’appareil" type="object" icon="fa-external-link" invisible="not unit_id" class="btn-info"/>
+                    <button name="action_open_unit" string="Voir l’appareil" type="object" icon="fa-external-link" invisible="not unit_id" class="btn-primary"/>
+                    <button name="%(action_report_repair_order)d" string="Imprimer" type="action" icon="fa-regular fa-print" invisible="state in 'draft'" class="btn-info"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,under_repair,done" on_change="1"/>
                     <field name="variant_ids_available" invisible="1"/>
                     <field name="show_unit_field" invisible="1"/>
@@ -68,27 +69,26 @@
                     <!-- <div class="oe_button_box" name="button_box">
                     </div> -->
                     <div class="oe_title">
-                        <label class="o_form_label" for="entry_date"/>
+                        <label class="o_form_label" invisible="unit_id" for="entry_date"/>
+                        <field name="entry_date" invisible="not unit_id" class="o_form_label" string="Date d'entrée" widget="datetime" options="{'show_time':false}" readonly="state != 'draft'" />
                         <h1 class="d-flex">
                             <!-- <field name="priority" widget="priority" class="me-3"/> -->
-                            <field name="entry_date" string="Date d'entrée" widget="datetime" options="{'show_time':false}" readonly="state != 'draft'" />
+                            <field name="device_id_name" invisible="not unit_id" readonly="1"/>
+                            <field name="entry_date" invisible="unit_id" string="Date d'entrée" widget="datetime" options="{'show_time':false}" readonly="state != 'draft'" />
                             <!-- <field name="device_picture" widget="image" class="ml-3 mb-5 h4"
                                 options="{'convert_to_webp':true,'zoom':true,'size':[0,90]}"
                                 invisible="not device_picture and state != 'draft'" /> -->
                         </h1>
                     </div>
                     <group>
-                        <group> 
+                        <group>
                             <field class="partner_custom" name="partner_id"
                                 widget="res_partner_many2one"
                                 context="{'res_partner_search_mode': 'customer', 'show_email': True, 'show_phone': True}"
                                 readonly="state != 'draft'"
                                 force_save="1"
-                                options="{'no_quick_create':true}"
-                                required="True"
-                                on_change="1"
-                                can_create="True"
-                                can_write="True"/>
+                                options="{'no_quick_create':True}"
+                                required="True"/>
                         </group>
                         <group>
                             <field name="repair_warranty" required="False" force_save="1" readonly="state != 'draft'"/>
@@ -104,15 +104,19 @@
                                 <group>
                                     <field name="unit_id"
                                         domain="[('partner_id', '=', partner_id)]"
-                                        options="{'no_create': True, 'no_open': False}"
+                                        options="{'no_create': True, 'no_open': True}"
                                         invisible="not show_unit_field"
                                         readonly="state != 'draft'"/>
-                                    <field name="device_id"
-                                        required="True"
-                                        context="{'default_brand_id': False}"
-                                        options="{'no_create_edit': False}"
-                                        readonly="state != 'draft'"
-                                        placeholder="Sélectionner ou créer un modèle d'appareil..."/>
+                                    <label for="device_id"/>
+                                    <div class="o_row">
+                                        <field name="device_id"
+                                            required="True"
+                                            context="{'default_brand_id': False}"
+                                            options="{'no_quick_create':True}"
+                                            readonly="state != 'draft'"
+                                            placeholder="Sélectionner ou créer un modèle d'appareil..."/>
+                                        <button invisible="state not in 'draft'" name="action_create_device" icon="fa-plus-circle" class="oe_link pt-0" type="object" string="Créer un appareil"/>
+                                    </div>
                                     <field name="variant_id"
                                         domain="[('id','in', variant_ids_available)]"
                                         context="{'default_device_id': device_id}"
@@ -169,20 +173,19 @@
                         <div t-attf-class="oe_kanban_card oe_kanban_global_click">
                             <div class="row mb4">
                                 <div class="col-6">
-                                    <strong><span><t t-esc="record.name.value"/></span></strong>
+                                    <strong><field name="entry_date" widget="datetime" options="{'show_time':false}"/></strong>
                                 </div>
                                 <div class="col-6 text-end">
                                     <field name="state" widget="label_selection" options="{'classes': {'draft': 'info', 'cancel': 'danger', 'done': 'success', 'under_repair': 'secondary'}}"/>
                                 </div>
                             </div>
                             <div class="row">
-                                <div class="col-6 text-muted">
-                                    <!-- <span><t t-esc="record.product_id.value"/></span> -->
-                                    <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}"/>
+                                <div class="col-6">
+                                    <field name="partner_id"/>
                                 </div>
                                 <div class="col-6">
                                     <span class="float-end">
-                                        <field name="partner_id"/>
+                                        <field name="device_id_name"/>
                                     </span>
                                 </div>
                             </div>
