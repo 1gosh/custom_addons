@@ -248,8 +248,11 @@ class Repair(models.Model):
         return self.action_view_sale_order()
 
     def action_repair_cancel(self):
-        if any(repair.state == 'done' for repair in self):
+        admin = self.env.user.has_group('repair_custom.group_repair_admin')
+
+        if not admin and any(repair.state == 'done' for repair in self):
             raise UserError(_("You cannot cancel a Repair Order that's already been completed"))
+        
         return self.write({'state': 'cancel'})
 
     def action_repair_cancel_draft(self):
