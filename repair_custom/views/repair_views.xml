@@ -56,18 +56,26 @@
                     <button name="action_validate" groups="repair_custom.group_repair_manager" invisible="state != 'draft'" type="object" string="Confirmer la réparation" class="oe_highlight" data-hotkey="v"/>
                     <button name="action_repair_start" invisible="state != 'confirmed'" type="object" string="Commencer la réparation" class="oe_highlight" data-hotkey="q"/>
                     <button name="action_repair_end" invisible="state != 'under_repair'" type="object" string="Terminer la réparation" class="btn-success" data-hotkey="x"/>
-                    <button name="action_create_sale_order" groups="repair_custom.group_repair_manager" type="object" string="Créer le devis" invisible="False"/>
+                    <!-- <button name="action_create_sale_order" groups="repair_custom.group_repair_manager" type="object" string="Créer le devis" invisible="False"/> -->
                     <button name="action_repair_cancel" groups="repair_custom.group_repair_manager" string="Annuler la réparation" type="object" invisible="state in ('done', 'cancel')" data-hotkey="l" class="btn-danger"/>
                     <button name="action_repair_cancel_draft" groups="repair_custom.group_repair_manager" invisible="False" string="Marquer comme brouillon" type="object" data-hotkey="z"/>
                     <button name="action_open_unit" string="Voir l’appareil" type="object" icon="fa-external-link" invisible="not unit_id" class="btn-primary"/>
                     <button name="%(action_report_repair_order)d" string="Imprimer" type="action" icon="fa-regular fa-print" invisible="state in 'draft'" class="btn-info"/>
+                    <button name="action_create_invoice_direct" string="Créer Facture" icon="fa-regular fa-file" type="object" invisible="state in 'draft'"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,under_repair,done" on_change="1"/>
                     <field name="variant_ids_available" invisible="1"/>
                     <field name="show_unit_field" invisible="1"/>
                 </header>
                 <sheet>
-                    <!-- <div class="oe_button_box" name="button_box">
-                    </div> -->
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_invoices"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-pencil-square-o"
+                                invisible="invoice_count == 0">
+                            <field name="invoice_count" widget="statinfo" string="Factures"/>
+                        </button>
+                    </div>
                     <div class="oe_title">
                         <label class="o_form_label" invisible="unit_id" for="entry_date"/>
                         <field name="entry_date" invisible="not unit_id" class="o_form_label" string="Date d'entrée" widget="datetime" options="{'show_time':false}" readonly="state != 'draft'" />

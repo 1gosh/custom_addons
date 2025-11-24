@@ -20,7 +20,7 @@ The following topics are covered by this module:
     * Repair quotation report
     * Notes for the technician and for the final customer
 """,
-    'depends': ['repair_devices', 'web', 'stock', 'sale_management'],
+    'depends': ['repair_devices', 'web', 'stock', 'sale_management', 'account'],
     'data': [
         'security/ir.model.access.csv',
         'security/repair_security.xml',
@@ -29,6 +29,7 @@ The following topics are covered by this module:
         'views/tracking_views.xml',
         'views/repair_device_views.xml',
         'views/repair_order_sequence.xml',
+        'views/account_move_views.xml',
         'report/repair_reports.xml',
         'report/repairorder_final.xml',
         'data/repair_data.xml',

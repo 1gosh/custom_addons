@@ -335,6 +335,65 @@ class Repair(models.Model):
             "res_id": self.sale_order_id.id,
         }
 
+    # --- AJOUTS POUR LA FACTURATION DIRECTE ---
+
+    invoice_ids = fields.One2many(
+        'account.move', 
+        'repair_id', 
+        string="Factures générées"
+    )
+    
+    invoice_count = fields.Integer(
+        string="Nombre de factures", 
+        compute='_compute_invoice_count'
+    )
+
+    @api.depends('invoice_ids')
+    def _compute_invoice_count(self):
+        for rec in self:
+            rec.invoice_count = len(rec.invoice_ids)
+
+    def action_create_invoice_direct(self):
+        """ Ouvre une facture brouillon avec une Section pré-remplie """
+        self.ensure_one()
+
+        section_line = {
+            'name': f"{self.name} - Réparation: {self.device_id_name or ''}",
+            'display_type': 'line_section',
+            'quantity': 0,
+            'price_unit': 0,
+        }
+
+        ctx = {
+            'default_move_type': 'out_invoice',
+            'default_partner_id': self.partner_id.id,
+            'default_company_id': self.company_id.id,
+            'default_repair_id': self.id,
+            # On injecte notre section dès la création
+            'default_invoice_line_ids': [(0, 0, section_line)],
+        }
+
+        return {
+            'name': "Facture Réparation",
+            'type': 'ir.actions.act_window',
+            'res_model': 'account.move',
+            'view_mode': 'form',
+            'target': 'current',
+            'context': ctx,
+        }
+    
+    def action_view_invoices(self):
+        """ Bouton intelligent pour voir les factures liées """
+        self.ensure_one()
+        return {
+            'name': "Factures",
+            'type': 'ir.actions.act_window',
+            'res_model': 'account.move',
+            'view_mode': 'tree,form',
+            'domain': [('id', 'in', self.invoice_ids.ids)],
+            'context': {'default_repair_id': self.id},
+        }
+
     def print_repair_order(self):
         return self.env.ref('repair.action_report_repair_order').report_action(self)
 
