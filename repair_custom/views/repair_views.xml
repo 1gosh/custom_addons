@@ -38,7 +38,7 @@
                 <field name="repair_warranty" optional="show" readonly="True" />
                 <field name="pickup_location_id" optional="hide" readonly="True" />
                 <field name="technician_employee_id" optional="show"/>
-                <field name="notes" optional="show" />
+                <field name="notes" optional="show"/>
             </tree>
         </field>
     </record>

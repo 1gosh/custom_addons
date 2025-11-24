@@ -33,10 +33,10 @@ class Repair(models.Model):
         required=True,
         default=_default_location
     )
-
+    import_state = fields.Char("Statut pour l'import")
     multiple_devices = fields.Boolean(string="Plusieurs appareils")
     repair_warranty = fields.Selection([('aucune', 'Aucune'), ('sav', 'SAV'), ('sar', 'SAR'),], string="Garantie", default='aucune')
-    notes = fields.Text(string="Notes additionnelles")
+    notes = fields.Text(string="Notes")
     
     technician_user_id = fields.Many2one(
         'res.users',
@@ -332,15 +332,15 @@ class Repair(models.Model):
             "res_id": self.sale_order_id.id,
         }
 
+    def print_repair_order(self):
+        return self.env.ref('repair.action_report_repair_order').report_action(self)
+
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
             if vals.get('name', 'New') == 'New':
                 vals['name'] = self.env['ir.sequence'].next_by_code('repair.order') or 'New'
         return super(Repair, self).create(vals_list)
-
-    def print_repair_order(self):
-        return self.env.ref('repair.action_report_repair_order').report_action(self)
 
 
 class RepairPickupLocation(models.Model):

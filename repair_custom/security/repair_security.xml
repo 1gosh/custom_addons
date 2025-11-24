@@ -38,7 +38,7 @@
         <field name="name">Affichage réparations technicien</field>
         <field name="model_id" ref="model_repair_order"/>
         <field name="groups" eval="[(4, ref('repair_custom.group_repair_technician'))]" />
-        <field name="domain_force">[('state', 'not in', ['done', 'cancel', 'draft'])]</field>
+        <field name="domain_force">[('state', 'not in', ['cancel', 'draft'])]</field>
         <field name="perm_create" eval="False"/>
         <field name="perm_unlink" eval="False"/>
     </record>

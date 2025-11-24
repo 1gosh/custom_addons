@@ -7,6 +7,7 @@
     'version': '1.0',
     'category': 'Inventory/Inventory',
     'summary': 'Custom repair management for workshop',
+    "author": "martinl",
     'description': """
 The aim is to have a complete module to manage all products repairs.
 ====================================================================
