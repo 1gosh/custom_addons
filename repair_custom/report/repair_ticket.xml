@@ -78,13 +78,10 @@
                     </t>
 
                     <div style="text-align: center; margin-top: 4mm;">
-                        <img t-att-src="'/report/barcode/?barcode_type=%s&amp;value=%s&amp;width=%s&amp;height=%s' % ('Code128', o.name, 300, 50)" 
-                        style="width: 90%; height: 12mm; display: block; margin: 0 auto;" 
-                        alt="Barcode"/>
-                        <img t-att-src="'/report/barcode/?type=%s&amp;value=%s&amp;width=%s&amp;height=%s' % ('Code128', o.name, 300, 50)" 
-                        style="width: 90%; height: 12mm; display: block; margin: 0 auto;" 
-                        alt="Barcode"/>
-                        <!-- <div style="width: 100%; height: 10mm; border: 1px solid #000;" alt="Barcode"/> -->
+                        <div style="width: 100%; margin: 0 auto;">
+                            <span t-field="o.name" 
+                                  t-options='{"widget": "barcode", "symbology": "Code128", "width": 1000, "height": 100, "img_style": "width:100%; height:12mm;"}'/>
+                        </div>
                         <br/>
                         <span style="font-size: 10px;">Ticket à conserver pour retrait</span>
                     </div>
