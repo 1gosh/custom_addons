@@ -1,0 +1,101 @@
+<odoo>
+    <record id="action_report_repair_ticket" model="ir.actions.report">
+        <field name="name">Bon de Prise en Charge</field>
+        <field name="model">repair.order</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">repair_custom.report_repair_entry_ticket</field>
+        <field name="report_file">repair_custom.report_repair_entry_ticket</field>
+        <field name="paperformat_id" ref="repair_custom.paperformat_receipt_80mm"/>
+        <field name="binding_model_id" ref="model_repair_order"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <template id="report_repair_entry_ticket">
+        <t t-call="web.html_container">
+            <meta charset="utf-8"/>
+            <t t-foreach="docs" t-as="o">
+                <div class="page" style="width: 100%; margin: 0; padding: 0; font-size: 13px; font-family: 'Arial', sans-serif; color: #000; line-height: 1.2;">
+                    
+                    <div style="text-align: center; margin-bottom: 3mm;">
+                        <img t-if="o.company_id.logo" t-att-src="image_data_uri(o.company_id.logo)" alt="Logo" style="max-height: 10mm; display: block; margin: 0 auto;"/>
+                        <br/>
+                        <div style="font-size: 10px;">
+                            <t t-esc="o.pickup_location_id.street"/>, <t t-esc="o.pickup_location_id.zip"/> <t t-esc="o.pickup_location_id.city"/>
+                            <br/>
+                            Tél: <t t-esc="o.pickup_location_id.contact_id.phone or 'N/A'"/>
+                            <br/>
+                            infos@hifivintage.eu | www.hifivintage.eu
+                        </div>
+                    </div>
+
+                    <div style="text-align: center; margin-bottom: 2mm;">
+                        <div style="font-weight: bold; margin-bottom: 1mm; border: 1px solid #000; padding: 2px;">BON DE PRISE EN CHARGE</div>
+                        <span style="font-size: 15px; font-weight: bold;" t-field="o.name"/>
+                        <br/>
+                        <span style="font-size: 11px;">Date : <span t-field="o.create_date" t-options='{"widget": "date"}'/></span>
+                    </div>
+
+                    <div style="border-bottom: 1px dashed #000; margin: 2mm 0;"></div>
+
+                    <div style="margin-bottom: 2mm;">
+                        <!-- <div style="font-weight: bold; margin-bottom:2mm;">CLIENT</div> -->
+                        <span t-field="o.partner_id.name"/>
+                        <div style="font-size: 11px;" t-if="o.partner_id.phone">Tél: <span t-field="o.partner_id.phone"/></div>
+                        <div style="font-size: 11px;" t-if="o.partner_id.email"><span t-field="o.partner_id.email"/></div>
+                    </div>
+
+                    <div style="border-bottom: 1px dashed #000; margin: 2mm 0;"></div>
+
+                    <div style="margin-bottom: 3mm;">
+                        <!-- <span style="font-weight: bold; margin-bottom:2mm;">APPAREIL DÉPOSÉ</span>
+                        <br/> -->
+                        <span t-field="o.device_id_name" style="font-weight: bold;"/>
+                        <br/>
+                        N° Série: <span t-field="o.serial_number"/>
+                        <br/>
+                    </div>
+                    
+                    <div style="margin-bottom: 3mm;">
+                        <strong style="font-size: 12px;">PANNES SIGNALÉES :</strong>
+                        <br/>
+                        <t t-foreach="o.tag_ids" t-as="tag">
+                            - <span t-field="tag.name"/><br/>
+                        </t>
+                    </div>
+
+                    <t t-if="o.notes">
+                        <div style="margin-bottom: 5mm;">
+                            <strong style="font-size: 12px;">NOTES</strong>
+                            <br/>
+                            <span t-field="o.notes"/>
+                        </div>
+                    </t>
+
+                    <t t-if="o.repair_warranty != 'aucune'">
+                        <div style="text-align: center; background-color: #eee; padding: 3px; margin-bottom: 5mm; border: 1px solid #000;">
+                            GARANTIE : <span t-field="o.repair_warranty"/>
+                        </div>
+                    </t>
+
+                    <div style="text-align: center; margin-top: 4mm;">
+                        <img t-att-src="'/report/barcode/?barcode_type=%s&amp;value=%s&amp;width=%s&amp;height=%s' % ('Code128', o.name, 300, 50)" 
+                        style="width: 90%; height: 12mm; display: block; margin: 0 auto;" 
+                        alt="Barcode"/>
+                        <img t-att-src="'/report/barcode/?type=%s&amp;value=%s&amp;width=%s&amp;height=%s' % ('Code128', o.name, 300, 50)" 
+                        style="width: 90%; height: 12mm; display: block; margin: 0 auto;" 
+                        alt="Barcode"/>
+                        <!-- <div style="width: 100%; height: 10mm; border: 1px solid #000;" alt="Barcode"/> -->
+                        <br/>
+                        <span style="font-size: 10px;">Ticket à conserver pour retrait</span>
+                    </div>
+                    
+                    <div style="text-align: center; font-size: 9px; margin-top: 3mm; padding-bottom: 5mm;">
+                        Merci de votre confiance.<br/>
+                        www.hifivintage.eu
+                    </div>
+
+                </div>
+            </t>
+        </t>
+    </template>
+</odoo>
