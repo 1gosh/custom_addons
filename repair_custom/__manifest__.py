@@ -32,6 +32,7 @@ The following topics are covered by this module:
         'views/account_move_views.xml',
         'report/repair_reports.xml',
         'report/repairorder_final.xml',
+        'report/repairorder_test.xml',
         'data/repair_data.xml',
     ],
     'assets': {

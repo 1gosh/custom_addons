@@ -5,118 +5,107 @@
     <t t-call="web.html_container">
         <t t-foreach="docs" t-as="o">
             <t t-call="web.basic_layout">
-            <div class="page" style="font-size:14px;">
-                <!-- ====== BON DE REPARATION ====== -->
-                <div id="bon" style="min-height:150mm;">
-                    <!-- Header 1-->
-                    <div class="row mb-2">
-                        <div class="col-6">
-                            <img t-if="o.company_id.logo" t-att-src="image_data_uri(o.company_id.logo)" alt="Logo" style="max-height:14mm;"/>
+            <div class="row m-0 p-0">
+                <div class="page col-6" style="font-size:14px;">
+                    <!-- ====== BON DE REPARATION ====== -->
+                    <div id="bon" style="min-height:150mm;">
+                        <!-- Header 1-->
+                        <div class="row mb-2">
+                            <div class="col-6">
+                                <div class="p-2"><img t-if="o.company_id.logo" t-att-src="image_data_uri(o.company_id.logo)" alt="Logo" style="max-height:15mm;"/></div>
+                            </div>
+                            <div class="col-6 text-end">
+                                <strong>Le</strong>
+                                <t t-esc="context_timestamp(datetime.datetime.now()).strftime('%d/%m/%Y')"/>
+                            </div>
                         </div>
-                        <div class="col-6 text-end">
-                            <strong>Le</strong>
-                            <t t-esc="context_timestamp(datetime.datetime.now()).strftime('%d/%m/%Y')"/>
-                        </div>
-                    </div>
-                    <!-- Header 2 -->
-                    <div class="row mb-3">
-                        <!-- Colonne gauche -->
-                        <div class="col-6">
-                            <strong t-field="o.company_id.name"/>
-                            <p class="m-0">infos@hifivintage.eu - www.hifivintage.eu</p>
-                            <span t-field="o.pickup_location_id.street"/>
-                            <br/>
-                            <span t-field="o.pickup_location_id.zip"/>
-                            <span t-field="o.pickup_location_id.city"/>
-                            <br/>
-                            <span t-field="o.pickup_location_id.contact_id.phone"/>
-                        </div>
-                        <!-- Colonne droite -->
-                        <div class="col-6 text-end">
-                            <div class="pe-2 pt-2 pb-2 border">
+                        <!-- Header 2 -->
+                        <div class="row mb-3">
+                            <!-- Colonne gauche -->
+                            <div class="col-6">
+                                <span t-field="o.pickup_location_id.street"/>
+                                <br/>
+                                <span t-field="o.pickup_location_id.zip"/>
+                                <span t-field="o.pickup_location_id.city"/>
+                                <br/>
+                                <span t-field="o.pickup_location_id.contact_id.phone"/>
+                                <p class="m-0">infos@hifivintage.eu - www.hifivintage.eu</p>
+                            </div>
+                            <!-- Colonne droite -->
+                            <div class="col-6 text-end">
                                 <p class="m-0">
                                     <span t-field="o.partner_id.name"/>
                                 </p>
                                 <p class="m-0">
-                                    <strong>Tel :</strong>
                                     <span t-field="o.partner_id.phone"/>
                                 </p>
                                 <p class="m-0">
-                                    <strong>Email :</strong>
                                     <span t-field="o.partner_id.email"/>
                                 </p>
                             </div>
                         </div>
-                    </div>
-                    <div class="m-0 mb-3" style="border-top:1px solid #000;"/>
-                    <!-- Corps -->
-                    <p class="h3">Bon de réparation</p>
-                    <div id="corps" class="ms-3 mt-3">
-                        <!-- <p class="mb-2">
-                            <strong>Appareil :</strong>
-                            <span t-field="o.product_id.display_name"/>
-                            (<span t-field="o.x_studio_many2one_field_5ec_1j777fnf5"/>)
-                        </p> -->
-                        <p class="mb-2">
-                            <strong>Pannes signalées :</strong>
-                        </p>
-                        <ul class="list-unstyled">
-                            <t t-foreach="o.tag_ids" t-as="tag">
-                                <li> 
-                                - <t t-esc="tag.name"/>
-                                </li>
-                            </t>
-                        </ul>
-                        <p t-if="o.notes" class="mb-0">
-                            <strong>Notes :</strong>
-                        </p>
-                        <span t-field="o.notes"/>
-                    </div>
-                </div>
-                <!-- Mentions légales / société -->
-                <div style="font-size:10px">
-                    <p class="m-0 fw-bold">SAS HIFI VINTAGE</p>
-                    <small class="text-muted">au capital de 35 000 EUR - RC 837932490 00019 Nanterre - TVA
-                        FR93837932490</small>
-                </div>
-                <!-- Ligne de découpe -->
-                <div class="mt-3 mb-3" style="border-top:1px dashed #000;"/>
-                <!-- ====== TALON TECHNICIEN ====== -->
-                <div id="talon" class="row">
-                    <div class="col-7">
-                        <p class="m-0 mb-1 h2">
-                            <strong>
-                                <t t-esc="o.create_date.strftime('%d/%m/%y')"/>
-                            </strong>
-                        </p>
-                        <p class="m-0 mb-1 h4">
-                            <span t-field="o.partner_id.name"/>
-                            <span t-field="o.partner_id.phone" class="small text-muted"/>
-                        </p>
-                        <p class="m-0">
-                            <span t-field="o.device_id_name"/>
-                        </p>
-                        <p class="m-0">
-                            Garantie :
-                            <span t-field="o.repair_warranty"/>
-                        </p>
-                    </div>
-                    <div class="col-5">
-                        <div class="mb-1 border text-center">
-                            <h4 class="m-0 p-2">Code-barre</h4>
-                             <!-- <img t-att-src="'/report/barcode/?barcode_type=%s&amp;value=%s&amp;width=%s&amp;height=%s'%('QR', 'text', 200, 200)"/> -->
+                        <!-- <div class="m-0 mb-3" style="border-top:1px solid #000;"/> -->
+                        <!-- Corps -->
+                        <p class="h4">Bon de réparation</p>
+                        <div id="corps" class="ms-3 mt-3">
+                            <p class="mb-2">
+                                <strong>Pannes signalées :</strong>
+                            </p>
+                            <ul class="list-unstyled">
+                                <t t-foreach="o.tag_ids" t-as="tag">
+                                    <li> 
+                                    - <t t-esc="tag.name"/>
+                                    </li>
+                                </t>
+                            </ul>
+                            <p t-if="o.notes" class="mb-0">
+                                <strong>Notes :</strong>
+                            </p>
+                            <span t-field="o.notes"/>
                         </div>
-                        <ul class="list-unstyled">
-                            <t t-foreach="o.tag_ids" t-as="tag">
-                                <li>
-                                - 
-                                    <t t-esc="tag.name"/>
-                                </li>
-                            </t>
-                        </ul>
+                    </div>
+                    <!-- Mentions légales / société -->
+                    <div style="font-size:10px">
+                        <p class="m-0 fw-bold">SAS HIFI VINTAGE</p>
+                        <small class="text-muted">au capital de 35 000 EUR - RC 837932490 00019 Nanterre - TVA
+                            FR93837932490</small>
+                    </div>
+                    <!-- Ligne de découpe -->
+                    <div class="mt-3 mb-3" style="border-top:1px dashed #000;"/>
+                    <!-- ====== TALON TECHNICIEN ====== -->
+                    <div id="talon" class="row">
+                        <div class="col-7">
+                            <p class="m-0 mb-1 h2">
+                                <strong>
+                                    <t t-esc="o.create_date.strftime('%d/%m/%y')"/>
+                                </strong>
+                            </p>
+                            <p class="m-0 mb-1 h4">
+                                <span t-field="o.partner_id.name"/>
+                                <span t-field="o.partner_id.phone" class="small text-muted"/>
+                            </p>
+                            <p class="m-0">
+                                <span t-field="o.device_id_name"/>
+                            </p>
+                            <p class="m-0">
+                                Garantie :
+                                <span t-field="o.repair_warranty"/>
+                            </p>
+                        </div>
+                        <div class="col-5 mt-2">
+                            <ul class="list-unstyled">
+                                <t t-foreach="o.tag_ids" t-as="tag">
+                                    <li>
+                                    - 
+                                        <t t-esc="tag.name"/>
+                                    </li>
+                                </t>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>
+            <div class="col-6"></div>
         </t>
         </t>
     </t>
