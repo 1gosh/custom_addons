@@ -35,6 +35,7 @@ The following topics are covered by this module:
         'report/repairorder_test.xml',
         "report/paper_formats.xml",
         "report/repair_ticket.xml",
+        "report/repair_label.xml",
         'data/repair_data.xml',
     ],
     'assets': {

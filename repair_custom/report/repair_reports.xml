@@ -12,6 +12,16 @@
             <field name="binding_type">report</field>
         </record>
     </data>
+    <record id="action_report_repair_label" model="ir.actions.report">
+        <field name="name">Étiquette Atelier</field>
+        <field name="model">repair.order</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">repair_custom.report_repair_label</field>
+        <field name="report_file">repair_custom.report_repair_label</field>
+        <field name="paperformat_id" ref="repair_custom.paperformat_receipt_80mm"/>
+        <field name="binding_model_id" ref="model_repair_order"/>
+        <field name="binding_type">report</field>
+    </record>
     <!-- <data>
         <record id="action_report_repair_order_test" model="ir.actions.report">
             <field name="name">Repair Order test</field>

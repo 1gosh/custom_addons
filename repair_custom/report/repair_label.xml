@@ -1,0 +1,68 @@
+<odoo>
+    <template id="report_repair_label">
+        <t t-call="web.html_container">$
+            <meta charset="utf-8"/>
+            <t t-foreach="docs" t-as="o">
+                
+                <div class="page" style="width: 67mm; margin-left: -2mm !important; margin-top: 0 !important; padding: 0 !important; font-family: 'Arial', sans-serif; color: #000;">
+                    
+                    <table style="width: 100%; table-layout: fixed; border: 2px solid #000; border-collapse: collapse; background-color: #fff;">
+                        
+                        <tr style="border-bottom: 1px solid #000;">
+                            <td style="padding: 1mm 2mm; vertical-align: middle;">
+                                <span style="font-size: 24px; font-weight: 900; letter-spacing: -1px; white-space: nowrap;" t-field="o.create_date" t-options='{"widget": "date"}'/>
+                            </td>
+                            <td style="padding: 1mm 2mm; text-align: right; vertical-align: middle;">
+                                <div style="font-size: 9px; color: #666;">Réf. Dossier</div>
+                                <div style="font-size: 10px; font-weight: bold; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                    <span t-field="o.name"/>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td style="width: 60%; border-right: 1px solid #000; vertical-align: top; padding: 2mm;">
+                                
+                                <div style="margin-bottom: 2mm;">
+                                    <div style="font-size: 14px; font-weight: 900; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
+                                        <span t-field="o.partner_id.name"/>
+                                    </div>
+                                    <div style="font-size: 10px; overflow: hidden; white-space: nowrap;">
+                                        <span t-field="o.partner_id.phone"/>
+                                    </div>
+                                </div>
+
+                                <div style="border-top: 1px dashed #999; margin-bottom: 1mm;"></div>
+
+                                <div>
+                                    <div style="font-size: 14px; font-weight: bold; word-wrap: break-word; line-height: 1.1;">
+                                        <span t-field="o.device_id_name"/>
+                                    </div>
+                                    
+                                    <div style="font-size:10px; margin-top: 1mm; margin-bottom:1mm; overflow: hidden; white-space: nowrap;">
+                                        <a>S/N: </a><span t-field="o.serial_number"/>
+                                    </div>
+                                    
+                                    <t t-if="o.repair_warranty != 'aucune'">
+                                        <span style="background-color: #000; color: #fff; font-size: 12px; font-weight: bold; padding: 0 2px;">
+                                            <span t-field="o.repair_warranty"/>
+                                        </span>
+                                    </t>
+                                </div>
+                            </td>
+
+                            <td style="width: 40%; vertical-align: top; padding: 2mm;">
+                                <div style="font-size: 9px; font-weight: bold; line-height: 1.1; word-wrap: break-word;">
+                                    <t t-foreach="o.tag_ids" t-as="tag">
+                                        - <span t-field="tag.name"/><br/>
+                                    </t>
+                                    <span t-if="not o.tag_ids" style="font-style: italic; font-weight: normal; font-size: 9px;">RAS</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </t>
+        </t>
+    </template>
+</odoo>
