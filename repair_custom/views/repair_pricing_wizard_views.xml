@@ -1,0 +1,90 @@
+<odoo>
+    <record id="view_repair_pricing_wizard_form" model="ir.ui.view">
+        <field name="name">repair.pricing.wizard.form</field>
+        <field name="model">repair.pricing.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Facturation Atelier">
+                <sheet>
+                    <div class="oe_title"> 
+                        <label for="generation_type" string="Générer :"/>
+                        <field name="generation_type" nolabel="1" widget="radio" options="{'horizontal': true}"/>
+                    </div>
+                    
+                    <group>
+                        <group string="Contexte de l'Intervention">
+                            <field name="device_name" readonly="1" style="font-weight: bold;"/>
+                            <field name="technician_employee_id" readonly="1"/>
+                            <field name="internal_notes" 
+                                readonly="1" 
+                                style="max-height: 150px; overflow-y: auto; background: #f0f0f0; padding: 5px; font-family: monospace;"/>
+                        </group>
+                        
+                        <group string="Tarification">
+                            
+                            <field name="use_template" widget="boolean_toggle"/>
+
+                            <field name="invoice_template_id" 
+                                invisible="not use_template"
+                                required="use_template"
+                                domain="['|', ('device_category_ids', '=', False), ('device_category_ids', 'parent_of', context.get('default_device_categ_id'))]"
+                                options="{'no_create': True}"
+                                placeholder="Sélectionnez un modèle de ventilation"/>
+
+                            <field name="manual_label" 
+                                invisible="use_template"
+                                required="not use_template"
+                                placeholder="Intitulé de la ligne unique"/>
+                            
+                            <field name="manual_product_id" 
+                                invisible="use_template"
+                                required="not use_template"
+                                options="{'no_create': True}"
+                                placeholder="Article service comptable"/>
+                            <label for="target_total_amount" string="Montant TOTAL (HT)"/>
+                            <field name="target_total_amount" nolabel="1" widget="monetary" style="font-size: 22px; font-weight: 700; color: #2e8b57;"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Rapport d'intervention" name="report_page">
+                            <group>
+                                <label for="add_work_details" string="Inclure le rapport" style="font-weight: bold;"/>
+                                <field name="add_work_details" nolabel="1" widget="boolean_toggle"/>
+                            </group>
+                            <field name="work_details" 
+                                   invisible="not add_work_details" 
+                                   placeholder="Le texte qui s'affichera en bas de la facture..."
+                                   style="background: #f0f0f0; font-family: monospace; padding: 10px; border: 1px solid #ccc; min-height: 150px;"/>
+                        </page>
+                        <page string="Pièces &amp; Fournitures" name="parts_page">
+                            <group>
+                                <field name="parts_mode" widget="radio" options="{'horizontal': true}"/>
+                            </group>
+                            <field name="extra_parts_ids">
+                                <tree editable="bottom">
+                                    <field name="product_id"/>
+                                    <field name="name"/>
+                                    <field name="quantity"/>
+                                    <field name="price_unit" string="P.U. (HT)"/>
+                                    <field name="price_subtotal" readonly="1" sum="Total Pièces HT"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <footer class="justify-content-end">
+                    <button string="Valider" type="object" name="action_confirm" class="btn-primary"/>
+                    <button string="Annuler" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+    
+    <record id="action_repair_pricing_wizard" model="ir.actions.act_window">
+        <field name="name">Facturer</field>
+        <field name="res_model">repair.pricing.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

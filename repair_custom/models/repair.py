@@ -34,7 +34,6 @@ class Repair(models.Model):
         default=_default_location
     )
     import_state = fields.Char("Statut pour l'import")
-    multiple_devices = fields.Boolean(string="Plusieurs appareils")
     repair_warranty = fields.Selection([('aucune', 'Aucune'), ('sav', 'SAV'), ('sar', 'SAR'),], string="Garantie", default='aucune')
     notes = fields.Text(string="Notes")
     
@@ -91,6 +90,13 @@ class Repair(models.Model):
         help='Choose partner for whom the order will be invoiced and delivered. You can find a partner by its Name, TIN, Email or Internal Reference.')
 
     # --- Appareil lié à la réparation ---
+    category_id = fields.Many2one(
+        'repair.device.category',
+        string="Catégorie",
+        ondelete="set null",
+        check_company=True,
+        help="Catégorie d'appareil sélectionnée en premier pour filtrer les modèles."
+    )
     device_id = fields.Many2one(
         'repair.device',
         string="Modèle",
@@ -116,12 +122,36 @@ class Repair(models.Model):
 
     @api.onchange('device_id')
     def _onchange_device_id_clear_variant(self):
+        if self.unit_id and self.device_id == self.unit_id.device_id:
+            return
+
         if self.device_id:
             self.variant_id = False
+            if self.unit_id:
+                self.unit_id = False
+                self.serial_number = False
+            
+    @api.onchange('category_id')
+    def _onchange_category_id(self):
+        if self.device_id and self.category_id and self.device_id.category_id != self.category_id:
+            self.device_id = False
+            self.variant_id = False
+
+    @api.onchange('device_id')
+    def _onchange_device_id_set_category(self):
+        """ 
+        Quand l'utilisateur choisit un appareil, on remplit la catégorie 
+        automatiquement si elle n'est pas déjà définie ou différente.
+        """
+        # On vide la variante si on change d'appareil
+        self._onchange_device_id_clear_variant()
+
+        if self.device_id and self.device_id.category_id:
+            # On assigne la catégorie de l'appareil au champ de la réparation
+            self.category_id = self.device_id.category_id
             
     serial_number = fields.Char(
         "N° de série",
-        related="unit_id.serial_number",
         store=True,
         readonly=False,
         help="Numéro de série de l'appareil lié. Si aucune unité n'est encore créée, il sera rempli lors de la confirmation."
@@ -140,7 +170,28 @@ class Repair(models.Model):
         help="Appareil physique unique correspondant au modèle/variante/numéro de série."
     )
     tag_ids = fields.Many2many('repair.tags', string="Tags")
-    internal_notes = fields.Text("Notes de réparation")
+    internal_notes = fields.Text("Notes de réparation") 
+    notes_template_id = fields.Many2one(
+        'repair.notes.template', 
+        string="Insérer un Gabarit",
+        store=False,
+        help="Sélectionnez un gabarit pour insérer son contenu dans les notes internes."
+    )
+    
+    @api.onchange('notes_template_id')
+    def _onchange_notes_template_id(self):
+        if self.notes_template_id and self.notes_template_id.template_content:
+            
+            new_content = self.notes_template_id.template_content
+            
+            if self.internal_notes:
+                # Si des notes existent déjà, on insère le gabarit après une ligne de séparation
+                self.internal_notes += '\n\n---\n\n' + new_content
+            else:
+                self.internal_notes = new_content
+            
+            # Important : Réinitialiser le champ pour pouvoir insérer un autre gabarit
+            self.notes_template_id = False
 
     def action_create_device(self):
         return {
@@ -208,9 +259,6 @@ class Repair(models.Model):
     sale_order_id = fields.Many2one(
         'sale.order', 'Sale Order', check_company=True, readonly=True,
         copy=False, help="Sale Order from which the Repair Order comes from.")
-    sale_order_line_id = fields.Many2one(
-        'sale.order.line', check_company=True, readonly=True,
-        copy=False, help="Sale Order Line from which the Repair Order comes from.")
 
 
     def write(self, vals):
@@ -227,25 +275,6 @@ class Repair(models.Model):
     def _unlink_except_confirmed(self):
         repairs_to_cancel = self.filtered(lambda ro: ro.state not in ('draft', 'cancel'))
         repairs_to_cancel.action_repair_cancel()
-
-    def action_create_sale_order(self):
-        if any(repair.sale_order_id for repair in self):
-            concerned_ro = self.filtered('sale_order_id')
-            ref_str = "\n".join(ro.name for ro in concerned_ro)
-            raise UserError(_("You cannot create a quotation for a repair order that is already linked to an existing sale order.\nConcerned repair order(s) :\n") + ref_str)
-        if any(not repair.partner_id for repair in self):
-            concerned_ro = self.filtered(lambda ro: not ro.partner_id)
-            ref_str = "\n".join(ro.name for ro in concerned_ro)
-            raise UserError(_("You need to define a customer for a repair order in order to create an associated quotation.\nConcerned repair order(s) :\n") + ref_str)
-        sale_order_values_list = []
-        for repair in self:
-            sale_order_values_list.append({
-                "company_id": repair.company_id.id,
-                "partner_id": repair.partner_id.id,
-                "repair_order_ids": [Command.link(repair.id)],
-            })
-        self.env['sale.order'].create(sale_order_values_list)
-        return self.action_view_sale_order()
 
     def action_repair_cancel(self):
         admin = self.env.user.has_group('repair_custom.group_repair_admin')
@@ -304,15 +333,10 @@ class Repair(models.Model):
     def action_validate(self):
         self.ensure_one()
 
-        # Si une variante a été saisie manuellement, l'associer au modèle si nécessaire
         if self.variant_id and self.variant_id not in self.device_id.variant_ids:
             self.device_id.write({'variant_ids': [(4, self.variant_id.id)]})
-
-        # 👉 S’il y a déjà une unité sélectionnée manuellement → ne rien créer
         if self.unit_id:
             return self._action_repair_confirm()
-
-        # 👉 Sinon, créer une nouvelle unité automatiquement
         if self.device_id and self.partner_id:
             sn = self.serial_number or f"{uuid.uuid4().hex[:8].upper()}"
             vals = {
@@ -322,18 +346,13 @@ class Repair(models.Model):
             }
             if self.variant_id:
                 vals['variant_id'] = self.variant_id.id
+
             new_unit = self.env['repair.device.unit'].create(vals)
-            self.unit_id = new_unit
-
-        return self._action_repair_confirm() 
-
-    def action_view_sale_order(self):
-        return {
-            "type": "ir.actions.act_window",
-            "res_model": "sale.order",
-            "views": [[False, "form"]],
-            "res_id": self.sale_order_id.id,
-        }
+            self.write({
+                'unit_id': new_unit.id,
+                'serial_number': new_unit.serial_number
+            })
+        return self._action_repair_confirm()
 
     # --- AJOUTS POUR LA FACTURATION DIRECTE ---
 
@@ -352,35 +371,6 @@ class Repair(models.Model):
     def _compute_invoice_count(self):
         for rec in self:
             rec.invoice_count = len(rec.invoice_ids)
-
-    def action_create_invoice_direct(self):
-        """ Ouvre une facture brouillon avec une Section pré-remplie """
-        self.ensure_one()
-
-        section_line = {
-            'name': f"{self.name} - Réparation: {self.device_id_name or ''}",
-            'display_type': 'line_section',
-            'quantity': 0,
-            'price_unit': 0,
-        }
-
-        ctx = {
-            'default_move_type': 'out_invoice',
-            'default_partner_id': self.partner_id.id,
-            'default_company_id': self.company_id.id,
-            'default_repair_id': self.id,
-            # On injecte notre section dès la création
-            'default_invoice_line_ids': [(0, 0, section_line)],
-        }
-
-        return {
-            'name': "Facture Réparation",
-            'type': 'ir.actions.act_window',
-            'res_model': 'account.move',
-            'view_mode': 'form',
-            'target': 'current',
-            'context': ctx,
-        }
     
     def action_view_invoices(self):
         """ Bouton intelligent pour voir les factures liées """
@@ -394,8 +384,55 @@ class Repair(models.Model):
             'context': {'default_repair_id': self.id},
         }
 
-    def print_repair_order(self):
-        return self.env.ref('repair.action_report_repair_order').report_action(self)
+    sale_order_count = fields.Integer(
+        string="Nombre de devis/BC",
+        compute='_compute_sale_order_count'
+    )
+
+    @api.depends('sale_order_id')
+    def _compute_sale_order_count(self):
+        # Puisqu'on ne supporte qu'un seul SO par RO via sale_order_id, 
+        # le compteur est soit 1, soit 0.
+        for rec in self:
+            rec.sale_order_count = 1 if rec.sale_order_id else 0
+
+    def action_view_sale_order(self):
+        """ Bouton intelligent pour voir le devis/BC lié """
+        self.ensure_one()
+        if not self.sale_order_id:
+            return
+
+        return {
+            'name': "Devis / Bon de Commande",
+            'type': 'ir.actions.act_window',
+            'res_model': 'sale.order',
+            'view_mode': 'form',
+            'res_id': self.sale_order_id.id,
+            'target': 'current',
+            'context': {'default_repair_id': self.id},
+        }
+
+    def action_open_pricing_wizard(self):
+        """ Ouvre le wizard de tarification custom """
+        self.ensure_one()
+        
+        # CORRECTION ICI : On passe par device_id pour trouver la catégorie
+        device_categ_id = False
+        if self.device_id and self.device_id.category_id:
+            device_categ_id = self.device_id.category_id.id
+        
+        return {
+            'name': _("Facturation Atelier"),
+            'type': 'ir.actions.act_window',
+            'res_model': 'repair.pricing.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_repair_id': self.id,
+                # On passe l'ID de votre catégorie custom (repair.device.category)
+                'default_device_categ_id': device_categ_id, 
+            },
+        }
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -403,6 +440,51 @@ class Repair(models.Model):
             if vals.get('name', 'New') == 'New':
                 vals['name'] = self.env['ir.sequence'].next_by_code('repair.order') or 'New'
         return super(Repair, self).create(vals_list)
+
+    @api.constrains('unit_id', 'device_id', 'variant_id', 'serial_number')
+    def _check_unit_consistency(self):
+        for rec in self:
+            if rec.unit_id:
+                # 1. Vérifier le Modèle
+                if rec.device_id != rec.unit_id.device_id:
+                    raise ValidationError(_(
+                        "Incohérence ! Le modèle sélectionné (%s) ne correspond pas "
+                        "à celui de l'unité liée (%s). Veuillez détacher l'unité si vous changez de modèle."
+                    ) % (rec.device_id.name, rec.unit_id.device_id.name))
+                
+                # 2. Vérifier la Variante (si applicable)
+                if rec.unit_id.variant_id and rec.variant_id != rec.unit_id.variant_id:
+                    raise ValidationError(_("Incohérence sur la variante par rapport à l'unité liée."))
+
+                # 3. Vérifier le N° Série (si applicable)
+                if rec.unit_id.serial_number and rec.serial_number != rec.unit_id.serial_number:
+                    raise ValidationError(_(
+                        "Incohérence ! Le N° de série saisi (%s) diffère de celui de l'unité enregistrée (%s)."
+                    ) % (rec.serial_number, rec.unit_id.serial_number))
+
+    @api.model
+    def _migrate_category_from_device(self):
+        """
+        Remplir le nouveau champ category_id pour tous les Ordres de Réparation existants
+        qui ont un device_id.
+        """
+        # Chercher tous les Ordres de Réparation ayant un appareil défini mais sans catégorie
+        repairs_to_update = self.search([
+            ('device_id', '!=', False),
+            ('category_id', '=', False)
+        ])
+        
+        # Le traitement par lots (batch) est crucial pour la performance
+        for repair in repairs_to_update:
+            # Récupérer la catégorie à partir du modèle d'appareil
+            category = repair.device_id.category_id
+            
+            if category:
+                # Écrire la nouvelle valeur (écriture individuelle optimisée)
+                repair.write({'category_id': category.id})
+                
+        self.env.cr.commit()
+        return True
 
 
 class RepairPickupLocation(models.Model):
@@ -439,6 +521,21 @@ class RepairTags(models.Model):
 
     name = fields.Char('Tag Name', required=True)
     color = fields.Integer(string='Color Index', default=_get_default_color)
+    category_ids = fields.Many2many(
+        'repair.device.category',
+        string="Catégories d'appareils",
+        help="Si défini, ce tag n'apparaîtra que pour ces catégories d'appareils. Laisser vide pour un tag universel."
+    )
+
+    @api.model
+    def name_create(self, name):
+        """ Crée un tag et lui assigne la catégorie si elle est présente dans le contexte. """
+        category_id = self.env.context.get('default_category_id')
+        vals = {'name': name}
+        
+        if category_id:
+            vals['category_ids'] = [(4, category_id)] 
+        return self.create(vals).name_get()[0]
 
     _sql_constraints = [
         ('name_uniq', 'unique (name)', "Tag name already exists!"),
@@ -474,3 +571,36 @@ class RepairDeviceUnit(models.Model):
             'domain': [('unit_id', '=', self.id)],
             'context': {'default_unit_id': self.id},
         }
+
+class AccountMove(models.Model):
+    _inherit = 'account.move'
+
+    # Lien vers la réparation
+    repair_id = fields.Many2one(
+        'repair.order', 
+        string="Réparation d'origine",
+        readonly=True,
+        help="La réparation qui a généré cette facture."
+    )
+
+    repair_notes = fields.Text(
+        related='repair_id.internal_notes', 
+        string="Notes de l'atelier", 
+        readonly=True
+    )
+
+class RepairNotesTemplate(models.Model):
+    _name = 'repair.notes.template'
+    _description = 'Gabarit de Notes de Réparation'
+    _order = 'name'
+
+    name = fields.Char("Nom du Gabarit", required=True)
+    
+    # Le contenu texte brut à insérer dans le champ internal_notes
+    template_content = fields.Text("Contenu du Gabarit")
+    
+    # Rendre le gabarit utilisable pour certaines catégories d'appareils (Optionnel)
+    category_ids = fields.Many2many(
+        'repair.device.category',
+        string="Catégories d'appareils"
+    )

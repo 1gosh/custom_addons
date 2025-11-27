@@ -66,19 +66,21 @@ class RepairDevice(models.Model):
             'context': {'default_device_id': self.id},
         }
 
-    # Saisie intelligente : recherche sur brand + model
     @api.model
-    def name_search(self, name="", args=None, operator="ilike", limit=80):
+    def _name_search(self, name, args=None, operator='ilike', limit=100, name_get_uid=None, order=None):
+        """
+        Version corrigée avec l'argument 'order'.
+        Recherche "Google-like" : Marque ET Modèle, peu importe l'ordre.
+        """
         args = args or []
         domain = []
+        
         if name:
-            domain = [
-                "|",
-                ("name", operator, name),
-                ("brand_id.name", operator, name),
-            ]
-        models = self.search(domain + args, limit=limit)
-        return models.name_get()
+            search_terms = name.split()      
+            for term in search_terms:
+                domain += ['|', ('brand_id.name', operator, term), ('name', operator, term)]
+    
+        return self._search(domain + args, limit=limit, access_rights_uid=name_get_uid, order=order)
 
     def name_get(self):
         res = []
@@ -132,7 +134,6 @@ class RepairDeviceUnit(models.Model):
     device_id = fields.Many2one(
         "repair.device",
         string="Modèle d’appareil",
-        required=True,
         ondelete="cascade"
     )
     variant_id = fields.Many2one(
@@ -172,7 +173,7 @@ class RepairDeviceUnit(models.Model):
     device_name = fields.Char(
         string="Appareil",
         compute="_compute_device_name",
-        store=False
+        store=True
     )
 
     @api.depends("device_id", "variant_id")
@@ -189,7 +190,7 @@ class RepairDeviceUnit(models.Model):
     def _compute_is_admin(self):
         user = self.env.user
         for rec in self:
-            rec.is_admin = user.has_group('rapair_custom.group_repair_admin')
+            rec.is_admin = user.has_group('repair_custom.group_repair_admin')
 
     @api.depends("device_id", "variant_id", "serial_number")
     def _compute_display_name(self):
@@ -229,6 +230,13 @@ class RepairDeviceUnit(models.Model):
             'flags': {'mode': 'readonly'} if not ctx['edit_admin'] else {},
         }
 
+    _sql_constraints = [
+        (
+            'unique_device_serial', 
+            'unique(device_id, serial_number)', 
+            "Ce numéro de série est déjà enregistré pour ce modèle. Veuillez utiliser l'unité existante."
+        )
+    ]
 
 # --- 1. MARQUES ---------------------------------------------------------
 
@@ -262,6 +270,12 @@ class RepairDeviceCategory(models.Model):
     _rec_name = "complete_name"
     _order = "complete_name"
 
+    company_id = fields.Many2one(
+        'res.company', 
+        string='Company', 
+        default=lambda self: self.env.company,
+        help="Société à laquelle cette catégorie appartient."
+    )
     name = fields.Char("Nom", required=True, translate=True, index='trigram')
     complete_name = fields.Char("Nom complet", compute="_compute_complete_name", store=True, recursive=True)
     parent_id = fields.Many2one("repair.device.category", string="Catégorie parente", index=True, ondelete="cascade")

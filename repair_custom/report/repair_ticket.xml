@@ -1,15 +1,4 @@
 <odoo>
-    <record id="action_report_repair_ticket" model="ir.actions.report">
-        <field name="name">Bon de Prise en Charge</field>
-        <field name="model">repair.order</field>
-        <field name="report_type">qweb-pdf</field>
-        <field name="report_name">repair_custom.report_repair_entry_ticket</field>
-        <field name="report_file">repair_custom.report_repair_entry_ticket</field>
-        <field name="paperformat_id" ref="repair_custom.paperformat_receipt_80mm"/>
-        <field name="binding_model_id" ref="model_repair_order"/>
-        <field name="binding_type">report</field>
-    </record>
-
     <template id="report_repair_entry_ticket">
         <t t-call="web.html_container">
             <meta charset="utf-8"/>
@@ -34,7 +23,7 @@
 
                     <div style="margin-bottom: 2mm;">
                         <!-- <div style="font-weight: bold; margin-bottom:2mm;">CLIENT</div> -->
-                        <span t-field="o.partner_id.name"/>
+                        <span style="font-weight: bold;" t-field="o.partner_id.name"/>
                         <div style="font-size: 11px;" t-if="o.partner_id.phone">Tél: <span t-field="o.partner_id.phone"/></div>
                         <div style="font-size: 11px;" t-if="o.partner_id.email"><span t-field="o.partner_id.email"/></div>
                     </div>
@@ -51,7 +40,7 @@
                     </div>
                     
                     <div style="margin-bottom: 3mm;">
-                        <strong style="font-size: 12px;">PANNES SIGNALÉES :</strong>
+                        <a style="font-size: 12px;">PANNES SIGNALÉES :</a>
                         <br/>
                         <t t-foreach="o.tag_ids" t-as="tag">
                             - <span t-field="tag.name"/><br/>

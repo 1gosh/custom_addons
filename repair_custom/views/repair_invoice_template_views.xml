@@ -1,0 +1,54 @@
+<odoo>
+    <record id="view_repair_invoice_template_tree" model="ir.ui.view">
+        <field name="name">repair.invoice.template.tree</field>
+        <field name="model">repair.invoice.template</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name"/>
+                <field name="device_category_ids" widget="many2many_tags"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_repair_invoice_template_form" model="ir.ui.view">
+        <field name="name">repair.invoice.template.form</field>
+        <field name="model">repair.invoice.template</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" class="oe_edit_only"/>
+                        <h1><field name="name" placeholder="Ex: Forfait Restauration Ampli"/></h1>
+                    </div>
+                    <group>
+                        <field name="device_category_ids" widget="many2many_tags" placeholder="Laisser vide pour appliquer à tous"/>
+                    </group>
+                    <notebook>
+                        <page string="Lignes de Facture (Ventilation)">
+                            <field name="line_ids">
+                                <tree editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="product_id"/>
+                                    <field name="weight_percentage" sum="Total %"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_repair_invoice_template" model="ir.actions.act_window">
+        <field name="name">Modèles de Facturation</field>
+        <field name="res_model">repair.invoice.template</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <menuitem id="menu_repair_invoice_template" 
+        name="Modèles de Facturation" parent="repair_menu_config" 
+        action="action_repair_invoice_template" 
+        sequence="50"/>
+
+</odoo>

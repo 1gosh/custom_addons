@@ -25,15 +25,15 @@
         <field name="name">repair.tree</field>
         <field name="model">repair.order</field>
         <field name="arch" type="xml">
-            <tree string="Repairs order" multi_edit="1" sample="1" decoration-info="state == 'draft'">
+            <tree string="Repairs order" multi_edit="1" sample="1" decoration-info="state in 'draft'">
                 <field name="priority" optional="show" widget="priority" nolabel="1" />
                 <field name="entry_date" optional="show" string="Date d'entrée" readonly="True"
                     width="50" widget="datetime" options="{'show_time':false}" />
-                <field name="state" optional="show" widget="badge" decoration-success="state == 'done'"
-                    decoration-info="state == 'confirmed'" decoration-warning="state == 'under_repair'"
-                    decoration-danger="state == 'cancel'" decoration-muted="state == 'draft'" readonly="True"
+                <field name="state" optional="show" widget="badge" decoration-success="state in 'done'"
+                    decoration-info="state in 'confirmed'" decoration-warning="state in 'under_repair'"
+                    decoration-danger="state in 'cancel'" decoration-muted="state in 'draft'" readonly="True"
                     width="50" on_change="1" />
-                <field name="device_id_name" optional="show"></field>
+                <field name="device_id_name" optional="show"/>
                 <field name="partner_id" readonly="1" optional="show" string="Client" width="100" on_change="1" />
                 <field name="repair_warranty" optional="show" readonly="True" />
                 <field name="pickup_location_id" optional="hide" readonly="True" />
@@ -50,42 +50,51 @@
             <form string="Ordre de réparation">
                 <field name="company_id" invisible="1"/>
                 <field name="sale_order_id" invisible="1"/>
-                <field name="sale_order_line_id" invisible="1"/>
                 <field name="technician_user_id" force_save="1" readonly="1" invisible="1"/>
+                <field name="variant_ids_available" invisible="1"/>
+                <field name="show_unit_field" invisible="1"/>
+                <field name="device_id" invisible="1"/>
+                <field name="category_id" invisible="1"/>
                 <header>
-                    <button name="action_validate" groups="repair_custom.group_repair_manager" invisible="state != 'draft'" type="object" string="Confirmer la réparation" class="oe_highlight" data-hotkey="v"/>
-                    <button name="action_repair_start" invisible="state != 'confirmed'" type="object" string="Commencer la réparation" class="oe_highlight" data-hotkey="q"/>
-                    <button name="action_repair_end" invisible="state != 'under_repair'" type="object" string="Terminer la réparation" class="btn-success" data-hotkey="x"/>
+                    <button name="action_validate" groups="repair_custom.group_repair_manager" invisible="state not in 'draft'" type="object" string="Confirmer la réparation" class="oe_highlight" data-hotkey="v"/>
+                    <button name="action_repair_start" invisible="state not in 'confirmed'" type="object" string="Commencer la réparation" class="oe_highlight" data-hotkey="q"/>
+                    <button name="action_repair_end" invisible="state not in 'under_repair'" type="object" string="Terminer la réparation" class="btn-success" data-hotkey="x"/>
                     <!-- <button name="action_create_sale_order" groups="repair_custom.group_repair_manager" type="object" string="Créer le devis" invisible="False"/> -->
                     <button name="action_repair_cancel" groups="repair_custom.group_repair_manager" string="Annuler la réparation" type="object" invisible="state in ('done', 'cancel')" data-hotkey="l" class="btn-danger"/>
                     <button name="action_repair_cancel_draft" groups="repair_custom.group_repair_manager" invisible="False" string="Marquer comme brouillon" type="object" data-hotkey="z"/>
                     <button name="action_open_unit" string="Voir l’appareil" type="object" icon="fa-external-link" invisible="not unit_id" class="btn-primary"/>
-                    <button name="%(action_report_repair_order)d" string="Imprimer" type="action" icon="fa-regular fa-print" invisible="state in 'draft'" class="btn-info"/>
-                    <button name="action_create_invoice_direct" string="Créer Facture" icon="fa-regular fa-file" type="object" invisible="state in 'draft'"/>
+                    <button name="%(action_report_repair_ticket)d" string="Bon" type="action" icon="fa-regular fa-print" invisible="state in 'draft'" class="btn-info"/>
+                    <button name="%(action_report_repair_label)d" string="Etiquette" type="action" icon="fa-regular fa-print" invisible="state in 'draft'" class="btn-info"/>
+                    <button name="action_open_pricing_wizard" icon="fa-file" string="Devis/Facture" type="object"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,under_repair,done" on_change="1"/>
-                    <field name="variant_ids_available" invisible="1"/>
-                    <field name="show_unit_field" invisible="1"/>
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
-                        <button name="action_view_invoices"
+                        <button name="action_view_sale_order"
                                 type="object"
                                 class="oe_stat_button"
                                 icon="fa-pencil-square-o"
+                                invisible="sale_order_count == 0">
+                            <field name="sale_order_count" widget="statinfo" string="Devis / BC"/>
+                        </button>
+                        <button name="action_view_invoices"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-file-text-o"
                                 invisible="invoice_count == 0">
                             <field name="invoice_count" widget="statinfo" string="Factures"/>
                         </button>
                     </div>
                     <div class="oe_title">
                         <label class="o_form_label" invisible="unit_id" for="entry_date"/>
-                        <field name="entry_date" invisible="not unit_id" class="o_form_label" string="Date d'entrée" widget="datetime" options="{'show_time':false}" readonly="state != 'draft'" />
+                        <field name="entry_date" invisible="not unit_id" class="o_form_label" string="Date d'entrée" widget="datetime" options="{'show_time':false}" readonly="state not in 'draft'" />
                         <h1 class="d-flex">
                             <!-- <field name="priority" widget="priority" class="me-3"/> -->
                             <field name="device_id_name" invisible="not unit_id" readonly="1"/>
-                            <field name="entry_date" invisible="unit_id" string="Date d'entrée" widget="datetime" options="{'show_time':false}" readonly="state != 'draft'" />
+                            <field name="entry_date" invisible="unit_id" string="Date d'entrée" widget="datetime" options="{'show_time':false}" readonly="state not in 'draft'" />
                             <!-- <field name="device_picture" widget="image" class="ml-3 mb-5 h4"
                                 options="{'convert_to_webp':true,'zoom':true,'size':[0,90]}"
-                                invisible="not device_picture and state != 'draft'" /> -->
+                                invisible="not device_picture and state not in 'draft'" /> -->
                         </h1>
                     </div>
                     <group>
@@ -93,14 +102,14 @@
                             <field class="partner_custom" name="partner_id"
                                 widget="res_partner_many2one"
                                 context="{'res_partner_search_mode': 'customer', 'show_email': True, 'show_phone': True}"
-                                readonly="state != 'draft'"
+                                readonly="state not in 'draft'"
                                 force_save="1"
                                 options="{'no_quick_create':True}"
                                 required="True"/>
                         </group>
                         <group>
-                            <field name="repair_warranty" required="False" force_save="1" readonly="state != 'draft'"/>
-                            <field name="pickup_location_id" placeholder="Sélectionner un lieu..." readonly="state not in ['draft']"/>
+                            <field name="repair_warranty" widget="radio" options="{'horizontal': True}" readonly="state not in 'draft'"/>
+                            <field name="pickup_location_id" placeholder="Sélectionner un lieu..." readonly="state not in 'draft'"/>
                         </group>
                     </group>
                     <!-- <p class="text-muted small">
@@ -114,32 +123,40 @@
                                         domain="[('partner_id', '=', partner_id)]"
                                         options="{'no_create': True, 'no_open': True}"
                                         invisible="not show_unit_field"
-                                        readonly="state != 'draft'"/>
+                                        readonly="state not in 'draft'"/>
+                                    <field name="category_id" readonly="state not in 'draft' or unit_id" force_save="1"/>
                                     <label for="device_id"/>
                                     <div class="o_row">
-                                        <field name="device_id"
+                                        <field name="device_id" 
                                             required="True"
-                                            context="{'default_brand_id': False}"
                                             options="{'no_quick_create':True}"
-                                            readonly="state != 'draft'"
-                                            placeholder="Sélectionner ou créer un modèle d'appareil..."/>
+                                            readonly="state not in 'draft' or unit_id"
+                                            force_save="1"
+                                            domain="[('category_id', '=?', category_id)]"
+                                            context="{'default_category_id': category_id, 'default_brand_id': False}"/>
                                         <button invisible="state not in 'draft'" name="action_create_device" icon="fa-plus-circle" class="oe_link pt-0" type="object" string="Créer un appareil"/>
                                     </div>
                                     <field name="variant_id"
                                         domain="[('id','in', variant_ids_available)]"
                                         context="{'default_device_id': device_id}"
-                                        readonly="state != 'draft'"
+                                        readonly="state not in 'draft' or unit_id"
+                                        force_save="1"
                                         placeholder="Sélectionner une variante (optionnel)"
-                                        invisible ="(not device_id) or (not variant_id and (state != 'draft'))"/>
-                                    <field name="serial_number" placeholder="Numéro de série (ou laisser vide pour auto)" readonly="state != 'draft'" invisible ="not device_id"/>
+                                        invisible ="(not device_id) or (not variant_id and (state not in 'draft'))"/>
+                                    <field name="serial_number" 
+                                        placeholder="Numéro de série (ou laisser vide pour auto)" 
+                                        readonly="state not in 'draft' or unit_id" 
+                                        force_save="1" 
+                                        invisible ="not device_id"/>
                                 </group>
                                 <group>
                                     <field name="tag_ids"   
                                         widget="many2many_tags"
                                         options="{'color_field': 'color', 'no_create_edit': True}"
-                                        force_save="1"
                                         placeholder="Entrer les pannes"
-                                        readonly="state != 'draft'"
+                                        readonly="state not in 'draft'"
+                                        domain="[('category_ids', '=', category_id)]"
+                                        context="{'default_category_id': category_id}"
                                         required="True"
                                         string="Pannes"
                                         can_create="True"
@@ -150,13 +167,20 @@
                         </page>
                         <page string="Atelier">
                             <group>
-                                <field name="unit_id"
-                                        invisible="not unit_id"
-                                        readonly="1"/>
-                                <field name="technician_employee_id" readonly="1" invisible="not technician_employee_id"/>
-                            </group>
-                            <group for="internal_notes">
-                                <field name="internal_notes" widget="html" placeholder="ex: - Remplacement des condensateurs d'alimentation"/>
+                                <group>
+                                    <field name="notes_template_id" 
+                                        domain="['|', ('category_ids', '=', False), ('category_ids', 'parent_of', category_id)]" 
+                                        placeholder="Ex: Protocole Ampli Vintage"/>
+                                    <field name="internal_notes" 
+                                        placeholder=""
+                                        style="background: #faf6de; font-family: monospace; padding: 10px; border: 1px solid #ccc; min-height: 150px;"/>
+                                </group>
+                                <group>
+                                    <field name="unit_id"
+                                            invisible="not unit_id"
+                                            readonly="1"/>
+                                    <field name="technician_employee_id" readonly="1" invisible="not technician_employee_id"/>
+                                </group>
                             </group>
                         </page>
                     </notebook>
@@ -304,6 +328,7 @@
                     <sheet>
                         <group>
                             <field name="name"/>
+                            <field name="category_ids"/>
                         </group>
                     </sheet>
                 </form>
@@ -314,8 +339,9 @@
             <field name="name">repair.tag.tree</field>
             <field name="model">repair.tags</field>
             <field name="arch" type="xml">
-                <tree string="Pannes" editable="bottom">
+                <tree editable="bottom">
                     <field name="name"/>
+                    <field name="category_ids"/>
                 </tree>
             </field>
         </record>

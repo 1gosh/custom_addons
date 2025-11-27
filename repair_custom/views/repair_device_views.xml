@@ -38,6 +38,7 @@
                                     decoration-info="state == 'confirmed'" decoration-warning="state == 'under_repair'"
                                     decoration-danger="state == 'cancel'" decoration-muted="state == 'draft'" readonly="True"
                                     width="50" on_change="1" />
+                                <field name="repair_warranty" optional="show"/>
                                 <field name="partner_id" readonly="1" optional="show" string="Client" width="100" on_change="1" />
                                 <field name="technician_employee_id" optional="show"/>
                             </tree>

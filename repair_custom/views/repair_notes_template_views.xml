@@ -1,0 +1,60 @@
+<odoo>
+    <data>
+        <record id="view_repair_notes_template_tree" model="ir.ui.view">
+            <field name="name">repair.notes.template.tree</field>
+            <field name="model">repair.notes.template</field>
+            <field name="arch" type="xml">
+                <tree string="Gabarits de Notes Techniques">
+                    <field name="name"/>
+                    <field name="category_ids" widget="many2many_tags"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_repair_notes_template_form" model="ir.ui.view">
+            <field name="name">repair.notes.template.form</field>
+            <field name="model">repair.notes.template</field>
+            <field name="arch" type="xml">
+                <form string="Gabarit de Note">
+                    <sheet>
+                        <div class="oe_title">
+                            <label for="name" class="oe_edit_only"/>
+                            <h1><field name="name" placeholder="Ex: Protocole Ampli Intégré (Standard)"/></h1>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="category_ids" widget="many2many_tags" 
+                                       placeholder="Laisser vide pour appliquer à tous les appareils"/>
+                            </group>
+                            <group>
+                                </group>
+                        </group>
+                        
+                        <separator string="Contenu du Gabarit"/>
+                        <field name="template_content" 
+                               placeholder="Saisissez ici le texte standard (sans mise en forme) que le technicien insérera..."/>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_repair_notes_template" model="ir.actions.act_window">
+            <field name="name">Gabarits de Notes</field>
+            <field name="res_model">repair.notes.template</field>
+            <field name="view_mode">tree,form</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Créez votre premier gabarit de notes techniques.
+                </p><p>
+                    Ces gabarits peuvent être insérés rapidement dans la fiche de réparation pour standardiser les rapports.
+                </p>
+            </field>
+        </record>
+
+        <menuitem id="menu_repair_notes_template"
+                  name="Gabarits de Notes"
+                  parent="repair_menu_config"
+                  action="action_repair_notes_template"
+                  sequence="20"/> 
+    </data>
+</odoo>

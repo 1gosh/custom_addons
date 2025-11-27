@@ -13,9 +13,9 @@
                             <field name="repair_id" readonly="1" class="fw-bold"/>
                         </div>
                     </div>
-                    <hr style="margin: 5px 0; border-top: 1px solid #badbcc;"/>
+                    <!-- <hr style="margin: 5px 0; border-top: 1px solid #badbcc;"/>
                     <strong>Notes Atelier :</strong><br/>
-                    <field name="repair_notes" readonly="1" style="white-space: pre-wrap; font-style: italic;"/>
+                    <field name="repair_notes" readonly="1" style="white-space: pre-wrap; font-style: italic;"/> -->
                 </div>
             </xpath>
 
