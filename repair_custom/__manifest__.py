@@ -28,7 +28,6 @@ The following topics are covered by this module:
         'views/sale_order_views.xml',
         'views/tracking_views.xml',
         'views/repair_device_views.xml',
-        'views/repair_order_sequence.xml',
         'views/account_move_views.xml',
         'views/repair_invoice_template_views.xml',
         'views/repair_pricing_wizard_views.xml',
@@ -39,6 +38,7 @@ The following topics are covered by this module:
         "report/repair_ticket.xml",
         "report/repair_label.xml",
         "report/custom_invoice.xml",
+        'data/repair_order_sequence.xml',
         'data/repair_data.xml',
     ],
     'assets': {

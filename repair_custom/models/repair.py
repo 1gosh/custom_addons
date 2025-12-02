@@ -164,7 +164,7 @@ class Repair(models.Model):
     )
     unit_id = fields.Many2one(
         'repair.device.unit',
-        string="Appareil (unité physique)",
+        string="Appareils existants",
         readonly=True,
         domain="[('device_id', '=', device_id), ('partner_id', '=', partner_id)]",
         help="Appareil physique unique correspondant au modèle/variante/numéro de série."
@@ -185,12 +185,10 @@ class Repair(models.Model):
             new_content = self.notes_template_id.template_content
             
             if self.internal_notes:
-                # Si des notes existent déjà, on insère le gabarit après une ligne de séparation
                 self.internal_notes += '\n\n---\n\n' + new_content
             else:
                 self.internal_notes = new_content
             
-            # Important : Réinitialiser le champ pour pouvoir insérer un autre gabarit
             self.notes_template_id = False
 
     def action_create_device(self):
@@ -239,11 +237,9 @@ class Repair(models.Model):
     def _compute_show_unit_field(self):
         Unit = self.env['repair.device.unit']
         for rec in self:
-            # Par défaut, caché
             show = False
 
             if rec.state == 'draft':
-                # visible seulement en brouillon et si le partenaire a des unités
                 has_partner_units = False
                 if rec.partner_id:
                     has_partner_units = bool(Unit.search([('partner_id', '=', rec.partner_id.id)], limit=1))
@@ -259,8 +255,69 @@ class Repair(models.Model):
     sale_order_id = fields.Many2one(
         'sale.order', 'Sale Order', check_company=True, readonly=True,
         copy=False, help="Sale Order from which the Repair Order comes from.")
+    
+    batch_id = fields.Many2one(
+        'repair.batch', 
+        string="Dossier de Dépôt", 
+        readonly=True,
+        copy=False
+    )
+
+    batch_count = fields.Integer(compute='_compute_batch_count', string="Autres appareils")
+
+    @api.depends('batch_id')
+    def _compute_batch_count(self):
+        for rec in self:
+            if rec.batch_id:
+                domain = [('batch_id', '=', rec.batch_id.id)]
+                
+                if isinstance(rec.id, int):
+                    domain.append(('id', '!=', rec.id))
+                
+                rec.batch_count = self.env['repair.order'].search_count(domain)
+            else:
+                rec.batch_count = 0
 
 
+    def action_add_device_to_batch(self):
+        self.ensure_one()
+        
+        if not self.batch_id:
+            new_batch = self.env['repair.batch'].create({
+                'partner_id': self.partner_id.id
+            })
+            self.write({'batch_id': new_batch.id})
+            current_batch_id = new_batch.id
+        else:
+            current_batch_id = self.batch_id.id
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Nouvel Appareil (Même Dossier)'),
+            'res_model': 'repair.order',
+            'view_mode': 'form',
+            'target': 'current',
+            'context': {
+                'default_partner_id': self.partner_id.id,
+                'default_pickup_location_id': self.pickup_location_id.id,
+                'default_entry_date': self.entry_date,
+                'default_batch_id': current_batch_id,
+            }
+        }
+
+    def action_view_batch_repairs(self):
+        self.ensure_one()
+        if not self.batch_id:
+            return
+            
+        return {
+            'name': _("Dossier %s") % self.batch_id.name,
+            'type': 'ir.actions.act_window',
+            'res_model': 'repair.order',
+            'view_mode': 'tree,form',
+            'domain': [('batch_id', '=', self.batch_id.id)], # On affiche tout le dossier
+            'context': {'create': False},
+        }
+        
     def write(self, vals):
         # When going back to draft, clear technician links
         if vals.get('state') == 'draft':
@@ -485,6 +542,18 @@ class Repair(models.Model):
                 
         self.env.cr.commit()
         return True
+    
+    def action_print_repair_order(self):
+        if not self.id:
+            return 
+            
+        self.ensure_one()
+        
+        if self.batch_id:
+            # On passe l'ID du dossier
+            return self.env.ref('repair_custom.action_report_repair_batch_ticket').report_action(self.batch_id)
+        else:
+            return self.env.ref('repair_custom.action_report_repair_ticket').report_action(self)
 
 
 class RepairPickupLocation(models.Model):
@@ -519,27 +588,57 @@ class RepairTags(models.Model):
     def _get_default_color(self):
         return randint(1, 11)
 
-    name = fields.Char('Tag Name', required=True)
+    name = fields.Char('Nom de la panne', required=True)
     color = fields.Integer(string='Color Index', default=_get_default_color)
+    is_global = fields.Boolean(
+        string="Global", 
+        default=False,
+        help="Si coché, cette panne sera proposée pour tous les types d'appareils."
+    )
+
     category_ids = fields.Many2many(
         'repair.device.category',
-        string="Catégories d'appareils",
-        help="Si défini, ce tag n'apparaîtra que pour ces catégories d'appareils. Laisser vide pour un tag universel."
+        string="Catégories spécifiques",
+        help="Si défini, ce tag n'apparaîtra que pour ces catégories."
     )
+
+    _sql_constraints = [
+        ('name_uniq', 'unique (name)', "Ce nom de panne existe déjà !"),
+    ]
+
+    @api.onchange('is_global')
+    def _onchange_is_global_clear_categories(self):
+        """ Si on passe en global, on détache les catégories spécifiques """
+        if self.is_global:
+            self.category_ids = False
 
     @api.model
     def name_create(self, name):
-        """ Crée un tag et lui assigne la catégorie si elle est présente dans le contexte. """
-        category_id = self.env.context.get('default_category_id')
-        vals = {'name': name}
-        
-        if category_id:
-            vals['category_ids'] = [(4, category_id)] 
-        return self.create(vals).name_get()[0]
+        """
+        Logique de création / sélection intelligente :
+        1. Si le tag existe et est GLOBAL -> On ne fait rien (on l'utilise tel quel).
+        2. Si le tag existe et est SPÉCIFIQUE -> On lui ajoute la catégorie actuelle.
+        3. Si le tag n'existe pas -> On le crée avec la catégorie actuelle.
+        """
+        clean_name = name.strip()
+        existing_tag = self.search([('name', '=ilike', clean_name)], limit=1)
 
-    _sql_constraints = [
-        ('name_uniq', 'unique (name)', "Tag name already exists!"),
-    ]
+        if existing_tag:
+            if existing_tag.is_global:
+                return existing_tag.id, existing_tag.display_name
+
+            cats_to_add = []
+            if self.env.context.get('default_category_ids'):
+                cats_to_add = self.env.context.get('default_category_ids')
+            elif self.env.context.get('default_category_id'):
+                 cats_to_add = [self.env.context.get('default_category_id')]
+            
+            if cats_to_add:
+                existing_tag.write({'category_ids': [(4, c) for c in cats_to_add]})
+            
+            return existing_tag.id, existing_tag.display_name
+
+        return super(RepairTags, self).name_create(clean_name)
 
 class RepairDeviceUnit(models.Model):
     _inherit = 'repair.device.unit'
@@ -604,3 +703,71 @@ class RepairNotesTemplate(models.Model):
         'repair.device.category',
         string="Catégories d'appareils"
     )
+
+class RepairBatch(models.Model):
+    _name = 'repair.batch'
+    _description = "Dossier de Dépôt (Groupe)"
+    
+    name = fields.Char("Réf. Dossier", required=True, copy=False, readonly=True, default='New')
+    date = fields.Datetime(
+        string="Date de création",
+        default=lambda self: fields.Datetime.now(),
+        help="Date de création du dossier"
+    )
+    repair_ids = fields.One2many('repair.order', 'batch_id', string="Réparations")
+    partner_id = fields.Many2one('res.partner', string="Client")
+    company_id = fields.Many2one(
+        'res.company',
+        string="Société",
+        default=lambda self: self.env.company,
+    )
+    repair_count = fields.Integer(string="Nb Appareils", compute='_compute_repair_count', store=True)
+
+    @api.depends('repair_ids')
+    def _compute_repair_count(self):
+        for rec in self:
+            rec.repair_count = len(rec.repair_ids)
+
+    state = fields.Selection([
+        ('draft', 'Brouillon'),        # Pas encore généré
+        ('confirmed', 'En attente'),   # Tout est confirmé (prêt à être réparé)
+        ('under_repair', 'En cours'),  # Au moins un appareil sur l'établi
+        ('processed', 'Traité')        # Tout est fini
+    ], string="État", compute='_compute_state', store=True, default='draft')
+
+    # 2. NOUVELLE LOGIQUE DE CALCUL
+    @api.depends('repair_ids.state')
+    def _compute_state(self):
+        for batch in self:
+            if not batch.repair_ids:
+                batch.state = 'draft'
+                continue
+
+            states = set(batch.repair_ids.mapped('state'))
+
+            if states.issubset({'done', 'cancel'}):
+                batch.state = 'processed'
+            elif 'under_repair' in states:
+                batch.state = 'under_repair'
+            elif all(r.state == 'confirmed' for r in batch.repair_ids if r.state != 'cancel'):
+                batch.state = 'confirmed'
+            else:
+                batch.state = 'draft'
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if vals.get('name', 'New') == 'New':
+                seq_name = self.env['ir.sequence'].next_by_code('repair.batch') or 'New'
+                
+                prefix = ""
+                if vals.get('partner_id'):
+                    partner = self.env['res.partner'].browse(vals['partner_id'])
+                    if partner.name:
+                        clean_name = partner.name.upper().replace(' ', '').replace('.', '')[:4]
+                        prefix = f"{clean_name}-"
+                
+                # 3. Assembler le tout
+                vals['name'] = f"{prefix}{seq_name}"
+                
+        return super(RepairBatch, self).create(vals_list)

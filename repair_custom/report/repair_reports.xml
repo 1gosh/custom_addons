@@ -11,25 +11,38 @@
             <field name="binding_model_id" ref="model_repair_order"/>
             <field name="binding_type">report</field>
         </record>
+            <record id="action_report_repair_ticket" model="ir.actions.report">
+            <field name="name">Bon de Prise en Charge</field>
+            <field name="model">repair.order</field>
+            <field name="report_type">qweb-pdf</field>
+            <field name="report_name">repair_custom.report_repair_entry_ticket</field>
+            <field name="report_file">repair_custom.report_repair_entry_ticket</field>
+            <field name="paperformat_id" ref="repair_custom.paperformat_receipt_80mm"/>
+            <field name="binding_model_id" ref="model_repair_order"/>
+            <field name="binding_type">report</field>
+        </record>
+        <template id="report_repair_batch_view">
+            <t t-call="repair_custom.report_repair_entry_ticket"/>
+        </template>
+        <record id="action_report_repair_batch_ticket" model="ir.actions.report">
+            <field name="name">Bon de Prise en Charge (Dossier)</field>
+            <field name="model">repair.batch</field>
+            <field name="report_type">qweb-pdf</field>
+            <field name="report_name">repair_custom.report_repair_batch_view</field>
+            <field name="report_file">repair_custom.report_repair_batch_view</field>
+            <field name="paperformat_id" ref="repair_custom.paperformat_receipt_80mm"/>
+            <field name="binding_model_id" ref="model_repair_batch"/>
+            <field name="binding_type">report</field>
+        </record>
+        <record id="action_report_repair_label" model="ir.actions.report">
+            <field name="name">Étiquette Atelier</field>
+            <field name="model">repair.order</field>
+            <field name="report_type">qweb-pdf</field>
+            <field name="report_name">repair_custom.report_repair_label</field>
+            <field name="report_file">repair_custom.report_repair_label</field>
+            <field name="paperformat_id" ref="repair_custom.paperformat_receipt_80mm"/>
+            <field name="binding_model_id" ref="model_repair_order"/>
+            <field name="binding_type">report</field>
+        </record>
     </data>
-    <record id="action_report_repair_ticket" model="ir.actions.report">
-        <field name="name">Bon de Prise en Charge</field>
-        <field name="model">repair.order</field>
-        <field name="report_type">qweb-pdf</field>
-        <field name="report_name">repair_custom.report_repair_entry_ticket</field>
-        <field name="report_file">repair_custom.report_repair_entry_ticket</field>
-        <field name="paperformat_id" ref="repair_custom.paperformat_receipt_80mm"/>
-        <field name="binding_model_id" ref="model_repair_order"/>
-        <field name="binding_type">report</field>
-    </record>
-    <record id="action_report_repair_label" model="ir.actions.report">
-        <field name="name">Étiquette Atelier</field>
-        <field name="model">repair.order</field>
-        <field name="report_type">qweb-pdf</field>
-        <field name="report_name">repair_custom.report_repair_label</field>
-        <field name="report_file">repair_custom.report_repair_label</field>
-        <field name="paperformat_id" ref="repair_custom.paperformat_receipt_80mm"/>
-        <field name="binding_model_id" ref="model_repair_order"/>
-        <field name="binding_type">report</field>
-    </record>
 </odoo>
