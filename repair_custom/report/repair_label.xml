@@ -8,8 +8,8 @@
                     
                     <table style="width: 100%; table-layout: fixed; border-collapse: collapse; margin-bottom: 1mm;">
                         <tr>
-                            <td style="vertical-align: top; white-space: nowrap; padding-right:2px">
-                                <div style="font-size: 19px; font-weight: 900; line-height: 0.8; white-space: nowrap; text-overflow: ellipsis;">
+                            <td style="width: 72%; vertical-align: top; overflow: hidden">
+                                <div style="font-size: 19px; font-weight: 900; line-height: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                                     <span t-field="o.partner_id.name"/>
                                 </div>
                                 <div style="font-size: 8px;">
@@ -17,7 +17,7 @@
                                 </div>
                             </td>
                             
-                            <td style="text-align: right; vertical-align: top; ">
+                            <td style="width: 28%; text-align: right; vertical-align: top; white-space: nowrap;">
                                 <div style="font-size: 27px; font-weight: 900; letter-spacing: -1px; line-height: 0.8;" t-field="o.create_date" t-options='{"widget": "date", "format": "dd/MM"}'/>
                             </td>
                         </tr>
@@ -25,7 +25,7 @@
 
                     <table style="width: 100%; table-layout: fixed; border-collapse: collapse; background-color: #fff;">
                         <tr>
-                            <td style="width: 50%; vertical-align: top;">
+                            <td style="width: 45%; vertical-align: top;">
                                 
                                 <div style="line-height: 0.9; font-size: 14px; font-weight: bold; word-wrap: break-word;">
                                         <span t-field="o.device_id_name"/>
@@ -56,8 +56,8 @@
                                 </div>
                             </td>
 
-                            <td style="width: 50%; vertical-align: top;">
-                                <div style="font-size: 12px; margin-top: -1px; margin-left: 1mm; word-wrap: break-word; line-height: 1;">
+                            <td style="width: 55%; vertical-align: top;">
+                                <div style="font-size: 12px; margin-top: -1px; margin-left: 2mm; word-wrap: break-word; line-height: 1;">
                                     <t t-foreach="o.tag_ids" t-as="tag">
                                         - <span t-field="tag.name"/><br/>
                                     </t>

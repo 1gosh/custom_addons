@@ -211,7 +211,7 @@
                                 required="True"/>
                         </group>
                         <group>
-                            <field name="repair_warranty" widget="radio" options="{'horizontal': True}" readonly="state not in 'draft' or batch_id"/>
+                            <field name="repair_warranty" widget="radio" options="{'horizontal': True}" readonly="state not in 'draft'"/>
                             <field name="pickup_location_id" placeholder="Sélectionner un lieu..." readonly="state not in 'draft' or batch_id"/>
                         </group>
                     </group>
