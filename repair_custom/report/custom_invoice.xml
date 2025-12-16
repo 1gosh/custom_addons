@@ -1,7 +1,7 @@
 <odoo>
     <data>
         <template id="report_invoice_document_inherit_repair" inherit_id="account.report_invoice_document">
-
+            
             <xpath expr="//div[@name='invoice_date']" position="after">
                 <div t-if="o.repair_id" 
                      class="col-auto col-3 mw-100 mb-2" 
@@ -13,6 +13,16 @@
 
             <xpath expr="//div[@name='due_date']" position="attributes">
                 <attribute name="t-if">o.invoice_date_due and o.move_type == 'out_invoice' and o.state == 'posted' and not o.repair_id</attribute>
+            </xpath>
+
+            <xpath expr="//tr[hasclass('is-subtotal')]" position="attributes">
+                <attribute name="t-if">current_subtotal != 0</attribute>
+            </xpath>
+
+            <xpath expr="//div[@name='reference']" position="replace"/>
+
+            <xpath expr="//div[@name='operation_type']" position="replace">
+                <div class="col-6 mb-2"></div>
             </xpath>
 
         </template>

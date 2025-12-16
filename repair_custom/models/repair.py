@@ -41,12 +41,11 @@ class Repair(models.Model):
         'res.users',
         string="Technicien (Utilisateur)",
         readonly=True,
-        help="Utilisateur Odoo ayant démarré la réparation."
+        help="Utilisateur Odoo ayant éffectué la réparation."
     )
     technician_employee_id = fields.Many2one(
         'hr.employee',
         string="Technicien",
-        readonly=True,
         help="Employé ayant démarré la réparation."
     )
     user_id = fields.Many2one('res.users', string="Responsible", default=lambda self: self.env.user, check_company=True)
@@ -74,6 +73,8 @@ class Repair(models.Model):
     state = fields.Selection([
         ('draft', 'New'),
         ('confirmed', 'Confirmed'),
+        ('quotation_pending', 'Attente Devis'),
+        ('quotation_approved', 'Devis Validé'),
         ('under_repair', 'Under Repair'),
         ('done', 'Repaired'),
         ('cancel', 'Cancelled')], string='Status',
@@ -88,7 +89,27 @@ class Repair(models.Model):
         'res.partner', 'Customer',
         index=True, check_company=True, change_default=True,
         help='Choose partner for whom the order will be invoiced and delivered. You can find a partner by its Name, TIN, Email or Internal Reference.')
+    quote_required = fields.Boolean(
+        string="Devis Exigé",
+        default=False,
+        help="Si coché, le technicien devra demander un devis avant de terminer la réparation.",
+        tracking=True
+    )
+    quotation_notes = fields.Text(
+        string="Estimation Technique",
+        help="Liste des pièces et temps de main d'œuvre estimés pour le devis."
+    )
 
+    parts_waiting = fields.Boolean(
+        string="Attente de pièces",
+        default=False,
+        help="Indique que des pièces sont en commande pour cet appareil.",
+        tracking=True
+    )
+    diagnostic_notes = fields.Text(
+        string="Diagnostic Technique",
+        help="Notes du technicien pour l'élaboration du devis."
+    )
     # --- Appareil lié à la réparation ---
     category_id = fields.Many2one(
         'repair.device.category',
@@ -169,7 +190,7 @@ class Repair(models.Model):
         domain="[('device_id', '=', device_id), ('partner_id', '=', partner_id)]",
         help="Appareil physique unique correspondant au modèle/variante/numéro de série."
     )
-    tag_ids = fields.Many2many('repair.tags', string="Tags")
+    tag_ids = fields.Many2many('repair.tags', string="Pannes")
     internal_notes = fields.Text("Notes de réparation") 
     notes_template_id = fields.Many2one(
         'repair.notes.template', 
@@ -356,15 +377,15 @@ class Repair(models.Model):
         return self.action_repair_done() 
 
     def action_repair_start(self):
-        res = self.write({'state': 'under_repair'})
-
-        user = self.env.user
-        employee = self.env['hr.employee'].search([('user_id', '=', user.id)], limit=1)
-
-        self.write({
-            'technician_user_id': user.id,
-            'technician_employee_id': employee.id if employee else False,
-        })
+        self.ensure_one()
+        return {
+            'name': _("Qui prend en charge cette réparation ?"),
+            'type': 'ir.actions.act_window',
+            'res_model': 'repair.technician.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_repair_id': self.id}
+        }
 
         for repair in self:
             repair.message_post(
@@ -555,6 +576,89 @@ class Repair(models.Model):
         else:
             return self.env.ref('repair_custom.action_report_repair_ticket').report_action(self)
 
+    # --- ACTIONS MÉTIER ATELIER (LOGIQUE BOUTONS) ---
+
+    def action_atelier_start(self):
+        """ 
+        Démarrage intelligent :
+        1. Si on vient du Kiosque, on assigne l'employé du contexte.
+        2. Sinon, on assigne l'employé lié à l'utilisateur connecté.
+        3. On passe en 'under_repair'.
+        """
+        self.ensure_one()
+
+        if self.quote_required and self.state == 'confirmed':
+            raise UserError("Un devis est exigé ! Veuillez d'abord faire la demande.")
+        
+        # Qui est le technicien ?
+        employee_id = False
+        
+        # A. Via le Kiosque (Contexte)
+        if self.env.context.get('atelier_employee_id'):
+            employee_id = self.env.context.get('atelier_employee_id')
+        
+        # B. Via Login standard (Utilisateur courant)
+        if not employee_id:
+            employee = self.env['hr.employee'].search([('user_id', '=', self.env.uid)], limit=1)
+            if employee:
+                employee_id = employee.id
+
+        vals = {'state': 'under_repair'}
+        if employee_id:
+            vals['technician_employee_id'] = employee_id
+            
+        # Petit message dans le fil de discussion
+        if employee_id:
+            tech_name = self.env['hr.employee'].browse(employee_id).name
+            self.message_post(body=f"🔧 <b>{tech_name}</b> a commencé l'intervention.")
+
+        return self.write(vals)
+
+    def action_atelier_request_quote(self):
+        """ Ouvre le Wizard pour saisir l'estimation """
+        self.ensure_one()
+        
+        return {
+            'name': _("Estimation pour Devis"),
+            'type': 'ir.actions.act_window',
+            'res_model': 'repair.quotation.wizard',
+            'view_mode': 'form',
+            'target': 'new', # Pop-up
+            'context': {
+                'default_repair_id': self.id
+            }
+        }
+
+    def action_manager_validate_quote(self):
+        """ Le manager valide -> Retour atelier """
+        self.ensure_one()
+        self.message_post(body="✅ Devis validé par le client/manager. Reprise de l'intervention.")
+        return self.write({
+            'state': 'quotation_approved'
+        })
+
+    def action_atelier_parts_toggle(self):
+        """ Bascule simple du statut 'Attente Pièces' """
+        for rec in self:
+            rec.parts_waiting = not rec.parts_waiting
+            if rec.parts_waiting:
+                rec.message_post(body="📦 Pièces commandées / En attente.")
+            else:
+                rec.message_post(body="✅ Pièces reçues.")
+        return True
+
+    def action_atelier_finish(self):
+        """ Ouvre le Wizard de clôture """
+        self.ensure_one()
+        return {
+            'name': _("Clôture de l'intervention"),
+            'type': 'ir.actions.act_window',
+            'res_model': 'repair.finish.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_repair_id': self.id}
+        }
+
 
 class RepairPickupLocation(models.Model):
     _name = 'repair.pickup.location'
@@ -639,6 +743,7 @@ class RepairTags(models.Model):
             return existing_tag.id, existing_tag.display_name
 
         return super(RepairTags, self).name_create(clean_name)
+
 
 class RepairDeviceUnit(models.Model):
     _inherit = 'repair.device.unit'
@@ -771,3 +876,199 @@ class RepairBatch(models.Model):
                 vals['name'] = f"{prefix}{seq_name}"
                 
         return super(RepairBatch, self).create(vals_list)
+
+class RepairFinishWizard(models.TransientModel):
+    _name = 'repair.finish.wizard'
+    _description = "Assistant de clôture"
+
+    repair_id = fields.Many2one('repair.order', string="Réparation", required=True)
+    
+    template_id = fields.Many2one(
+        'repair.notes.template', 
+        string="Gabarit rapide",
+        help="Pré-remplit le résumé avec un texte type."
+    )
+    
+    work_summary = fields.Text(
+        string="Travaux effectués", 
+        required=True, 
+        help="Détaillez l'intervention pour l'historique et la facturation."
+    )
+
+    @api.onchange('template_id')
+    def _onchange_template_id(self):
+        if self.template_id and self.template_id.template_content:
+            current_text = self.work_summary or ""
+            # On ajoute le gabarit à la suite ou on remplace si vide
+            if current_text:
+                self.work_summary = current_text + "\n" + self.template_id.template_content
+            else:
+                self.work_summary = self.template_id.template_content
+
+    def action_terminate(self):
+        self.ensure_one()
+        
+        # 1. On sauvegarde les notes
+        # On garde l'historique s'il y en avait déjà
+        old_notes = self.repair_id.internal_notes or ""
+        separator = "\n\n--- CLÔTURE ---\n" if old_notes else ""
+        
+        new_notes = f"{old_notes}{separator}{self.work_summary}"
+        
+        # 2. On met à jour la réparation
+        self.repair_id.write({
+            'internal_notes': new_notes,
+            'state': 'done',
+            'parts_waiting': False, # On nettoie les flags
+            'quote_required': False
+        })
+        
+        # 3. Message de confirmation
+        self.repair_id.message_post(body="Réparation terminée et clôturée.")
+        
+        return {'type': 'ir.actions.act_window_close'}
+
+
+class RepairQuotationWizard(models.TransientModel):
+    _name = 'repair.quotation.wizard'
+    _description = "Assistant Demande de Devis"
+
+    repair_id = fields.Many2one('repair.order', string="Réparation", required=True)
+    
+    # On force la saisie ici
+    quotation_notes = fields.Text(
+        string="Estimation Technique", 
+        required=True,
+        help="Détaillez les pièces et la main d'œuvre pour que le manager puisse faire le devis."
+    )
+
+    def action_confirm_request(self):
+        """ Valide la demande et met à jour la réparation """
+        self.ensure_one()
+        
+        # 1. On enregistre l'estimation dans la fiche de réparation
+        # 2. On change l'état en 'quotation_pending'
+        # 3. On active le drapeau 'quote_required'
+        self.repair_id.write({
+            'quotation_notes': self.quotation_notes,
+            'state': 'quotation_pending',
+            'quote_required': True
+        })
+        
+        return {'type': 'ir.actions.act_window_close'}
+
+
+class HrEmployee(models.Model):
+    _inherit = 'hr.employee'
+
+    def action_login_atelier(self):
+        self.ensure_one()
+        
+        # ON OUVRE LE DASHBOARD (Vue Form de l'employé)
+        dashboard_view = self.env.ref('repair_custom.view_employee_atelier_dashboard', raise_if_not_found=False)
+        
+        return {
+            'name': _("Mon Etabli"),
+            'type': 'ir.actions.act_window',
+            'res_model': 'hr.employee', # On reste sur le modèle Employé !
+            'res_id': self.id,          # On ouvre LA fiche de l'employé cliqué
+            'view_mode': 'form',
+            'views': [(dashboard_view.id if dashboard_view else False, 'form')],
+            
+            # On passe l'ID dans le contexte pour que les boutons suivants sachent qui on est
+            'context': {
+                'atelier_employee_id': self.id, 
+            },
+            'target': 'main'
+        }
+    
+    repair_todo_count = fields.Integer(compute='_compute_repair_counts')
+    repair_inprogress_count = fields.Integer(compute='_compute_repair_counts')
+    repair_parts_count = fields.Integer(compute='_compute_repair_counts')
+    repair_done_today_count = fields.Integer(compute='_compute_repair_counts')
+
+    def _compute_repair_counts(self):
+        # On récupère les données en une seule requête pour la performance
+        Repair = self.env['repair.order']
+        for emp in self:
+            # Domaine de base : Moi ou Non assigné (pour le "à faire")
+            # Note : adaptez selon si vous voulez voir ceux des autres ou pas.
+            # Ici je compte UNIQUEMENT ce qui est assigné à l'employé pour son dashboard perso.
+            
+            emp.repair_todo_count = Repair.search_count([
+                ('state', 'in', ['confirmed', 'quotation_approved']),
+                '|', ('technician_employee_id', '=', emp.id), ('technician_employee_id', '=', False)
+            ])
+            
+            emp.repair_inprogress_count = Repair.search_count([
+                ('state', '=', 'under_repair'),
+                ('technician_employee_id', '=', emp.id)
+            ])
+            
+            emp.repair_parts_count = Repair.search_count([
+                ('parts_waiting', '=', True),
+                ('technician_employee_id', '=', emp.id)
+            ])
+
+            # Pour le "Terminé", on regarde juste aujourd'hui
+            emp.repair_done_today_count = Repair.search_count([
+                ('state', '=', 'done'),
+                ('technician_employee_id', '=', emp.id),
+                ('write_date', '>=', fields.Date.today()) 
+            ])
+
+    # --- ACTIONS DES BOUTONS DU DASHBOARD ---
+    # Chaque bouton appellera une méthode qui ouvre la vue liste avec le bon filtre
+
+    def action_open_repairs_todo(self):
+        self.ensure_one()
+        return self._open_repair_view(
+            name="À Faire",
+            domain=[('state', 'in', ['confirmed', 'quotation_approved']), '|', ('technician_employee_id', '=', self.id), ('technician_employee_id', '=', False)],
+            context={'search_default_todo': 1}
+        )
+
+    def action_open_repairs_inprogress(self):
+        self.ensure_one()
+        return self._open_repair_view(
+            name="En Cours",
+            domain=[('state', '=', 'under_repair'), ('technician_employee_id', '=', self.id)],
+            context={'search_default_in_progress': 1}
+        )
+
+    def action_open_repairs_parts(self):
+        self.ensure_one()
+        return self._open_repair_view(
+            name="Attente Pièces",
+            domain=[('parts_waiting', '=', True), ('technician_employee_id', '=', self.id)],
+            context={'search_default_parts': 1}
+        )
+    
+    def action_open_repairs_done(self):
+        self.ensure_one()
+        return self._open_repair_view(
+            name="Terminé (Aujourd'hui)",
+            domain=[('state', '=', 'done'), ('technician_employee_id', '=', self.id)],
+            context={'search_default_done': 1}
+        )
+
+    def _open_repair_view(self, name, domain, context):
+        """ Méthode générique pour ouvrir la vue liste Atelier """
+        tree_view = self.env.ref('repair_custom.view_repair_order_atelier_tree', raise_if_not_found=False)
+        form_view = self.env.ref('repair_custom.view_repair_order_atelier_form', raise_if_not_found=False)
+        
+        ctx = dict(self.env.context)
+        ctx.update(context)
+        ctx['atelier_employee_id'] = self.id # On garde l'identité
+        ctx['default_technician_employee_id'] = self.id
+
+        return {
+            'name': name,
+            'type': 'ir.actions.act_window',
+            'res_model': 'repair.order',
+            'view_mode': 'tree,form',
+            'views': [(tree_view.id, 'tree'), (form_view.id, 'form')],
+            'domain': domain,
+            'context': ctx,
+            'target': 'current' # Ouvre dans la fenêtre principale
+        }

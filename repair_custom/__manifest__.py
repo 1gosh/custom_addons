@@ -42,7 +42,6 @@ The following topics are covered by this module:
     'assets': {
         'web.assets_backend': [
             'repair_custom/static/src/css/views.css',
-            'repair_custom/static/src/js/repair_print.js',
         ],
     },
     'installable': True,
