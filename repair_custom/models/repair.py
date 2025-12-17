@@ -157,23 +157,6 @@ class Repair(models.Model):
             rec.variant_ids_available = rec.device_id.variant_ids if rec.device_id else False
 
     @api.onchange('device_id')
-    def _onchange_device_id_clear_variant(self):
-        if self.unit_id and self.device_id == self.unit_id.device_id:
-            return
-
-        if self.device_id:
-            self.variant_id = False
-            if self.unit_id:
-                self.unit_id = False
-                self.serial_number = False
-            
-    @api.onchange('category_id')
-    def _onchange_category_id(self):
-        if self.device_id and self.category_id and self.device_id.category_id != self.category_id:
-            self.device_id = False
-            self.variant_id = False
-
-    @api.onchange('device_id')
     def _onchange_device_id_set_category(self):
         """ 
         Quand l'utilisateur choisit un appareil, on remplit la catégorie 
@@ -192,12 +175,6 @@ class Repair(models.Model):
         readonly=False,
         help="Numéro de série de l'appareil lié. Si aucune unité n'est encore créée, il sera rempli lors de la confirmation."
     )
-    device_id_name = fields.Char(
-        "Appareil",
-        related="unit_id.device_name",
-        store=True,
-        readonly=False
-    )
     unit_id = fields.Many2one(
         'repair.device.unit',
         string="Appareils existants",
@@ -205,6 +182,37 @@ class Repair(models.Model):
         domain="[('device_id', '=', device_id), ('partner_id', '=', partner_id)]",
         help="Appareil physique unique correspondant au modèle/variante/numéro de série."
     )
+    device_id_name = fields.Char(
+        "Appareil",
+        related="unit_id.device_name",
+        store=True,
+        readonly=False
+    )
+
+    @api.onchange('device_id')
+    def _onchange_device_id_clear_variant(self):
+        if self.unit_id and self.device_id == self.unit_id.device_id:
+            return
+
+        if self.device_id:
+            self.variant_id = False
+            if self.unit_id:
+                self.unit_id = False
+                self.serial_number = False
+            
+    @api.onchange('category_id')
+    def _onchange_category_id(self):
+        # On garde uniquement la logique de nettoyage
+        if self.device_id and self.category_id:
+            category_of_device = self.device_id.category_id
+            selected_category = self.category_id
+            
+            allowed_categories = selected_category + selected_category.search([('id', 'child_of', selected_category.id)])
+            
+            if category_of_device.id not in allowed_categories.ids:
+                 self.device_id = False
+                 self.variant_id = False
+
     tag_ids = fields.Many2many('repair.tags', string="Pannes")
     internal_notes = fields.Text("Notes de réparation") 
     notes_template_id = fields.Many2one(
@@ -226,16 +234,6 @@ class Repair(models.Model):
                 self.internal_notes = new_content
             
             self.notes_template_id = False
-
-    def action_create_device(self):
-        return {
-            'type': 'ir.actions.act_window',
-            'name': 'Créer un modèle d’appareil',
-            'res_model': 'repair.device',
-            'view_mode': 'form',
-            'target': 'new',
-            'context': {'default_brand_id': False},
-        }
 
     @api.onchange('unit_id')
     def _onchange_unit_id(self):

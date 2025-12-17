@@ -148,9 +148,8 @@
                     <button name="action_validate" groups="repair_custom.group_repair_manager" invisible="state not in 'draft'" type="object" string="Confirmer la réparation" class="oe_highlight" data-hotkey="v"/>
                     <button name="action_repair_start" invisible="state not in 'confirmed'" type="object" string="Commencer" class="oe_highlight" data-hotkey="q"/>
                     <button name="action_repair_end" invisible="state not in 'under_repair'" type="object" string="Terminer la réparation" class="btn-success" data-hotkey="x"/>
-                    <!-- <button name="action_create_sale_order" groups="repair_custom.group_repair_manager" type="object" string="Créer le devis" invisible="False"/> -->
                     <button name="action_repair_cancel" groups="repair_custom.group_repair_manager" string="Annuler" type="object" invisible="state in ('done', 'cancel')" data-hotkey="l" class="btn-danger"/>
-                    <button name="action_repair_cancel_draft" groups="repair_custom.group_repair_manager" invisible="False" string="Marquer comme brouillon" type="object" data-hotkey="z"/>
+                    <button name="action_repair_cancel_draft" groups="repair_custom.group_repair_manager" invisible="state in 'draft'" string="Marquer comme brouillon" type="object" data-hotkey="z"/>
                     <button name="action_open_unit" string="Voir l’appareil" type="object" icon="fa-external-link" invisible="not unit_id" class="btn-primary"/>
                     <button name="action_print_repair_order" string="Bon" type="object" icon="fa-regular fa-print" invisible="state in 'draft'" class="btn-info"/>
                     <button name="%(action_report_repair_label)d" string="Etiquette" type="action" icon="fa-regular fa-print" invisible="state in 'draft'" class="btn-info"/>
@@ -236,7 +235,7 @@
                                             options="{'no_quick_create':True}"
                                             readonly="state not in 'draft' or unit_id"
                                             force_save="1"
-                                            domain="[('category_id', '=?', category_id)]"
+                                            domain="category_id and [('category_id', 'child_of', category_id)] or []"
                                             context="{'default_category_id': category_id, 'default_brand_id': False}"/>
                                         <!-- <button invisible="state not in 'draft'" name="action_create_device" icon="fa-plus-circle" class="oe_link pt-0" type="object" string="Créer un appareil"/> -->
                                     </div>
@@ -259,7 +258,7 @@
                                         options="{'color_field': 'color'}"
                                         placeholder="Entrer les pannes"
                                         readonly="state not in 'draft'"
-                                        domain="['|', ('category_ids', '=', category_id), ('category_ids', '=', False)]"
+                                        domain="category_id and ['|', '|', ('category_ids', '=', False), ('category_ids', 'parent_of', category_id), ('category_ids', 'child_of', category_id)] or [('category_ids', '=', False)]"
                                         context="{'default_category_ids': [category_id]}"
                                         required="True"
                                         string="Pannes"
@@ -346,10 +345,13 @@
         <field name="model">repair.order</field>
         <field name="arch" type="xml">
             <search string="Search Repair Orders">
-                <!-- <field name="name" string="Repair Order" filter_domain="['|', ('name', 'ilike', self), ('product_id', 'ilike', self)]"/> -->
-                <!-- <field name="product_id"/> -->
-                <field name="partner_id" filter_domain="[('partner_id', 'child_of', self)]"/>
-                <field name="sale_order_id"/>
+                <field name="name" string="Recherche Globale" 
+                       filter_domain="['|', '|', '|',
+                            ('name', 'ilike', self), 
+                            ('partner_id', 'ilike', self), 
+                            ('device_id', 'ilike', self), 
+                            ('serial_number', 'ilike', self)]"/>
+                <field name="serial_number"/>
                 <filter string="New" domain="[('state', '=', 'draft')]" name="filter_draft" />
                 <filter string="Confirmed" domain="[('state', '=', 'confirmed')]" name="filter_confirmed" />
                 <filter string="Under Repair" name="filter_under_repair" domain="[('state', '=', 'under_repair')]"/>
@@ -358,11 +360,11 @@
                 <separator/>
                 <filter string="Ready" name="ready" domain="[('state', 'in', 'confirmed')]" invisible="True"/>
                 <filter name="filter_create_date" date="create_date"/>
-                <group expand="0" string="Group By">
-                    <filter string="Customer" name="partner" domain="[]" context="{'group_by': 'partner_id'}"/>
-                    <!-- <filter string="Product" name="product" domain="[]" context="{'group_by': 'product_id'}"/> -->
-                    <filter string="Status" name="status" domain="[]" context="{'group_by': 'state'}"/>
-                    <filter string="Company" name="company" domain="[]" context="{'group_by': 'company_id'}" groups="base.group_multi_company"/>
+                <group expand="0" string="Regrouper par">
+                    <filter string="État" name="group_state" context="{'group_by': 'state'}"/>
+                    <filter string="Technicien" name="group_tech" context="{'group_by': 'technician_employee_id'}"/>
+                    <filter string="Client" name="group_partner" context="{'group_by': 'partner_id'}"/>
+                    <filter string="Mois d'entrée" name="group_date" context="{'group_by': 'entry_date:month'}"/>
                 </group>
             </search>
         </field>
@@ -603,7 +605,12 @@
         <field name="model">repair.order</field>
         <field name="arch" type="xml">
             <search string="Recherche Atelier">
-                <field name="name" filter_domain="['|', '|', ('name', 'ilike', self), ('device_id_name', 'ilike', self), ('serial_number', 'ilike', self)]"/>
+                <field name="name" string="Recherche Globale" 
+                       filter_domain="['|', '|', '|',
+                            ('name', 'ilike', self), 
+                            ('partner_id', 'ilike', self), 
+                            ('device_id', 'ilike', self), 
+                            ('serial_number', 'ilike', self)]"/>
                 <field name="partner_id"/>  
 
                 <filter string="Ma Session" name="my_session" domain="[('technician_employee_id', '=', context.get('atelier_employee_id'))]"/>
@@ -841,14 +848,6 @@
                                 <div class="text-muted">
                                     <field name="job_title"/>
                                 </div>
-                                
-                                <!-- <div class="mt-3">
-                                    <button name="action_login_atelier" 
-                                            type="object" 
-                                            class="btn btn-primary btn-block">
-                                        Accéder à l'établi
-                                    </button>
-                                </div> -->
                             </div>
                         </div>
                     </t>

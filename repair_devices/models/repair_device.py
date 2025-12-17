@@ -1,6 +1,7 @@
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError, ValidationError
 from random import randint
+import re
 
 class RepairDevice(models.Model):
     _name = "repair.device"
@@ -12,12 +13,13 @@ class RepairDevice(models.Model):
         "repair.device.brand",
         string="Marque",
         required=True,
-        ondelete="restrict",
+        ondelete="restrict"
     )
     category_id = fields.Many2one(
         "repair.device.category",
         string="Catégorie",
-        ondelete="set null"
+        required=True,
+        ondelete="restrict"
     )
     production_year = fields.Char("Année de sortie")
     variant_ids = fields.Many2many(
@@ -88,6 +90,71 @@ class RepairDevice(models.Model):
             name = rec.display_name
             res.append((rec.id, name))
         return res
+
+    @api.model
+    def default_get(self, fields_list):
+        defaults = super(RepairDevice, self).default_get(fields_list)
+        
+        input_name = self.env.context.get('default_name') or self.env.context.get('default_display_name')
+
+        if input_name and not defaults.get('brand_id'):
+            
+            # 1. Fonction de nettoyage (On ne garde que les lettres et chiffres)
+            def clean_str(s):
+                return re.sub(r'[^a-z0-9]', '', s.lower()) if s else ''
+
+            input_clean = clean_str(input_name)
+            
+            # 2. On récupère les marques
+            brands = self.env['repair.device.brand'].search([])
+            
+            # On trie par longueur de la version NETTOYÉE (le plus long d'abord)
+            sorted_brands = sorted(brands, key=lambda b: len(clean_str(b.name)), reverse=True)
+
+            for brand in sorted_brands:
+                brand_clean = clean_str(brand.name)
+                
+                # Ex: brand_clean="bangolufsen" (11 chars) 
+                # input_clean="bangolufsenbeogram3000"
+                
+                if brand_clean and input_clean.startswith(brand_clean):
+                    
+                    # MATCH TROUVÉ !
+                    defaults['brand_id'] = brand.id
+                    
+                    # 3. L'Algorithme du "Curseur" pour extraire le modèle
+                    # Comme la chaîne d'origine "Bang Olufsen" est différente de "Bang & Olufsen",
+                    # on ne peut pas couper simplement par la longueur du nom.
+                    
+                    target_length = len(brand_clean) # Nombre de "vraies" lettres à passer (11)
+                    current_count = 0
+                    cut_index = 0
+
+                    # On parcourt la chaîne d'origine caractère par caractère
+                    for i, char in enumerate(input_name):
+                        if char.isalnum(): # Si c'est une lettre ou un chiffre
+                            current_count += 1
+                        
+                        if current_count == target_length:
+                            cut_index = i + 1 # On a trouvé la fin de la marque
+                            break
+                    
+                    # Le modèle, c'est tout ce qu'il y a après ce curseur
+                    remainder = input_name[cut_index:].strip()
+                    
+                    # 4. Petit nettoyage cosmétique du début du modèle
+                    # Si l'utilisateur a tapé "Bang Olufsen - Beogram", le remainder est "- Beogram"
+                    # On vire les tirets ou points qui traînent au début
+                    remainder = re.sub(r'^[^a-zA-Z0-9]+', '', remainder)
+                    
+                    defaults['name'] = remainder.upper()
+                    
+                    # Optionnel : On peut aussi vider le 'name' pour forcer le recalcul si vous avez un compute
+                    # defaults['name'] = False 
+                    
+                    break # On arrête à la première marque trouvée
+
+        return defaults
 
     _sql_constraints = [
         ("unique_brand_model", "unique(brand_id, name)", "Ce modèle existe déjà pour cette marque."),
