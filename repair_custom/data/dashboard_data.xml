@@ -1,0 +1,34 @@
+<odoo>
+    <data noupdate="0">
+        <record id="today" model="atelier.dashboard.tile">
+            <field name="name">Historique du jour</field>
+            <field name="category_type">today</field>
+            <field name="color">9</field> 
+        </record>
+        <record id="tile_todo" model="atelier.dashboard.tile">
+            <field name="name">À faire</field>
+            <field name="category_type">todo</field>
+            <field name="color">3</field> 
+        </record>
+        <record id="tile_progress" model="atelier.dashboard.tile">
+            <field name="name">Mes Réparations en cours</field>
+            <field name="category_type">progress</field>
+            <field name="color">10</field> 
+        </record>
+        <record id="tile_waiting" model="atelier.dashboard.tile">
+            <field name="name">Attente de pièces</field>
+            <field name="category_type">waiting</field>
+            <field name="color">1</field> 
+        </record>
+        <record id="tile_quote_waiting" model="atelier.dashboard.tile">
+            <field name="name">Devis en attente</field>
+            <field name="category_type">quote_waiting</field>
+            <field name="color">4</field> 
+        </record>
+        <record id="tile_quote_validated" model="atelier.dashboard.tile">
+            <field name="name">Devis validé</field>
+            <field name="category_type">quote_validated</field>
+            <field name="color">4</field> 
+        </record>
+    </data>
+</odoo>

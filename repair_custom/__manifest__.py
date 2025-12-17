@@ -38,6 +38,7 @@ The following topics are covered by this module:
         "report/custom_invoice.xml",
         'data/repair_order_sequence.xml',
         'data/repair_data.xml',
+        'data/dashboard_data.xml',
     ],
     'assets': {
         'web.assets_backend': [

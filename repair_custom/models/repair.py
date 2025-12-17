@@ -1,5 +1,5 @@
 from random import randint
-from datetime import date
+from datetime import date, datetime, time
 import uuid
 from odoo import api, Command, fields, models, _
 from odoo.exceptions import UserError, ValidationError
@@ -21,6 +21,21 @@ class Repair(models.Model):
         help="Date et heure d'entrée de l'appareil."
     )
     device_picture = fields.Image()
+    last_action_time = fields.Char(
+        string="Heure",
+        compute='_compute_last_action_time',
+        help="Heure de la dernière modification (format court)"
+    )
+    @api.depends('write_date')
+    def _compute_last_action_time(self):
+        for rec in self:
+            if rec.write_date:
+                # 1. On convertit la date UTC (serveur) vers le fuseau horaire de l'utilisateur
+                user_tz_dt = fields.Datetime.context_timestamp(self, rec.write_date)
+                # 2. On formate juste l'heure (HH:MM)
+                rec.last_action_time = user_tz_dt.strftime('%H:%M')
+            else:
+                rec.last_action_time = ""
 
     @api.model
     def _default_location(self):
@@ -958,117 +973,156 @@ class RepairQuotationWizard(models.TransientModel):
         return {'type': 'ir.actions.act_window_close'}
 
 
+class AtelierDashboardTile(models.Model):
+    _name = 'atelier.dashboard.tile'
+    _description = 'Tuile du Tableau de bord Atelier'
+    _order = 'sequence, id' 
+
+    sequence = fields.Integer(default=10)
+    name = fields.Char("Titre", required=True)
+    color = fields.Integer("Couleur")
+    category_type = fields.Selection([
+        ('todo', 'À faire'),
+        ('progress', 'En cours (Moi)'),
+        ('waiting', 'Attente de pièces'),
+        ('quote_waiting', 'Devis en attente'),
+        ('quote_validated', 'Devis validé'),
+        ('today', 'Activité du jour'),
+    ], string="Type de catégorie", required=True)
+    
+    count_reparations = fields.Integer(compute='_compute_count', string="Nombre")
+
+    def _compute_count(self):
+        Reparation = self.env['repair.order']
+        # On récupère l'ID du technicien "Pierre" transmis par le login
+        employee_id = self._context.get('atelier_employee_id')
+        today_start = datetime.combine(date.today(), time.min)
+        
+        for record in self:
+            domain = []
+            
+            # --- 1. Filtre À FAIRE ---
+            if record.category_type == 'todo':
+                domain = [('state', '=', 'confirmed')]
+                
+            # --- 2. Filtre EN COURS (Logique Kiosque) ---
+            elif record.category_type == 'progress':
+                domain = [('state', '=', 'under_repair')]
+                # Si on est en mode Kiosque (Pierre est là), on compte SES réparations
+                if employee_id:
+                    domain.append(('technician_employee_id', '=', employee_id))
+                # Sinon (Admin classique), on compte celles de son user
+                else:
+                    domain.append(('user_id', '=', self.env.uid))
+
+            # --- 3. Autres filtres ---
+            elif record.category_type == 'waiting':
+                domain = [('parts_waiting', '=', True)]
+            elif record.category_type == 'quote_waiting':
+                domain = [('state', 'in', ['quotation_pending'])]
+            elif record.category_type == 'quote_validated':
+                domain = [('state', 'in', ['quotation_approved'])]
+            elif record.category_type == 'today':
+                # Réparations modifiées aujourd'hui PAR le technicien
+                domain = [('write_date', '>=', today_start)]
+                if employee_id:
+                    domain.append(('technician_employee_id', '=', employee_id))
+                else:
+                    domain.append(('user_id', '=', self.env.uid))
+            
+            # Sécurité globale sur les compteurs (pas d'annulés)
+            domain.append(('state', '!=', 'cancel'))
+            
+            # Pour les tuiles de travail (todo/waiting), on ne veut pas les brouillons accidentels
+            if record.category_type in ['todo', 'waiting']:
+                 domain.append(('state', '!=', 'draft'))
+
+            record.count_reparations = Reparation.search_count(domain)
+
+    def action_open_reparations(self):
+        self.ensure_one()
+        
+        # IMPORTANT : On garde le contexte actuel (qui contient 'atelier_employee_id')
+        today_start = datetime.combine(date.today(), time.min)
+        ctx = self._context.copy()
+        domain = [('state', 'not in', ['draft', 'cancel'])]
+        
+        # On prépare l'action de base
+        action = {
+            'name': self.name,
+            'type': 'ir.actions.act_window',
+            'res_model': 'repair.order',
+            'view_mode': 'tree,form',
+            'context': ctx,
+            # Ceinture de sécurité (Domaine dur)
+            'domain': domain, 
+        }
+        
+        # --- Activation des filtres "Retirables" (Search Defaults) ---
+        # Ces clés ('search_default_XXX') correspondent aux 'name' définis dans votre XML de recherche
+
+        if self.category_type == 'today':
+            # On applique le filtre temporel directement dans le domaine de l'action
+            action['domain'].append(('write_date', '>=', today_start))
+            
+            # On active le filtre "Ma Session" pour être sûr
+            ctx.update({'search_default_my_session': 1})
+            
+            history_view = self.env.ref('repair_custom.view_repair_order_atelier_history_tree', raise_if_not_found=False)
+            if history_view:
+                # On dit à l'action : "Utilise cette vue Tree là, pas celle par défaut"
+                action['views'] = [(history_view.id, 'tree'), (False, 'form')]
+        
+        if self.category_type == 'todo':
+            # Active le filtre XML name="todo"
+            ctx.update({'search_default_todo': 1})
+            # On masque les brouillons via le domaine dur ici
+            action['domain'].append(('state', '!=', 'draft'))
+            
+        elif self.category_type == 'progress':
+            # Active le filtre XML name="in_progress"
+            ctx.update({'search_default_in_progress': 1})
+            
+            # Active le filtre XML name="my_session"
+            # Ce filtre va lire 'atelier_employee_id' qui est dans le ctx
+            ctx.update({'search_default_my_session': 1})
+            
+            # Si le technicien crée une fiche depuis cette vue, on le pré-remplit
+            if ctx.get('atelier_employee_id'):
+                ctx.update({'default_technician_employee_id': ctx.get('atelier_employee_id')})
+                
+        elif self.category_type == 'waiting':
+            ctx.update({'search_default_parts': 1})
+            
+        elif self.category_type == 'quote_waiting':
+            ctx.update({'search_default_quote_waiting': 1})
+        
+        elif self.category_type == 'quote_validated':
+            ctx.update({'search_default_quote_validated': 1})
+            
+        return action
+
+
 class HrEmployee(models.Model):
     _inherit = 'hr.employee'
 
     def action_login_atelier(self):
         self.ensure_one()
         
-        # ON OUVRE LE DASHBOARD (Vue Form de l'employé)
-        dashboard_view = self.env.ref('repair_custom.view_employee_atelier_dashboard', raise_if_not_found=False)
+        # On cible la vue Kanban des TUILES (pas des réparations)
+        # Assurez-vous que l'ID xml 'view_atelier_dashboard_kanban' existe bien dans votre XML
+        dashboard_view = self.env.ref('repair_custom.view_atelier_dashboard_kanban', raise_if_not_found=False)
         
         return {
-            'name': _("Mon Etabli"),
+            'name': _("Tableau de bord - %s") % self.name,
             'type': 'ir.actions.act_window',
-            'res_model': 'hr.employee', # On reste sur le modèle Employé !
-            'res_id': self.id,          # On ouvre LA fiche de l'employé cliqué
-            'view_mode': 'form',
-            'views': [(dashboard_view.id if dashboard_view else False, 'form')],
-            
-            # On passe l'ID dans le contexte pour que les boutons suivants sachent qui on est
+            'res_model': 'atelier.dashboard.tile', 
+            'view_mode': 'kanban',
+            'view_id': dashboard_view.id if dashboard_view else False,
+            'target': 'main',
             'context': {
+                # C'est la seule chose qui compte ici : transmettre l'identité
                 'atelier_employee_id': self.id, 
-            },
-            'target': 'main'
-        }
-    
-    repair_todo_count = fields.Integer(compute='_compute_repair_counts')
-    repair_inprogress_count = fields.Integer(compute='_compute_repair_counts')
-    repair_parts_count = fields.Integer(compute='_compute_repair_counts')
-    repair_done_today_count = fields.Integer(compute='_compute_repair_counts')
-
-    def _compute_repair_counts(self):
-        # On récupère les données en une seule requête pour la performance
-        Repair = self.env['repair.order']
-        for emp in self:
-            # Domaine de base : Moi ou Non assigné (pour le "à faire")
-            # Note : adaptez selon si vous voulez voir ceux des autres ou pas.
-            # Ici je compte UNIQUEMENT ce qui est assigné à l'employé pour son dashboard perso.
-            
-            emp.repair_todo_count = Repair.search_count([
-                ('state', 'in', ['confirmed', 'quotation_approved']),
-                '|', ('technician_employee_id', '=', emp.id), ('technician_employee_id', '=', False)
-            ])
-            
-            emp.repair_inprogress_count = Repair.search_count([
-                ('state', '=', 'under_repair'),
-                ('technician_employee_id', '=', emp.id)
-            ])
-            
-            emp.repair_parts_count = Repair.search_count([
-                ('parts_waiting', '=', True),
-                ('technician_employee_id', '=', emp.id)
-            ])
-
-            # Pour le "Terminé", on regarde juste aujourd'hui
-            emp.repair_done_today_count = Repair.search_count([
-                ('state', '=', 'done'),
-                ('technician_employee_id', '=', emp.id),
-                ('write_date', '>=', fields.Date.today()) 
-            ])
-
-    # --- ACTIONS DES BOUTONS DU DASHBOARD ---
-    # Chaque bouton appellera une méthode qui ouvre la vue liste avec le bon filtre
-
-    def action_open_repairs_todo(self):
-        self.ensure_one()
-        return self._open_repair_view(
-            name="À Faire",
-            domain=[('state', 'in', ['confirmed', 'quotation_approved']), '|', ('technician_employee_id', '=', self.id), ('technician_employee_id', '=', False)],
-            context={'search_default_todo': 1}
-        )
-
-    def action_open_repairs_inprogress(self):
-        self.ensure_one()
-        return self._open_repair_view(
-            name="En Cours",
-            domain=[('state', '=', 'under_repair'), ('technician_employee_id', '=', self.id)],
-            context={'search_default_in_progress': 1}
-        )
-
-    def action_open_repairs_parts(self):
-        self.ensure_one()
-        return self._open_repair_view(
-            name="Attente Pièces",
-            domain=[('parts_waiting', '=', True), ('technician_employee_id', '=', self.id)],
-            context={'search_default_parts': 1}
-        )
-    
-    def action_open_repairs_done(self):
-        self.ensure_one()
-        return self._open_repair_view(
-            name="Terminé (Aujourd'hui)",
-            domain=[('state', '=', 'done'), ('technician_employee_id', '=', self.id)],
-            context={'search_default_done': 1}
-        )
-
-    def _open_repair_view(self, name, domain, context):
-        """ Méthode générique pour ouvrir la vue liste Atelier """
-        tree_view = self.env.ref('repair_custom.view_repair_order_atelier_tree', raise_if_not_found=False)
-        form_view = self.env.ref('repair_custom.view_repair_order_atelier_form', raise_if_not_found=False)
-        
-        ctx = dict(self.env.context)
-        ctx.update(context)
-        ctx['atelier_employee_id'] = self.id # On garde l'identité
-        ctx['default_technician_employee_id'] = self.id
-
-        return {
-            'name': name,
-            'type': 'ir.actions.act_window',
-            'res_model': 'repair.order',
-            'view_mode': 'tree,form',
-            'views': [(tree_view.id, 'tree'), (form_view.id, 'form')],
-            'domain': domain,
-            'context': ctx,
-            'target': 'current' # Ouvre dans la fenêtre principale
+                'create': False, # Pas de bouton "Créer" sur le dashboard
+            }
         }

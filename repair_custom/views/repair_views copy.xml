@@ -390,24 +390,6 @@
         </field>
     </record>
 
-    <record id="view_repair_order_calendar" model="ir.ui.view">
-        <field name="name">repair.order.calendar</field>
-        <field name="model">repair.order</field>
-        <field name="arch" type="xml">
-            <calendar string="Calendrier Atelier"
-                      date_start="entry_date"
-                      color="technician_employee_id"
-                      mode="month">
-                
-                <field name="partner_id"/>
-                <field name="device_id_name"/>
-                
-                <field name="technician_employee_id" filters="1"/>
-                <field name="state" filters="1"/>
-            </calendar>
-        </field>
-    </record>
-
     <record id="action_repair_order_form" model="ir.actions.act_window">
         <field name="name">Repair Orders</field>
         <field name="type">ir.actions.act_window</field>
@@ -415,143 +397,142 @@
         <field name="view_mode">form</field>
     </record>
 
-    <record id="action_repair_order_tree" model="ir.actions.act_window">
-        <field name="name">Repair Orders</field>
-        <field name="res_model">repair.order</field>
-        <field name="view_mode">tree,kanban,graph,calendar,pivot,form,activity</field>
-        <field name="search_view_id" ref="view_repair_order_form_filter"/>
-        <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">
-            No repair order found. Let's create one!
-            </p><p>
-            In a repair order, you can detail the components you remove,
-            add or replace and record the time you spent on the different
-            operations.
-            </p>
-        </field>
-        <field name="view_ids" eval="[(5, 0, 0),
-        (0, 0, {'view_mode': 'tree', 'view_id': ref('view_repair_order_tree')}),
-        (0, 0, {'view_mode': 'form', 'view_id': ref('view_repair_order_form')}),
-        (0, 0, {'view_mode': 'calendar', 'view_id': ref('view_repair_order_calendar')})]"/>
-    </record>
+         <record id="action_repair_order_tree" model="ir.actions.act_window">
+            <field name="name">Repair Orders</field>
+            <field name="res_model">repair.order</field>
+            <field name="view_mode">tree,kanban,graph,pivot,form,activity</field>
+            <field name="search_view_id" ref="view_repair_order_form_filter"/>
+            <field name="help" type="html">
+              <p class="o_view_nocontent_smiling_face">
+                No repair order found. Let's create one!
+              </p><p>
+                In a repair order, you can detail the components you remove,
+                add or replace and record the time you spent on the different
+                operations.
+              </p>
+            </field>
+            <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'tree', 'view_id': ref('view_repair_order_tree')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_repair_order_form')})]"/>
+        </record>
 
-    <record id="action_repair_order_graph" model="ir.actions.act_window">
-        <field name="name">Repair Orders</field>
-        <field name="context">{
-            'search_default_product': 1,
-            'search_default_createDate': 1,
-        }
-        </field>
-        <field name="res_model">repair.order</field>
-        <field name="view_mode">tree,kanban,graph,pivot,form</field>
-        <field name="view_id" ref="view_repair_graph"/>
-    </record>
+        <record id="action_repair_order_graph" model="ir.actions.act_window">
+            <field name="name">Repair Orders</field>
+            <field name="context">{
+                'search_default_product': 1,
+                'search_default_createDate': 1,
+            }
+            </field>
+            <field name="res_model">repair.order</field>
+            <field name="view_mode">tree,kanban,graph,pivot,form</field>
+            <field name="view_id" ref="view_repair_graph"/>
+        </record>
 
-    <record id="view_repair_tag_form" model="ir.ui.view">
-        <field name="name">repair.tag.form</field>
-        <field name="model">repair.tags</field>
-        <field name="arch" type="xml">
-            <form string="Pannes">
-                <sheet>
-                    <group>
+        <record id="view_repair_tag_form" model="ir.ui.view">
+            <field name="name">repair.tag.form</field>
+            <field name="model">repair.tags</field>
+            <field name="arch" type="xml">
+                <form string="Pannes">
+                    <sheet>
                         <group>
-                            <field name="name"/>
-                            <field name="is_global" widget="boolean_toggle"/>
+                            <group>
+                                <field name="name"/>
+                                <field name="is_global" widget="boolean_toggle"/>
+                            </group>
+                            <group>
+                                <field name="category_ids" widget="many2many_tags" 
+                                    invisible="is_global" 
+                                    options="{'no_create': True}"/>
+                            </group>
                         </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="view_repair_tag_tree" model="ir.ui.view">
+            <field name="name">repair.tag.tree</field>
+            <field name="model">repair.tags</field>
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="name"/>
+                    <field name="category_ids"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_repair_tag_search" model="ir.ui.view">
+            <field name="name">repair.tag.search</field>
+            <field name="model">repair.tags</field>
+            <field name="arch" type="xml">
+                <search string="Tags">
+                    <field name="name"/>
+                </search>
+            </field>
+        </record>
+
+        <record id="action_repair_order_tag" model="ir.actions.act_window">
+            <field name="name">Tags</field>
+            <field name="res_model">repair.tags</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                Créer une panne type
+              </p>
+            </field>
+        </record>
+
+        <record id="action_repair_pickup_location" model="ir.actions.act_window">
+            <field name="name">Lieux de prise en charge</field>
+            <field name="res_model">repair.pickup.location</field>
+            <field name="view_mode">tree,form</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Créer un nouveau lieu
+                </p>
+            </field>
+        </record>
+
+        <record id="view_repair_pickup_location_tree" model="ir.ui.view">
+            <field name="name">repair.pickup.location.tree</field>
+            <field name="model">repair.pickup.location</field>
+            <field name="arch" type="xml">
+                <tree string="Lieux de prise en charge">
+                    <field name="name"/>
+                    <field name="city"/>
+                    <field name="country_id"/>
+                    <field name="company_id"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_repair_pickup_location_form" model="ir.ui.view">
+            <field name="name">repair.pickup.location.form</field>
+            <field name="model">repair.pickup.location</field>
+            <field name="arch" type="xml">
+                <form string="Lieu de prise en charge">
+                    <sheet>
+                        <div class="oe_title">
+                            <h1><field name="name"/></h1>
+                        </div>
+
                         <group>
-                            <field name="category_ids" widget="many2many_tags" 
-                                invisible="is_global" 
-                                options="{'no_create': True}"/>
+                            <group string="Adresse">
+                                <field name="street"/>
+                                <field name="street2"/>
+                                <field name="zip" placeholder="Code postal"/>
+                                <field name="city" placeholder="Ville"/>
+                                <field name="country_id"/>
+                            </group>
+
+                            <group string="Informations supplémentaires">
+                                <field name="contact_id"/>
+                                <field name="company_id"/>
+                            </group>
                         </group>
-                    </group>
-                </sheet>
-            </form>
-        </field>
-    </record>
-
-    <record id="view_repair_tag_tree" model="ir.ui.view">
-        <field name="name">repair.tag.tree</field>
-        <field name="model">repair.tags</field>
-        <field name="arch" type="xml">
-            <tree>
-                <field name="name"/>
-                <field name="category_ids"/>
-            </tree>
-        </field>
-    </record>
-
-    <record id="view_repair_tag_search" model="ir.ui.view">
-        <field name="name">repair.tag.search</field>
-        <field name="model">repair.tags</field>
-        <field name="arch" type="xml">
-            <search string="Tags">
-                <field name="name"/>
-            </search>
-        </field>
-    </record>
-
-    <record id="action_repair_order_tag" model="ir.actions.act_window">
-        <field name="name">Tags</field>
-        <field name="res_model">repair.tags</field>
-        <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">
-            Créer une panne type
-            </p>
-        </field>
-    </record>
-
-    <record id="action_repair_pickup_location" model="ir.actions.act_window">
-        <field name="name">Lieux de prise en charge</field>
-        <field name="res_model">repair.pickup.location</field>
-        <field name="view_mode">tree,form</field>
-        <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">
-                Créer un nouveau lieu
-            </p>
-        </field>
-    </record>
-
-    <record id="view_repair_pickup_location_tree" model="ir.ui.view">
-        <field name="name">repair.pickup.location.tree</field>
-        <field name="model">repair.pickup.location</field>
-        <field name="arch" type="xml">
-            <tree string="Lieux de prise en charge">
-                <field name="name"/>
-                <field name="city"/>
-                <field name="country_id"/>
-                <field name="company_id"/>
-            </tree>
-        </field>
-    </record>
-
-    <record id="view_repair_pickup_location_form" model="ir.ui.view">
-        <field name="name">repair.pickup.location.form</field>
-        <field name="model">repair.pickup.location</field>
-        <field name="arch" type="xml">
-            <form string="Lieu de prise en charge">
-                <sheet>
-                    <div class="oe_title">
-                        <h1><field name="name"/></h1>
-                    </div>
-
-                    <group>
-                        <group string="Adresse">
-                            <field name="street"/>
-                            <field name="street2"/>
-                            <field name="zip" placeholder="Code postal"/>
-                            <field name="city" placeholder="Ville"/>
-                            <field name="country_id"/>
-                        </group>
-
-                        <group string="Informations supplémentaires">
-                            <field name="contact_id"/>
-                            <field name="company_id"/>
-                        </group>
-                    </group>
-                </sheet>
-            </form>
-        </field>
-    </record>
+                    </sheet>
+                </form>
+            </field>
+        </record>
 
     <record id="view_repair_order_atelier_tree" model="ir.ui.view">
         <field name="name">repair.atelier.tree</field>
@@ -562,9 +543,7 @@
                   decoration-warning="quote_required == True"
                   decoration-info="parts_waiting == True"
                   sample="1">
-                <field name="state" optional="hide"/>
-                <field name="technician_employee_id" optional="hide"/>
-                <button name="action_atelier_start" string="Prendre" type="object" icon="fa-hand-paper-o" invisible="state != 'confirmed' or technician_employee_id or quote_required"/>
+                
                 <field name="priority" widget="priority" optional="show"/>
                 <field name="entry_date" optional="show" string="Date d'entrée" readonly="True"
                     width="50" widget="datetime" options="{'show_time':false}" />
@@ -572,29 +551,15 @@
                 <field name="serial_number" optional="show"/>
                 <field name="partner_id" widget="many2one_avatar"/>
                 
-                <field name="quote_required" optional="show"/>
-                <field name="parts_waiting" optional="hide"/>
+                <field name="quote_required"/>
+                <field name="parts_waiting"/>
 
                 <field name="name" string="Réf."/>
+                <!-- <field name="state" widget="badge" 
+                       decoration-success="state == 'done'"
+                       decoration-warning="state == 'quotation_pending'"
+                       decoration-info="state == 'under_repair'"/> -->
             </tree>
-        </field>
-    </record>
-
-    <record id="view_repair_order_atelier_history_tree" model="ir.ui.view">
-        <field name="name">repair.atelier.history.tree</field>
-        <field name="model">repair.order</field>
-        <field name="inherit_id" ref="repair_custom.view_repair_order_atelier_tree"/>
-        <field name="mode">primary</field> 
-        <field name="arch" type="xml">
-            
-            <xpath expr="//tree" position="attributes">
-                <attribute name="default_order">write_date desc</attribute>
-            </xpath>
-
-            <field name="entry_date" position="after">
-                <field name="last_action_time" string="Modifié" decoration-bf="1" optional="show"/>
-            </field>
-
         </field>
     </record>
 
@@ -628,8 +593,8 @@
                 </group>
 
                 <searchpanel>
-                    <field name="priority" icon="fa-star" select="multi" string="Priorité"/>
                     <field name="category_id" icon="fa-folder" select="multi" string="Catégorie"/>
+                    <field name="priority" icon="fa-star" select="multi" string="Priorité"/>
                 </searchpanel>
             </search>
         </field>
@@ -739,21 +704,20 @@
     <record id="action_repair_order_atelier" model="ir.actions.act_window">
         <field name="name">Tableau de Bord Atelier</field>
         <field name="res_model">repair.order</field>
-        <field name="view_mode">tree,form,calendar</field>
+        <field name="view_mode">tree,form</field> <field name="view_id" ref="view_repair_order_atelier_tree"/>
         <field name="search_view_id" ref="view_repair_order_atelier_search"/>
         <field name="domain">[('state', 'not in', ['draft', 'cancel'])]</field>
         <field name="context">{'search_default_state': ['confirmed', 'under_repair']}</field> 
         <field name="view_ids" eval="[(5, 0, 0),
             (0, 0, {'view_mode': 'tree', 'view_id': ref('view_repair_order_atelier_tree')}),
-            (0, 0, {'view_mode': 'form', 'view_id': ref('view_repair_order_atelier_form')}),
-            (0, 0, {'view_mode': 'calendar', 'view_id': ref('view_repair_order_calendar')})]"/>
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_repair_order_atelier_form')})]"/>
     </record>
 
     <record id="view_atelier_dashboard_kanban" model="ir.ui.view">
         <field name="name">atelier.dashboard.tile.kanban</field>
         <field name="model">atelier.dashboard.tile</field>
         <field name="arch" type="xml">
-            <kanban create="0" class="oe_background_grey o_kanban_dashboard" type="object" action="action_open_reparations">
+            <kanban create="0" class="oe_background_grey o_kanban_dashboard">
                 <field name="name"/>
                 <field name="count_reparations"/>
                 <field name="color"/>
@@ -761,21 +725,21 @@
                 
                 <templates>
                     <t t-name="kanban-box">
-                        <div t-attf-class="#{kanban_color(record.color.raw_value)} oe_kanban_global_click text-center d-flex flex-column justify-content-center">
+                        <div t-attf-class="#{kanban_color(record.color.raw_value)} oe_kanban_global_click text-center d-flex flex-column justify-content-center p-2">
                             <div class="o_kanban_card_header">
                                 <div class="o_kanban_card_header_title">
-                                    <h4 class="font-weight-bold text-uppercase mb-0" style="font-size: 14px; opacity: 0.8;">
+                                    <h4 class="font-weight-bold text-uppercase" style="font-size: 14px; opacity: 0.8;">
                                         <field name="name"/>
                                     </h4>
                                 </div>
                             </div>
                             
-                            <div class="container o_kanban_card_content">
+                            <div class="container o_kanban_card_content mt-3">
                                 <div class="row">
                                     <div class="col-12 text-center">
-                                        <h3 class="display-4">
+                                        <h2 class="display-4">
                                             <field name="count_reparations"/>
-                                        </h3>
+                                        </h2>
                                         <span class="text-muted">Appareil(s)</span>
                                     </div>
                                 </div>
@@ -796,25 +760,6 @@
                 Configuration du tableau de bord
             </p>
         </field>
-    </record>
-
-    <record id="view_atelier_dashboard_tile_tree" model="ir.ui.view">
-        <field name="name">atelier.dashboard.tile.tree</field>
-        <field name="model">atelier.dashboard.tile</field>
-        <field name="arch" type="xml">
-            <tree editable="bottom">
-                <field name="sequence" widget="handle"/>
-                <field name="name"/>
-                <field name="category_type"/>
-                <field name="color" widget="color_picker"/>
-            </tree>
-        </field>
-    </record>
-
-    <record id="action_atelier_dashboard_config" model="ir.actions.act_window">
-        <field name="name">Configuration Tuiles</field>
-        <field name="res_model">atelier.dashboard.tile</field>
-        <field name="view_mode">tree</field> 
     </record>
 
     <record id="view_employee_atelier_kanban" model="ir.ui.view">
@@ -893,11 +838,5 @@
                 parent="menu_repair_atelier" 
                 action="action_atelier_dashboard" 
                 sequence="1"/>
-        <menuitem id="repair_atelier_menu_config" sequence="50" name="Configuration" parent="menu_repair_atelier" groups="repair_custom.group_repair_manager"/>
-        <menuitem id="menu_atelier_config_tiles"
-              name="Tuiles"
-              parent="repair_atelier_menu_config" 
-              action="action_atelier_dashboard_config"
-              sequence="10"/>
     </data>
 </odoo>

@@ -17,3 +17,5 @@ access_repair_finish_wizard_technician,Wizard technicien reparation technicien,m
 access_repair_finish_wizard_manager,Wizard technicien reparation manager,model_repair_finish_wizard,repair_custom.group_repair_manager,1,1,1,1
 access_repair_quotation_wizard_technician,Wizard devis reparation technicien,model_repair_quotation_wizard,repair_custom.group_repair_technician,1,1,0,0
 access_repair_quotation_wizard_manager,Wizard devis reparation manager,model_repair_quotation_wizard,repair_custom.group_repair_technician,1,1,1,1
+access_repair_atelier_dashboard_technicien,Dashboard atelier technicien,model_atelier_dashboard_tile,repair_custom.group_repair_technician,1,1,1,1
+
