@@ -391,23 +391,7 @@ class Repair(models.Model):
 
     def action_repair_start(self):
         self.ensure_one()
-        return {
-            'name': _("Qui prend en charge cette réparation ?"),
-            'type': 'ir.actions.act_window',
-            'res_model': 'repair.technician.wizard',
-            'view_mode': 'form',
-            'target': 'new',
-            'context': {'default_repair_id': self.id}
-        }
-
-        for repair in self:
-            repair.message_post(
-            body=_(
-                "<b>%s</b> a démarré la réparation le %s."
-            ) % (employee.name if employee else user.name, fields.Datetime.now().strftime('%d/%m/%Y à %H:%M')),
-            message_type="comment",
-            subtype_xmlid="mail.mt_note",  # empêche l'envoi d'email
-        )
+        res = self.write({'state': 'under_repair'})
 
         return res  
 

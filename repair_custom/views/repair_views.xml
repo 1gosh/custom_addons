@@ -869,7 +869,7 @@
     </record>
 
         <menuitem id="menu_repair_order" groups="repair_custom.group_repair_manager" name="Repairs" sequence="28"
-                  web_icon="repair_custom,static/description/icon.png"/>
+                  web_icon="repair_custom,static/description/icon.svg"/>
 
         <menuitem id="menu_repair_atelier" name="Atelier" sequence="10" action="action_atelier_kiosk_entry"
                   web_icon="repair_custom,static/description/icon.png" groups="repair_custom.group_repair_technician"/>
