@@ -88,12 +88,12 @@
                         <h1><field name="name"/></h1>
                     </div>
                     <group>
-                        <field name="partner_id" widget="res_partner_many2one_context"/>
-                        <field name="date"/>
+                        <field name="partner_id" readonly="1" widget="res_partner_many2one_context"/>
+                        <field name="date" readonly="1"/>
                     </group>
                     <notebook>
                         <page string="Appareils">
-                            <field name="repair_ids"/>
+                            <field name="repair_ids" context="{'tree_view_ref': 'repair_custom.view_repair_order_tree'}"/>
                         </page>
                     </notebook>
                 </sheet>
@@ -155,7 +155,7 @@
                     <button name="action_open_unit" string="Voir l’appareil" type="object" icon="fa-external-link" invisible="not unit_id" class="btn-primary"/>
                     <button name="action_print_repair_order" string="Bon" type="object" icon="fa-regular fa-print" invisible="state in 'draft'" class="btn-info"/>
                     <button name="%(action_report_repair_label)d" string="Etiquette" type="action" icon="fa-regular fa-print" invisible="state in 'draft'" class="btn-info"/>
-                    <button name="action_open_pricing_wizard" icon="fa-file" string="Devis/Facture" type="object"/>
+                    <button name="action_open_pricing_wizard" icon="fa-file" invisible="state in 'draft'" string="Devis/Facture" type="object"/>
                     <button name="action_add_device_to_batch" string="Ajouter appareil" type="object" class="btn-secondary" icon="fa-plus-square" invisible="state not in 'confirmed'"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,under_repair,done" on_change="1"/>
                 </header>
@@ -569,7 +569,7 @@
                 <field name="state" optional="hide"/>
                 <field name="technician_employee_id" optional="hide"/>
                 <button name="action_atelier_start" string="Prendre" type="object" icon="fa-hand-paper-o" invisible="state != 'confirmed' or technician_employee_id or quote_required"/>
-                <field name="priority" widget="priority" optional="show"/>
+                <field name="priority" widget="priority" optional="hide"/>
                 <field name="entry_date" optional="show" string="Date d'entrée" readonly="True"
                     width="50" widget="datetime" options="{'show_time':false}" />
                 <field name="device_id_name" string="Appareil"/>
