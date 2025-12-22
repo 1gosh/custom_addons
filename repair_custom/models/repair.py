@@ -4,6 +4,7 @@ from odoo import api, Command, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 from odoo.tools import float_compare, float_is_zero, clean_context
 from odoo.tools.misc import format_date, groupby
+import uuid
 
 
 class Repair(models.Model):
