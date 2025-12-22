@@ -21,14 +21,19 @@
             <field name="color">1</field> 
         </record>
         <record id="tile_quote_waiting" model="atelier.dashboard.tile">
-            <field name="name">Devis en attente</field>
+            <field name="name">Mes Devis en attente</field>
             <field name="category_type">quote_waiting</field>
             <field name="color">4</field> 
         </record>
         <record id="tile_quote_validated" model="atelier.dashboard.tile">
-            <field name="name">Devis validé</field>
+            <field name="name">Mes Devis validé</field>
             <field name="category_type">quote_validated</field>
             <field name="color">4</field> 
+        </record>
+        <record id="tile_quote_done" model="atelier.dashboard.tile">
+            <field name="name">Mes Réparations Terminées</field>
+            <field name="category_type">done</field>
+            <field name="color">10</field> 
         </record>
     </data>
 </odoo>

@@ -160,6 +160,61 @@
                     <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,under_repair,done" on_change="1"/>
                 </header>
                 <sheet>
+                    <div class="alert alert-warning mb-3 shadow-sm" 
+                        role="alert" 
+                        invisible="state != 'quotation_pending'"
+                        style="border-left: 5px solid #dba728; background: #fff3cd; padding: 0;">
+                        
+                        <div class="row g-0"> <div class="col-12 col-md-4 d-flex flex-column justify-content-center p-3" 
+                                style="border-right: 1px solid #e6dbb9;">
+                                
+                                <div class="d-flex align-items-center mb-3">
+                                    <i class="fa fa-calculator fa-2x text-warning me-3"/>
+                                    <h4 class="m-0" style="color: #664d03; font-weight: bold;">Devis Requis</h4>
+                                </div>
+                                
+                                <p class="text-muted small mb-3">
+                                    L'atelier a soumis une estimation technique. 
+                                    Veuillez valider pour lancer la réparation.
+                                </p>
+                                <button name="action_create_quotation_wizard" 
+                                        string="Créer le Devis" 
+                                        type="object" 
+                                        class="btn-primary w-100 fw-bold text-uppercase mb-2" 
+                                        icon="fa-file-o"/>
+                                <button name="action_manager_validate_quote" 
+                                        string="Valider" 
+                                        type="object" 
+                                        class="btn-success w-100 fw-bold text-uppercase" 
+                                        icon="fa-check"/>
+                            </div>
+
+                            <div class="col-12 col-md-8 p-3 bg-white" style="background: rgba(255,255,255,0.6) !important;">
+                                <div class="d-flex flex-column h-100">
+                                    <span class="text-uppercase text-muted fw-bold mb-2" style="font-size: 11px; letter-spacing: 1px;">
+                                        <i class="fa fa-file-text-o me-1"/> Notes techniques de l'atelier
+                                    </span>
+                                    
+                                    <div style="
+                                        flex: 1;
+                                        padding: 10px;
+                                        background: #fcfcfc;
+                                        border: 1px solid #e0e0e0;
+                                        border-radius: 4px;
+                                        color: #333;
+                                        font-family: monospace;
+                                        font-size: 13px;
+                                        white-space: pre-wrap;
+                                        overflow-y: auto;
+                                        max-height: 200px; /* Sécurité si note immense */
+                                    ">
+                                        <field name="quotation_notes" readonly="1" nolabel="1"/>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                        </div>
+                    </div>
                     <div class="oe_button_box" name="button_box">
                         <button name="action_view_sale_order"
                                 type="object"
@@ -278,22 +333,16 @@
                                         placeholder="Ex: Protocole Ampli Vintage"/>
                                     <field name="internal_notes" 
                                         placeholder=""
-                                        style="background: #faf6de; font-family: monospace; padding: 10px; border: 1px solid #ccc; min-height: 150px;"/>
+                                        style="background: #f0f0f0; font-family: monospace; padding: 10px; border: 1px solid #ccc; min-height: 150px;"/>
                                 </group>
                                 <group>
                                     <field name="unit_id"
                                             invisible="not unit_id"
                                             readonly="1"/>
                                     <field name="technician_employee_id" 
-                                        readonly="1" 
-                                        groups="!repair_custom.group_repair_manager" 
+                                        groups="repair_custom.group_repair_manager" 
                                         options="{'no_open':True}"
-                                        invisible="not technician_employee_id"/>
-
-                                    <field name="technician_employee_id" 
-                                        readonly="0" 
-                                        groups="repair_custom.group_repair_manager"
-                                        invisible="not technician_employee_id"/>
+                                        invisible="state in 'draft'"/>
                                 </group>
                             </group>
                         </page>
@@ -596,7 +645,7 @@
             </xpath>
 
             <field name="entry_date" position="after">
-                <field name="last_action_time" string="Modifié" decoration-bf="1" optional="show"/>
+                <field name="last_action_time" string="Dernière Modification" decoration-bf="1" optional="show"/>
             </field>
 
         </field>
@@ -687,13 +736,13 @@
                         </group>
                     </group>
                     <group>
-                        <group>
-                            <separator string="Notes techniques / Travail effectué"/>
-                            <field nolabel="1" colspan="2" name="internal_notes" style="background: #f0f0f0; font-family: monospace; padding: 10px; border: 1px solid #ccc; min-height: 150px;"/> 
-                        </group>
                         <group invisible="not quote_required or not quotation_notes">
                             <separator string="Diagnostic &amp; Estimation"/>
                             <field name="quotation_notes" readonly="1" nolabel="1" colspan="2" style="min-height: 100px; min-width: 300px;"/>
+                        </group>
+                        <group>
+                            <separator string="Notes techniques / Travail effectué"/>
+                            <field nolabel="1" colspan="2" name="internal_notes" style="background: #f0f0f0; font-family: monospace; padding: 10px; border: 1px solid #ccc; min-height: 150px;"/> 
                         </group>
                     </group>
                 </sheet>
@@ -712,8 +761,9 @@
         <field name="model">repair.finish.wizard</field>
         <field name="arch" type="xml">
             <form string="Travail terminé ?">
+                <field name="category_id" invisible="1"/>
                 <group>
-                    <field name="template_id" options="{'no_create': True, 'no_open': True}"/>
+                    <field name="notes_template_id" domain="['|', ('category_ids', '=', False), ('category_ids', 'parent_of', category_id)]" options="{'no_create': True, 'no_open': True}"/>
                     <field name="work_summary" placeholder="Ex: Remplacement condo C4, bias ajusté à 25mV..." style="background: #f0f0f0; font-family: monospace; padding: 10px; border: 1px solid #ccc; min-height: 150px;"/>
                 </group>
                 <footer>
@@ -729,17 +779,20 @@
         <field name="model">repair.quotation.wizard</field>
         <field name="arch" type="xml">
             <form string="Demande de Devis">
+                <field name="category_id" invisible="1"/>
                 <p class="text-muted">
                     Veuillez indiquer ci-dessous les éléments nécessaires pour le chiffrage (Pièces à commander, temps estimé...).
                 </p>
                 <group>
+                    <field name="notes_template_id" domain="['|', ('category_ids', '=', False), ('category_ids', 'parent_of', category_id)]" options="{'no_create': True, 'no_open': True}"/>
                     <field name="quotation_notes" 
                            placeholder="Ex: Transformateur HS + 2h de Main d'oeuvre..." 
                            style="height: 150px"/>
                 </group>
                 <footer>
-                    <button name="action_confirm_request" string="Envoyer" type="object" class="btn-primary" data-hotkey="q"/>
-                    <button string="Annuler" class="btn-secondary" special="cancel" data-hotkey="z"/>
+                    <button name="action_confirm_request" string="Envoyer" type="object" class="btn-primary"/>
+                    <button name="action_force_start" string="Commencer sans devis" type="object" class="btn-danger" confirm="Êtes-vous sûr de vouloir commencer la réparation sans validation du devis ?"/>
+                    <button string="Annuler" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>
         </field>
@@ -789,17 +842,6 @@
                     </t>
                 </templates>
             </kanban>
-        </field>
-    </record>
-
-    <record id="action_atelier_dashboard" model="ir.actions.act_window">
-        <field name="name">Tableau de bord Atelier</field>
-        <field name="res_model">atelier.dashboard.tile</field>
-        <field name="view_mode">kanban</field>
-        <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">
-                Configuration du tableau de bord
-            </p>
         </field>
     </record>
 
@@ -867,7 +909,7 @@
     </record>
 
         <menuitem id="menu_repair_order" groups="repair_custom.group_repair_manager" name="Repairs" sequence="28"
-                  web_icon="repair_custom,static/description/icon.svg"/>
+                  web_icon="repair_custom,static/description/icon.png"/>
 
         <menuitem id="menu_repair_atelier" name="Atelier" sequence="10" action="action_atelier_kiosk_entry"
                   web_icon="repair_custom,static/description/icon.png" groups="repair_custom.group_repair_technician"/>
@@ -885,11 +927,6 @@
 
         <menuitem id="repair_menu_tag" name="Pannes" parent="repair_menu_config" action="action_repair_order_tag"/>
     
-        <menuitem id="menu_atelier_dashboard" 
-                name="Tableau de bord" 
-                parent="menu_repair_atelier" 
-                action="action_atelier_dashboard" 
-                sequence="1"/>
         <menuitem id="repair_atelier_menu_config" sequence="50" name="Configuration" parent="menu_repair_atelier" groups="repair_custom.group_repair_manager"/>
         <menuitem id="menu_atelier_config_tiles"
               name="Tuiles"

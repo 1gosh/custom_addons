@@ -89,8 +89,14 @@ class RepairPricingWizard(models.TransientModel):
         if active_repair_id:
             repair = self.env['repair.order'].browse(active_repair_id)
             if repair.exists():
-                # On remplit le champ éditable 'work_details' avec les notes internes
-                clean_notes = tools.html2plaintext(repair.internal_notes or "") 
+                if context.get('default_generation_type') == 'quote':
+                    # Si mode Devis -> On prend les notes d'estimation (quotation_notes)
+                    raw_notes = repair.quotation_notes or ""
+                else:
+                    # Si mode Facture (ou par défaut) -> On prend les notes techniques (internal_notes)
+                    raw_notes = repair.internal_notes or ""
+
+                clean_notes = tools.html2plaintext(raw_notes).strip()
                 res['work_details'] = clean_notes.strip()
                 res['internal_notes'] = clean_notes.strip()
                 res['device_name'] = repair.device_id_name
