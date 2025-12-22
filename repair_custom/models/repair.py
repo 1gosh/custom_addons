@@ -1,6 +1,5 @@
 from random import randint
 from datetime import date, datetime, time
-import uuid
 from odoo import api, Command, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 from odoo.tools import float_compare, float_is_zero, clean_context
@@ -413,7 +412,7 @@ class Repair(models.Model):
         if self.unit_id:
             return self._action_repair_confirm()
         if self.device_id and self.partner_id:
-            sn = self.serial_number or f"{uuid.uuid4().hex[:8].upper()}"
+            sn = self.serial_number
             vals = {
                 'device_id': self.device_id.id,
                 'partner_id': self.partner_id.id,
@@ -942,6 +941,17 @@ class RepairQuotationWizard(models.TransientModel):
     def action_confirm_request(self):
         """ Valide la demande et met à jour la réparation """
         self.ensure_one()
+
+        manager_user = self.env.ref('repair_custom.group_repair_manager') 
+    
+        # On crée l'activité
+        self.activity_schedule(
+            'mail.mail_activity_data_todo', # Type d'activité (Todo, Call, Email...)
+            user_id=manager_user.id,
+            summary=f"Validation Devis : {self.name}",
+            note=f"Le technicien {self.env.user.name} demande la validation du devis pour {self.device_id_name}.",
+            date_deadline=fields.Date.today(),
+        )
         
         # 1. On enregistre l'estimation dans la fiche de réparation
         # 2. On change l'état en 'quotation_pending'
@@ -1038,6 +1048,11 @@ class AtelierDashboardTile(models.Model):
             'context': ctx,
             # Ceinture de sécurité (Domaine dur)
             'domain': domain, 
+            'views': [
+                (self.env.ref('repair_custom.view_repair_order_atelier_tree').id, 'tree'),
+                (self.env.ref('repair_custom.view_repair_order_atelier_form').id, 'form'),
+                (self.env.ref('repair_custom.view_repair_order_calendar').id, 'calendar'),
+            ],
         }
         
         # --- Activation des filtres "Retirables" (Search Defaults) ---

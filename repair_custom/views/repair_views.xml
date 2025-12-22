@@ -70,6 +70,8 @@
         <field name="arch" type="xml">
             <form string="Dossier de Prise en Charge">
                 <header>
+                    <button name="%(action_repair_pricing_wizard)d" icon="fa-file" string="Devis/Facture" type="action" invisible="state in 'draft'"/>
+                    
                     <field name="state" widget="statusbar"/>
                 </header>
                 <sheet>
@@ -750,10 +752,6 @@
         <field name="search_view_id" ref="view_repair_order_atelier_search"/>
         <field name="domain">[('state', 'not in', ['draft', 'cancel'])]</field>
         <field name="context">{'search_default_state': ['confirmed', 'under_repair']}</field> 
-        <field name="view_ids" eval="[(5, 0, 0),
-            (0, 0, {'view_mode': 'tree', 'view_id': ref('view_repair_order_atelier_tree')}),
-            (0, 0, {'view_mode': 'form', 'view_id': ref('view_repair_order_atelier_form')}),
-            (0, 0, {'view_mode': 'calendar', 'view_id': ref('view_repair_order_calendar')})]"/>
     </record>
 
     <record id="view_atelier_dashboard_kanban" model="ir.ui.view">

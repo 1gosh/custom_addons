@@ -297,13 +297,13 @@ class RepairDeviceUnit(models.Model):
             'flags': {'mode': 'readonly'} if not ctx['edit_admin'] else {},
         }
 
-    _sql_constraints = [
-        (
-            'unique_device_serial', 
-            'unique(device_id, serial_number)', 
-            "Ce numéro de série est déjà enregistré pour ce modèle. Veuillez utiliser l'unité existante."
-        )
-    ]
+    # _sql_constraints = [
+    #     (
+    #         'unique_device_serial', 
+    #         'unique(device_id, serial_number)', 
+    #         "Ce numéro de série est déjà enregistré pour ce modèle. Veuillez utiliser l'unité existante."
+    #     )
+    # ]
 
 # --- 1. MARQUES ---------------------------------------------------------
 

@@ -5,6 +5,14 @@
         <field name="arch" type="xml">
             <form string="Facturation Atelier">
                 <sheet>
+                    <field name="batch_id" invisible="1"/>
+                    <field name="remaining_repair_ids" invisible="1"/>
+                    <field name="accumulated_lines_json" invisible="1"/>
+                    
+                    <div class="alert alert-info text-center" role="alert" 
+                        invisible="not batch_id">
+                        <strong>DOSSIER : </strong> <field name="step_info" readonly="1"/>
+                    </div>
                     <div class="oe_title"> 
                         <label for="generation_type" string="Générer :"/>
                         <field name="generation_type" nolabel="1" widget="radio" options="{'horizontal': true}"/>
@@ -74,7 +82,8 @@
                     </notebook>
                 </sheet>
                 <footer class="justify-content-end">
-                    <button string="Valider" type="object" name="action_confirm" class="btn-primary"/>
+                    <button string="Suivant" type="object" name="action_next_step" class="btn-primary" invisible="not remaining_repair_ids"/> 
+                    <button string="Valider" type="object" name="action_confirm" class="btn-success" invisible="remaining_repair_ids"/> 
                     <button string="Annuler" special="cancel" class="btn-secondary"/>
                 </footer>
             </form>
