@@ -88,7 +88,7 @@
                         <h1><field name="name"/></h1>
                     </div>
                     <group>
-                        <field name="partner_id" readonly="1" widget="res_partner_many2one_context"/>
+                        <field name="partner_id" readonly="1"/>
                         <field name="date" readonly="1"/>
                     </group>
                     <notebook>
@@ -116,7 +116,8 @@
         <field name="name">repair.tree</field>
         <field name="model">repair.order</field>
         <field name="arch" type="xml">
-            <tree string="Repairs order" multi_edit="1" sample="1" decoration-info="state in 'draft'">
+            <tree string="Repairs order" multi_edit="1" sample="1" decoration-info="state in 'draft'" decoration-warning="batch_id">
+                <field name="batch_id" optional="hide"/>
                 <field name="priority" optional="show" widget="priority" nolabel="1" />
                 <field name="entry_date" optional="show" string="Date d'entrée" readonly="True"
                     width="50" widget="datetime" options="{'show_time':false}" />
@@ -137,6 +138,7 @@
     <record id="view_repair_order_form" model="ir.ui.view">
         <field name="name">repair.form</field>
         <field name="model">repair.order</field>
+        <field name="priority" eval="1"/>
         <field name="arch" type="xml">
             <form string="Ordre de réparation">
                 <field name="company_id" invisible="1"/>
@@ -181,7 +183,7 @@
                                         string="Créer le Devis" 
                                         type="object" 
                                         class="btn-primary w-100 fw-bold text-uppercase mb-2" 
-                                        icon="fa-file-o"/>
+                                        icon="fa-file-text"/>
                                 <button name="action_manager_validate_quote" 
                                         string="Valider" 
                                         type="object" 
@@ -206,7 +208,7 @@
                                         font-size: 13px;
                                         white-space: pre-wrap;
                                         overflow-y: auto;
-                                        max-height: 200px; /* Sécurité si note immense */
+                                        max-height: 200px;
                                     ">
                                         <field name="quotation_notes" readonly="1" nolabel="1"/>
                                     </div>
@@ -411,6 +413,7 @@
                 <separator/>
                 <filter string="Ready" name="ready" domain="[('state', 'in', 'confirmed')]" invisible="True"/>
                 <filter name="filter_create_date" date="create_date"/>
+                <field name="batch_id"/>
                 <group expand="0" string="Regrouper par">
                     <filter string="État" name="group_state" context="{'group_by': 'state'}"/>
                     <filter string="Technicien" name="group_tech" context="{'group_by': 'technician_employee_id'}"/>
@@ -696,6 +699,7 @@
     <record id="view_repair_order_atelier_form" model="ir.ui.view">
         <field name="name">repair.atelier.form</field>
         <field name="model">repair.order</field>
+        <field name="priority" eval="5"/>
         <field name="arch" type="xml">
             <form string="Fiche Atelier">
                 <header>

@@ -187,7 +187,12 @@ class Repair(models.Model):
     def _compute_batch_count(self):
         for rec in self:
             if rec.batch_id:
-                domain = [('batch_id', '=', rec.batch_id.id), ('id', '!=', rec.id)]
+                domain = [('batch_id', '=', rec.batch_id.id)]
+
+                if isinstance(rec.id, int):
+                    domain.append(('id', '!=', rec.id))
+                # -----------------------------
+                
                 rec.batch_count = self.env['repair.order'].search_count(domain)
             else:
                 rec.batch_count = 0
@@ -225,6 +230,9 @@ class Repair(models.Model):
             'view_mode': 'tree,form',
             'domain': [('batch_id', '=', self.batch_id.id)],
             'context': {'create': False},
+            'views': [
+                (self.env.ref('repair_custom.view_repair_order_form').id, 'form'),
+            ],
         }
         
     def write(self, vals):
@@ -427,9 +435,6 @@ class Repair(models.Model):
         - Ouvre le wizard pour saisir les notes
         """
         self.ensure_one()
-        
-        # 1. On verrouille le dossier au nom du tech
-        self._assign_technician_if_needed()
         
         # 2. On ouvre la pop-up
         return {
@@ -656,6 +661,9 @@ class RepairQuotationWizard(models.TransientModel):
 
     def action_confirm_request(self):
         self.ensure_one()
+
+        self._assign_technician_if_needed()
+
         if not self.quotation_notes:
             raise UserError("Pour une demande de devis, vous devez remplir l'estimation technique.")
         
