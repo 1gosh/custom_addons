@@ -330,7 +330,7 @@ class RepairPricingWizard(models.TransientModel):
                 'name': l['name'],
                 'product_id': l['product_id'],
             }
-            # Notez les différences de nommage champs entre Invoice et Sale Order
+            # différences de nommage champs entre Invoice et Sale Order
             if dtype == 'product' or not dtype:
                 val.update({
                     'product_uom_qty': l['quantity'],

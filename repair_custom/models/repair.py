@@ -512,6 +512,63 @@ class Repair(models.Model):
                 }
         }
 
+    
+    def action_merge_into_batch(self):
+        """ 
+        Action serveur pour grouper/fusionner la sélection dans un dossier.
+        Logique :
+        1. Vérifier unicité du client.
+        2. Identifier s'il existe déjà des batches dans la sélection.
+           - Si oui : On prend le plus vieux comme "Maître".
+           - Si non : On en crée un nouveau.
+        3. Déplacer toutes les réparations dans ce dossier.
+        4. Supprimer les anciens dossiers s'ils sont devenus vides.
+        """
+        # 1. Vérification Client
+        partners = self.mapped('partner_id')
+        if len(partners) > 1:
+            raise UserError(_("Impossible de grouper ! Les réparations sélectionnées appartiennent à des clients différents."))
+        if not partners:
+            return
+
+        partner = partners[0]
+        
+        # 2. Identification du Dossier Cible
+        existing_batches = self.mapped('batch_id')
+        
+        if existing_batches:
+            # On prend le dossier le plus ancien (le plus petit ID) comme "Maître"
+            target_batch = existing_batches.sorted('id')[0]
+        else:
+            # Aucun dossier, on en crée un
+            target_batch = self.env['repair.batch'].create({
+                'partner_id': partner.id
+            })
+
+        # 3. Déplacement / Assignation
+        # On écrit sur toutes les fiches d'un coup
+        self.write({'batch_id': target_batch.id})
+        
+        # 4. Nettoyage des dossiers devenus vides
+        # On regarde les dossiers qui étaient liés avant mais qui ne sont PAS le nouveau maître
+        batches_to_check = existing_batches - target_batch
+        for old_batch in batches_to_check:
+            # Si le dossier n'a plus aucune réparation liée, on le supprime
+            if not old_batch.repair_ids:
+                old_batch.unlink()
+
+        # Notification de succès
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _("Fusion Réussie"),
+                'message': _("%s réparations ont été groupées dans le dossier %s") % (len(self), target_batch.name),
+                'type': 'success',
+                'sticky': False,
+            }
+        }
+
 
 # --- WIZARDS & AUTRES CLASSES ---
 

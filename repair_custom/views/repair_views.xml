@@ -912,6 +912,17 @@
         </field>
     </record>
 
+    <record id="action_repair_order_merge_batch" model="ir.actions.server">
+        <field name="name">Grouper dans un Dossier</field>
+        <field name="model_id" ref="model_repair_order"/>
+        <field name="binding_model_id" ref="model_repair_order"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">
+            action = records.action_merge_into_batch()
+        </field>
+    </record>
+
         <menuitem id="menu_repair_order" groups="repair_custom.group_repair_manager" name="Repairs" sequence="28"
                   web_icon="repair_custom,static/description/icon.png"/>
 
