@@ -115,6 +115,7 @@
     <record id="view_repair_order_tree" model="ir.ui.view">
         <field name="name">repair.tree</field>
         <field name="model">repair.order</field>
+        <field name="priority" eval="1"/>
         <field name="arch" type="xml">
             <tree string="Repairs order" multi_edit="1" sample="1" decoration-info="state in 'draft'" decoration-warning="batch_id">
                 <field name="batch_id" optional="hide"/>
@@ -267,7 +268,14 @@
                                 force_save="1"
                                 options="{'no_quick_create':True}"
                                 required="True"/>
-                            <field name="quote_required" readonly="state not in 'draft' or batch_id"/>
+                            <group>
+                                <group>
+                                    <field name="quote_required" readonly="state not in 'draft' or batch_id"/>
+                                </group>
+                                <group>
+                                    <field name="quote_threshold" readonly="state not in 'draft' or batch_id" invisible="(state not in 'draft' and quote_threshold == 0) or not quote_required"/>
+                                </group>
+                            </group>
                         </group>
                         <group>
                             <field name="repair_warranty" widget="radio" options="{'horizontal': True}" readonly="state not in 'draft'"/>
@@ -612,6 +620,7 @@
     <record id="view_repair_order_atelier_tree" model="ir.ui.view">
         <field name="name">repair.atelier.tree</field>
         <field name="model">repair.order</field>
+        <field name="priority" eval="10"/>
         <field name="arch" type="xml">
             <tree string="Atelier" 
                   decoration-danger="priority == '1'"
@@ -627,7 +636,6 @@
                 <field name="device_id_name" string="Appareil"/>
                 <field name="serial_number" optional="show"/>
                 <field name="partner_id" widget="many2one_avatar"/>
-                
                 <field name="quote_required" optional="show"/>
                 <field name="parts_waiting" optional="hide"/>
 
@@ -714,6 +722,8 @@
 
                     <field name="quote_required" invisible="1"/>
                     <field name="parts_waiting" invisible="1"/>
+                    <field name="category_id" invisible="1"/>
+                    <field name="company_id" invisible="1"/>
                 </header>
 
                 <sheet>
@@ -731,24 +741,23 @@
 
                     <group>
                         <group>
-                            <field name="partner_id" widget="res_partner_many2one_avatar" readonly="1" options="{'no_open': True}"/>
-                            <field name="tag_ids" string="Pannes" widget="many2many_tags" options="{'color_field': 'color'}" readonly="1"/>
+                            <field class="partner_custom" name="partner_id"
+                                widget="res_partner_many2one"
+                                context="{'res_partner_search_mode': 'customer', 'show_email': True, 'show_phone': True}"
+                                readonly="1"
+                                options="{'no_open': True}"/>
                         </group>
                         <group>
                             <field name="technician_employee_id" invisible="not technician_employee_id" widget="many2one_avatar_employee" readonly="1"/>
-                            <field name="notes" invisible="not notes" readonly="1"/>
+                            <field name="tag_ids" string="Pannes" widget="many2many_tags" options="{'color_field': 'color'}" readonly="1"/>
+                            <field name="notes" string="Notes" invisible="not notes" readonly="1"/>
                         </group>
                     </group>
-                    <group>
-                        <group invisible="not quote_required or not quotation_notes">
-                            <separator string="Diagnostic &amp; Estimation"/>
-                            <field name="quotation_notes" readonly="1" nolabel="1" colspan="2" style="min-height: 100px; min-width: 300px;"/>
+                        <group string="Travail">
+                            <field name="work_time"/>
+                            <field name="notes_template_id" domain="['|', ('category_ids', '=', False), ('category_ids', 'parent_of', category_id)]" options="{'no_create': True, 'no_open': True}"/>
+                            <field name="internal_notes" style="background: #f0f0f0; font-family: monospace; padding: 10px; border: 1px solid #ccc; min-height: 150px;"/> 
                         </group>
-                        <group>
-                            <separator string="Notes techniques / Travail effectué"/>
-                            <field nolabel="1" colspan="2" name="internal_notes" style="background: #f0f0f0; font-family: monospace; padding: 10px; border: 1px solid #ccc; min-height: 150px;"/> 
-                        </group>
-                    </group>
                 </sheet>
                 
                 <div class="oe_chatter">

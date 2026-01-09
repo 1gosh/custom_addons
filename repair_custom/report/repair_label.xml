@@ -12,13 +12,13 @@
                                 <div style="font-size: 19px; font-weight: 900; line-height: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                                     <span t-field="o.partner_id.name"/>
                                 </div>
-                                <div style="font-size: 8px;">
+                                <div style="font-size: 9px;">
                                     <span t-field="o.partner_id.phone"/>
                                 </div>
                             </td>
                             
                             <td style="width: 28%; text-align: right; vertical-align: top; white-space: nowrap;">
-                                <div style="font-size: 27px; font-weight: 900; letter-spacing: -1px; line-height: 0.8;" t-field="o.create_date" t-options='{"widget": "date", "format": "dd/MM"}'/>
+                                <div style="font-size: 27px; font-weight: 900; letter-spacing: -1px; line-height: 0.8;" t-field="o.entry_date" t-options='{"widget": "date", "format": "dd/MM"}'/>
                             </td>
                         </tr>
                     </table>

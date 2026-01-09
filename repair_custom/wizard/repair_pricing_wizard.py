@@ -324,7 +324,8 @@ class RepairPricingWizard(models.TransientModel):
         formatted_lines = []
         
         for l in lines_list_dicts:
-            dtype = l.get('display_type', 'product')
+            raw_type = l.get('display_type', False)
+            dtype = False if raw_type == 'product' else raw_type
             val = {
                 'display_type': dtype,
                 'name': l['name'],

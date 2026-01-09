@@ -80,6 +80,7 @@ class Repair(models.Model):
     
     # --- LOGIQUE DEVIS ---
     quote_required = fields.Boolean(string="Devis Exigé", default=False, tracking=True)
+    quote_threshold = fields.Integer(string="Seuil du devis")
     quotation_notes = fields.Text(string="Estimation Technique", help="Notes pour le devis (saisies par l'atelier)")
     
     parts_waiting = fields.Boolean(string="Attente de pièces", default=False, tracking=True)
@@ -128,6 +129,7 @@ class Repair(models.Model):
                  self.variant_id = False
 
     tag_ids = fields.Many2many('repair.tags', string="Pannes")
+    work_time = fields.Float(string="Temps de travail")
     internal_notes = fields.Text("Notes de réparation") 
     notes_template_id = fields.Many2one('repair.notes.template', string="Insérer un Gabarit", store=False)
     

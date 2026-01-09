@@ -11,6 +11,11 @@
     color: #8f8f8f;
 }
 
+.o_form_view .partner_custom span > span:first-child {
+    color: black;
+    font-size: 1.8em;
+}
+
 .o_form_view .oe_title > h1 {
     /* min-height: 0;
     margin: 0; */
