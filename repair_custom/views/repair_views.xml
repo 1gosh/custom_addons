@@ -633,7 +633,7 @@
                   sample="1">
                 <field name="state" optional="hide"/>
                 <field name="technician_employee_id" optional="hide"/>
-                <button name="action_atelier_start" string="Prendre" type="object" icon="fa-hand-paper-o" invisible="state != 'confirmed' or technician_employee_id or quote_required"/>
+                <button name="action_atelier_start" string="Prendre" type="object" icon="fa-hand-paper-o" invisible="state != 'confirmed' or technician_employee_id"/>
                 <field name="priority" widget="priority" optional="hide"/>
                 <field name="entry_date" optional="show" string="Date d'entrée" readonly="True"
                     width="50" widget="datetime" options="{'show_time':false}" />
@@ -716,7 +716,7 @@
             <form string="Fiche Atelier">
                 <header>
                     <button name="action_atelier_start" string="Commencer" type="object" class="oe_highlight" invisible="state not in 'confirmed'"/>
-                    <button name="action_atelier_request_quote" string="Établir le devis" type="object" class="btn-warning" invisible="state not in 'under_repair' or quote_state not in ('draft', 'none')"/>
+                    <button name="action_atelier_request_quote" string="Établir un devis" type="object" class="btn-warning" invisible="state not in 'under_repair' or quote_state not in ('draft', 'none')"/>
                     <button name="action_manager_validate_quote" string="Valider le devis" type="object" class="btn-info" groups="repair_custom.group_repair_manager" invisible="state not in 'under_repair' or quote_state != 'pending'"/>
                     <button name="action_atelier_parts_toggle" string="Commande de pièces" type="object" class="btn-secondary" invisible="state != 'under_repair' or parts_waiting"/>
                     <button name="action_atelier_parts_toggle" string="Pièces reçues" type="object" class="btn-secondary" invisible="state != 'under_repair' or not parts_waiting"/>

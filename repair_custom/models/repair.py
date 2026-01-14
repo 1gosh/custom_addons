@@ -988,6 +988,11 @@ class AtelierDashboardTile(models.Model):
             # --- 3. Autres filtres ---
             elif record.category_type == 'waiting':
                 domain = [('parts_waiting', '=', True)]
+                # AJOUT DU FILTRE PROPRIÉTAIRE
+                if employee_id:
+                    domain.append(('technician_employee_id', '=', employee_id))
+                else:
+                    domain.append(('user_id', '=', current_uid))
             elif record.category_type == 'quote_waiting':
                 domain = [
                     ('state', '=', 'under_repair'), 
