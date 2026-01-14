@@ -790,7 +790,9 @@ class RepairStartWizard(models.TransientModel):
         return self.repair_id.with_context(force_start=True).action_atelier_start()
 
     def action_go_to_quote(self):
+        """ Option 2 : On commence ET on demande le devis tout de suite """
         self.ensure_one()
+        self.repair_id.with_context(force_start=True).action_atelier_start()
         return self.repair_id.action_atelier_request_quote()
         
 
@@ -1075,7 +1077,7 @@ class AtelierDashboardTile(models.Model):
             history_view = self.env.ref('repair_custom.view_repair_order_atelier_history_tree', raise_if_not_found=False)
             if history_view:
                 # On dit à l'action : "Utilise cette vue Tree là, pas celle par défaut"
-                action['views'] = [(history_view.id, 'tree'), (False, 'form')]
+                action['views'] = [(history_view.id, 'tree'), (self.env.ref('repair_custom.view_repair_order_atelier_form').id, 'form')]
         
         if self.category_type == 'todo':
             # Active le filtre XML name="todo"

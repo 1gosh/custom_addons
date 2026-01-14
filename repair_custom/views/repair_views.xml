@@ -736,12 +736,13 @@
                 </header>
 
                 <sheet>
-                    <widget name="web_ribbon" title="Livré" bg_color="bg-gray" invisible="state != 'delivered'"/>
+                    <widget name="web_ribbon" title="Livré" bg_color="bg-success" invisible="state != 'delivered'"/>
                     <widget name="web_ribbon" title="Attente Validation" bg_color="bg-warning" 
                             invisible="quote_state != 'pending' or state != 'under_repair'"/>
                     <widget name="web_ribbon" title="Devis Validé" bg_color="bg-info" 
                             invisible="quote_state != 'approved' or state != 'under_repair'"/>
                     <widget name="web_ribbon" title="Attente Pièces" bg_color="bg-info" invisible="not parts_waiting"/>
+
 
                     <div class="alert alert-info text-center mb-1" role="alert" invisible="repair_warranty == 'aucune'">
                         <div class="d-flex align-items-center justify-content-center" invisible="repair_warranty != 'sar'">
@@ -790,9 +791,9 @@
                         <page string="Infos">
                             <group>
                                 <group>
-                                    <field name="work_time"/>
-                                    <field name="notes_template_id" domain="['|', ('category_ids', '=', False), ('category_ids', 'parent_of', category_id)]" options="{'no_create': True, 'no_open': True}"/>
-                                    <field name="internal_notes" style="background: rgb(245, 245, 245); font-family: monospace; padding: 10px; border: 1px solid #ccc; min-height: 100px;"/> 
+                                    <field name="work_time" readonly="state in 'delivered'"/>
+                                    <field name="notes_template_id" invisible="state in 'delivered'" domain="['|', ('category_ids', '=', False), ('category_ids', 'parent_of', category_id)]" options="{'no_create': True, 'no_open': True}"/>
+                                    <field name="internal_notes" readonly="state in 'delivered'" style="background: rgb(245, 245, 245); font-family: monospace; padding: 10px; border: 1px solid #ccc; min-height: 100px;"/> 
                                 </group>
                             </group> 
                         </page>
@@ -843,7 +844,7 @@
                 <p>Cette réparation nécessite un devis</p>
                 <footer>
                     <button name="action_go_to_quote" string="Faire le Devis" type="object" class="btn-success"/>
-                    <button name="action_force_terminate" string="Clôturer" type="object" class="btn-danger"/>
+                    <button name="action_force_terminate" string="Clôturer" type="object" class="btn-secondary"/>
                 </footer>
             </form>
         </field>
