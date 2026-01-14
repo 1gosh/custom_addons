@@ -19,6 +19,8 @@
                 <attribute name="t-if">current_subtotal != 0</attribute>
             </xpath>
 
+            <xpath expr="//p[@name='payment_communication']" position="replace"/>
+
             <xpath expr="//div[@name='reference']" position="replace"/>
 
             <xpath expr="//div[@name='operation_type']" position="replace">

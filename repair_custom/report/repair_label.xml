@@ -5,7 +5,12 @@
             <t t-foreach="docs" t-as="o">
                 
                 <div class="page" style="width: 68mm; margin-left: -2.5mm !important; margin-top: 0 !important; padding: 0 !important; font-family: 'Arial', sans-serif; color: #000;">
-                    
+                    <div style="font-size: 8px; margin-bottom: 1mm;" t-if="o.repair_warranty == 'sar'">
+                        ℹ Vu par <span style="font-weight:bold;" t-field="o.previous_technician_id.name"/> le <span t-field="o.previous_end_date" t-options='{"widget": "date"}'/>
+                    </div>
+                    <div t-if="o.repair_warranty != 'aucune'" style="vertical-align: bottom;">
+                        <span style="right: 0; transform: scaleY(1.5); position: absolute; z-index: -1; font-weight: bold; font-size: 25mm; color: rgb(230, 230, 230);" t-field="o.repair_warranty"/>
+                    </div>
                     <table style="width: 100%; table-layout: fixed; border-collapse: collapse; margin-bottom: 1mm;">
                         <tr>
                             <td style="width: 72%; vertical-align: top; overflow: hidden">
@@ -23,7 +28,7 @@
                         </tr>
                     </table>
 
-                    <table style="width: 100%; table-layout: fixed; border-collapse: collapse; background-color: #fff;">
+                    <table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
                         <tr>
                             <td style="width: 45%; vertical-align: top;">
                                 
@@ -40,13 +45,13 @@
                                                 <a>Réf: </a><span t-field="o.name"/>
                                             </div>
                                         </td>
-                                        <td style="vertical-align: middle; text-align: right; white-space: nowrap;">
+                                        <!-- <td style="vertical-align: middle; text-align: right; white-space: nowrap;">
                                             <t t-if="o.repair_warranty != 'aucune'">
                                                 <span style="background-color: #000; color: #fff; font-size: 12px; font-weight: bold; padding: 0 2px; margin-right: 1px;">
                                                     <span t-field="o.repair_warranty"/>
                                                 </span>
                                             </t>
-                                        </td>
+                                        </td> -->
                                     </tr>
                                 </table>
                                 <div style="font-size: 8px; margin-top:1mm; padding: 0;">
@@ -57,6 +62,15 @@
                             </td>
 
                             <td style="width: 55%; vertical-align: top;">
+                                <div t-if="o.quote_required" style="margin-bottom: 1mm; font-weight: bold; font-size: 10px; border: 1px solid black; padding: 1px; text-align: center;">
+                                    <t t-if="o.quote_threshold > 0">
+                                        Devis &gt; <span t-field="o.quote_threshold" 
+                                                        t-options='{"widget": "monetary", "display_currency": o.company_id.currency_id}'/>
+                                    </t>    
+                                    <t t-else="">
+                                        Devis Exigé
+                                    </t>
+                                </div>
                                 <div style="font-size: 12px; margin-top: -1px; margin-left: 2mm; word-wrap: break-word; line-height: 1;">
                                     <t t-foreach="o.tag_ids" t-as="tag">
                                         - <span t-field="tag.name"/><br/>

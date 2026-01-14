@@ -2,6 +2,7 @@ from random import randint
 from datetime import date, datetime, time
 from odoo import api, Command, fields, models, _
 from odoo.exceptions import UserError, ValidationError
+from dateutil.relativedelta import relativedelta
 from odoo.tools import float_compare, float_is_zero, clean_context, html2plaintext
 import uuid
 import json
@@ -21,6 +22,7 @@ class Repair(models.Model):
         default=lambda self: fields.Datetime.now(),
         help="Date et heure d'entrée de l'appareil."
     )
+    end_date = fields.Datetime(string="Date de fin", readonly=True, copy=False)
     device_picture = fields.Image()
     last_action_time = fields.Char(string="Heure", compute='_compute_last_action_time')
 
@@ -44,7 +46,6 @@ class Repair(models.Model):
         default=_default_location
     )
     import_state = fields.Char("Statut pour l'import")
-    repair_warranty = fields.Selection([('aucune', 'Aucune'), ('sav', 'SAV'), ('sar', 'SAR'),], string="Garantie", default='aucune')
     notes = fields.Text(string="Notes")
     
     technician_user_id = fields.Many2one('res.users', string="Technicien (Utilisateur)", readonly=True)
@@ -68,12 +69,19 @@ class Repair(models.Model):
     state = fields.Selection([
         ('draft', 'New'),
         ('confirmed', 'Confirmed'),
-        ('quotation_pending', 'Attente Devis'), # État Tampon
-        ('quotation_approved', 'Devis Validé'), # État Tampon
         ('under_repair', 'Under Repair'),
         ('done', 'Repaired'),
+        ('delivered', 'Livré / Clôturé'),
         ('cancel', 'Cancelled')], string='Status',
         copy=False, default='draft', readonly=True, tracking=True, index=True)
+
+    quote_state = fields.Selection([
+        ('none', 'Pas de devis'),
+        ('draft', 'Estimation en cours'),
+        ('pending', 'Attente Validation'),
+        ('approved', 'Validé'),
+        ('refused', 'Refusé')
+    ], string="Statut Devis", default='none', tracking=True)
         
     priority = fields.Selection([('0', 'Normal'), ('1', 'Urgent')], default='0', string="Priority")
     partner_id = fields.Many2one('res.partner', 'Customer', index=True, check_company=True, required=True)
@@ -85,6 +93,158 @@ class Repair(models.Model):
     
     parts_waiting = fields.Boolean(string="Attente de pièces", default=False, tracking=True)
     diagnostic_notes = fields.Text(string="Diagnostic Technique")
+
+    # ------------ LOGIQUE GARANTIE -----------
+
+    # Historique
+    has_history = fields.Boolean(compute='_compute_history_repairs', string="A un historique")
+    history_repair_ids = fields.Many2many(
+        'repair.order', 
+        compute='_compute_history_repairs', 
+        string="Historique Appareil",
+        help="Liste des réparations précédentes sur cet appareil."
+    )
+
+    @api.depends('unit_id')
+    def _compute_history_repairs(self):
+        for rec in self:
+            # Sécurité si pas d'unité
+            if not rec.unit_id:
+                rec.history_repair_ids = False
+                rec.has_history = False
+                continue
+
+            # On cherche toutes les réparations liées à cet appareil
+            domain = [('unit_id', '=', rec.unit_id.id)]
+            
+            # --- LE FILTRE MAGIQUE ---
+            # Si la fiche actuelle existe déjà (a un ID), on l'EXCLUT de la recherche
+            if isinstance(rec.id, int):
+                domain.append(('id', '!=', rec.id))
+            
+            # On récupère les résultats triés du plus récent au plus vieux
+            other_repairs = self.env['repair.order'].search(domain, order='entry_date desc')
+            
+            rec.history_repair_ids = other_repairs
+            rec.has_history = len(other_repairs) > 0
+
+    previous_repair_id = fields.Many2one(
+        'repair.order', 
+        string="Réparation Précédente (Ref)", 
+        compute='_compute_warranty', 
+        store=True,
+        readonly=True
+    )
+    
+    # On récupère les infos via le lien previous_repair_id
+    # store=True permet de figer la valeur et facilite la recherche
+    previous_technician_id = fields.Many2one(
+        'hr.employee', 
+        string="Dernier Technicien", 
+        related='previous_repair_id.technician_employee_id',
+        store=True,
+        readonly=True
+    )
+    
+    previous_end_date = fields.Datetime(
+        string="Date fin précédente",
+        related='previous_repair_id.end_date',
+        store=True,
+        readonly=True
+    )
+
+    repair_warranty = fields.Selection([('aucune', 'Aucune'), ('sav', 'SAV'), ('sar', 'SAR'),], 
+        string="Garantie",
+        default='aucune',
+        compute='_compute_warranty',
+        store=True,
+        readonly=True
+    )
+
+    # ==========================================================================
+    # 2. LOGIQUE DE CALCUL (BACKEND & SAVE)
+    # ==========================================================================
+
+    @api.depends('unit_id', 'entry_date')
+    def _compute_warranty(self):
+        for rec in self:
+            # Réinitialisation
+            rec.previous_repair_id = False
+            rec.repair_warranty = 'aucune'
+            
+            if not rec.unit_id:
+                continue
+
+            # 1. Recherche : On inclut DONE et DELIVERED
+            # (Cela couvre les cas où vous auriez oublié de cliquer sur "Livrer")
+            domain = [
+                ('unit_id', '=', rec.unit_id.id),
+                ('state', 'in', ['delivered', 'done']) 
+            ]
+            
+            current_id = rec._origin.id
+            if current_id:
+                domain.append(('id', '!=', current_id))
+            
+            # 2. On récupère la plus récente
+            last_repair = self.env['repair.order'].search(domain, order='end_date desc, write_date desc', limit=1)
+
+            if last_repair:
+                rec.previous_repair_id = last_repair.id
+                
+                # --- Logique de calcul ---
+                # On utilise end_date (qui est mis à jour lors de la livraison)
+                ref_date_dt = last_repair.end_date or last_repair.write_date
+                
+                if ref_date_dt:
+                    date_end_prev = ref_date_dt.date()
+                    
+                    # Sécurité pour la date d'entrée
+                    date_current_entry = rec.entry_date.date() if rec.entry_date else fields.Date.today()
+                    
+                    # Limite = +3 mois
+                    warranty_limit = date_end_prev + relativedelta(months=3)
+                    
+                    if date_current_entry <= warranty_limit:
+                        rec.repair_warranty = 'sar'
+                    else:
+                        rec.repair_warranty = 'aucune'
+
+    # ==========================================================================
+    # 3. INTERFACE UTILISATEUR (WARNING POPUP)
+    # ==========================================================================
+
+    @api.onchange('previous_repair_id', 'repair_warranty')
+    def _onchange_warranty_warning(self):
+        """
+        Sert UNIQUEMENT à afficher la popup.
+        Les données sont déjà calculées par le compute ci-dessus.
+        """
+        if not self.previous_repair_id:
+            return {}
+
+        # On formate les dates pour l'affichage
+        prev_date = self.previous_end_date or self.previous_repair_id.write_date
+        prev_date_str = prev_date.strftime('%d/%m/%Y') if prev_date else 'Inconnue'
+        
+        tech_name = self.previous_technician_id.name or 'Inconnu'
+        limit_date = prev_date + relativedelta(months=3) if prev_date else False
+        limit_str = limit_date.strftime('%d/%m/%Y') if limit_date else '?'
+
+        if self.repair_warranty == 'sar':
+            return {'warning': {
+                'title': _("Retour Garantie (SAR)"),
+                'message': _("Appareil sous garantie jusqu'au %s.\n(Réparé le %s par %s)") % (
+                    limit_str, prev_date_str, tech_name
+                )
+            }}
+        else:
+            return {'warning': {
+                'title': _("Appareil Hors Garantie"),
+                'message': _("ℹ INFO : Cet appareil a déjà été réparé par %s le %s.\nLa garantie de 3 mois est expirée depuis le %s.") % (
+                    tech_name, prev_date_str, limit_str
+                )
+            }}
 
     # --- APPAREILS ---
     category_id = fields.Many2one('repair.device.category', string="Catégorie", check_company=True)
@@ -180,8 +340,7 @@ class Repair(models.Model):
         if self.partner_id:
             self.unit_id = False
 
-    # Sale Order Binding
-    sale_order_id = fields.Many2one('sale.order', 'Sale Order', check_company=True, readonly=True)
+
     batch_id = fields.Many2one('repair.batch', string="Dossier de Dépôt", readonly=True)
     batch_count = fields.Integer(compute='_compute_batch_count', string="Autres appareils")
 
@@ -257,15 +416,46 @@ class Repair(models.Model):
     def action_repair_cancel_draft(self):
         if self.filtered(lambda repair: repair.state != 'cancel'):
             self.action_repair_cancel()
-        return self.write({'state': 'draft'})
+        return self.write({'state': 'draft', 'end_date': False})
 
     def action_repair_done(self):
-        return self.write({'state': 'done'})
+        if self.quote_required and self.quote_state != 'approved':
+            
+            return {
+                'name': _("Alerte : Devis non validé"),
+                'type': 'ir.actions.act_window',
+                'res_model': 'repair.warn.quote.wizard', # Nouveau petit wizard
+                'view_mode': 'form',
+                'target': 'new',
+                'context': {'default_repair_id': self.id}
+            }
+            
+        return self.write({
+            'state': 'done', 
+            'end_date': fields.Datetime.now()
+        })
 
     def action_repair_end(self):
         if self.filtered(lambda repair: repair.state != 'under_repair'):
             raise UserError(_("La réparation doit être en cours pour être terminée."))
         return self.action_repair_done() 
+
+    def action_repair_delivered(self):
+        """ 
+        Passage à l'état Livré.
+        Compatible avec la sélection multiple en vue liste.
+        """
+        # 1. Vérification de sécurité (On vérifie tout AVANT d'écrire quoi que ce soit)
+        for rec in self:
+            if rec.state != 'done':
+                raise UserError(_("La réparation %s doit être 'Terminée' avant d'être livrée.") % rec.name)
+        
+        # 2. Écriture en masse (Plus rapide pour la base de données)
+        # On peut écrire sur 'self' directement, cela mettra à jour tous les enregistrements sélectionnés
+        return self.write({
+            'state': 'delivered',
+            'end_date': fields.Datetime.now() 
+        })
 
     def action_repair_start(self):
         self.ensure_one()
@@ -313,6 +503,8 @@ class Repair(models.Model):
             'context': {'default_repair_id': self.id},
         }
 
+    # Sale Order Binding
+    sale_order_id = fields.Many2one('sale.order', 'Sale Order', check_company=True, readonly=True)
     sale_order_count = fields.Integer(string="Nombre de devis/BC", compute='_compute_sale_order_count')
 
     @api.depends('sale_order_id')
@@ -405,7 +597,7 @@ class Repair(models.Model):
             return {
                 'name': _("Attention : Devis Requis"),
                 'type': 'ir.actions.act_window',
-                'res_model': 'repair.start.warning.wizard',
+                'res_model': 'repair.start.wizard',
                 'view_mode': 'form',
                 'target': 'new',
                 'context': {
@@ -424,34 +616,36 @@ class Repair(models.Model):
         # 3. Log
         tech_name = self.technician_employee_id.name if self.technician_employee_id else self.env.user.name
         if self.env.context.get('force_start'):
-            self.message_post(body=f"⚠️ <b>{tech_name}</b> a forcé le démarrage (Devis ignoré).")
+            self.message_post(body=f"<b>{tech_name}</b> a forcé le démarrage (Devis ignoré).")
         else:
-            self.message_post(body=f"🔧 <b>{tech_name}</b> a commencé l'intervention.")
+            self.message_post(body=f"<b>{tech_name}</b> a commencé l'intervention.")
 
         return True
-
+    
     def action_atelier_request_quote(self):
-        """ 
-        WORKFLOW EXPERT : "Diagnostic & Devis"
-        - Assigne le technicien IMMÉDIATEMENT (Verrouille le dossier)
-        - Ouvre le wizard pour saisir les notes
-        """
         self.ensure_one()
+
+        self._assign_technician_if_needed()
+
+        if not self.quotation_notes and self.internal_notes:
+            self.quotation_notes = self.internal_notes
+        if not self.quotation_notes:
+            raise UserError(_("Veuillez remplir l'estimation technique avant de demander un devis."))
         
-        # 2. On ouvre la pop-up
-        return {
-            'name': _("Estimation pour Devis"),
-            'type': 'ir.actions.act_window',
-            'res_model': 'repair.quotation.wizard',
-            'view_mode': 'form',
-            'target': 'new',
-            'context': {
-                'default_repair_id': self.id,
-                # On passe l'ID pour que le wizard puisse aussi l'utiliser si besoin
-                'atelier_employee_id': self.env.context.get('atelier_employee_id'),
-                'default_category_id': self.category_id.id
-            }
-        }
+        group_manager = self.env.ref('repair_custom.group_repair_manager')
+        for manager_user in group_manager.users:
+            # On met l'activité sur la REPARATION (repair_id)
+            self.activity_schedule(
+                'mail.mail_activity_data_todo',
+                user_id=manager_user.id,
+                summary="Validation Devis Requise", 
+                note=f"Demande par {self.env.user.name} pour {self.device_id_name}",
+                date_deadline=fields.Date.today(),
+            )
+        return self.write({
+            'quote_state': 'pending', 
+            'quote_required': True
+        })
 
     def action_create_quotation_wizard(self):
         """ MANAGER : Générer le Devis Odoo depuis l'alerte """
@@ -487,32 +681,24 @@ class Repair(models.Model):
         if activities_to_close:
             activities_to_close.action_feedback(feedback=f"Validé par {self.env.user.name}")
 
-        self.message_post(body="✅ Devis validé par le management. Reprise de l'intervention autorisée.")
+        self.message_post(body="Devis validé par le management. Reprise de l'intervention autorisée.")
         
-        return self.write({
-            'state': 'quotation_approved'
-        })
+        return self.write({'quote_state': 'approved'})
 
     def action_atelier_parts_toggle(self):
         for rec in self:
             rec.parts_waiting = not rec.parts_waiting
-            msg = "📦 Pièces commandées / En attente." if rec.parts_waiting else "✅ Pièces reçues."
+            msg = "Pièces commandées / En attente." if rec.parts_waiting else "Pièces reçues."
             rec.message_post(body=msg)
         return True
 
-    def action_atelier_finish(self):
+    def action_atelier_abort(self):
         self.ensure_one()
-        return {
-            'name': _("Clôture de l'intervention"),
-            'type': 'ir.actions.act_window',
-            'res_model': 'repair.finish.wizard',
-            'view_mode': 'form',
-            'target': 'new',
-            'context': {
-                'default_repair_id': self.id,
-                'default_category_id': self.category_id.id
-                }
-        }
+        return self.write({
+            'state': 'confirmed', 
+            'technician_employee_id': False,
+            'quote_state': 'none'
+        })
 
     
     def action_merge_into_batch(self):
@@ -574,6 +760,40 @@ class Repair(models.Model):
 
 # --- WIZARDS & AUTRES CLASSES ---
 
+class RepairWarnQuoteWizard(models.TransientModel):
+    _name = 'repair.warn.quote.wizard'
+    _description = "Avertissement Devis"
+
+    repair_id = fields.Many2one('repair.order')
+    
+    def action_force_terminate(self):
+        self.ensure_one()
+        self.repair_id.write({'state': 'done', 
+                            'parts_waiting': False, 
+                            'end_date': fields.Datetime.now()
+                            })
+        self.repair_id.message_post(body="Réparation terminée")
+        return {'type': 'ir.actions.act_window_close'}
+
+    def action_go_to_quote(self):
+        self.ensure_one()
+        return self.repair_id.action_atelier_request_quote()
+
+class RepairStartWizard(models.TransientModel):
+    _name = 'repair.start.wizard'
+    _description = "Avertissement démarrage réparation"
+    repair_id = fields.Many2one('repair.order', required=True)
+    message = fields.Text(readonly=True, default="Un devis est exigé pour cette réparation. Vous pouvez faire la demande maintenant ou passer.")
+
+    def action_force_start(self):
+        self.ensure_one()
+        return self.repair_id.with_context(force_start=True).action_atelier_start()
+
+    def action_go_to_quote(self):
+        self.ensure_one()
+        return self.repair_id.action_atelier_request_quote()
+        
+
 class RepairPickupLocation(models.Model):
     _name = 'repair.pickup.location'
     _description = 'Repair Pickup Location'
@@ -628,8 +848,41 @@ class RepairDeviceUnit(models.Model):
 
 class AccountMove(models.Model):
     _inherit = 'account.move'
+
     repair_id = fields.Many2one('repair.order', string="Réparation d'origine", readonly=True)
     repair_notes = fields.Text(related='repair_id.internal_notes', string="Notes de l'atelier", readonly=True)
+
+class SaleOrder(models.Model):
+    _inherit = 'sale.order'
+
+    repair_order_ids = fields.One2many(
+        comodel_name='repair.order', inverse_name='sale_order_id',
+        string='Repair Order', groups='stock.group_stock_user')
+    repair_count = fields.Integer(
+        "Repair Order(s)", compute='_compute_repair_count', groups='stock.group_stock_user')
+
+    @api.depends('repair_order_ids')
+    def _compute_repair_count(self):
+        for order in self:
+            order.repair_count = len(order.repair_order_ids)
+    
+    def action_show_repair(self):
+        self.ensure_one()
+        if self.repair_count == 1:
+            return {
+                "type": "ir.actions.act_window",
+                "res_model": "repair.order",
+                "views": [[False, "form"]],
+                "res_id": self.repair_order_ids.id,
+            }
+        elif self.repair_count > 1:
+            return {
+                "name": _("Repair Orders"),
+                "type": "ir.actions.act_window",
+                "res_model": "repair.order",
+                "view_mode": "tree,form",
+                "domain": [('sale_order_id', '=', self.id)],
+            }
 
 class RepairNotesTemplate(models.Model):
     _name = 'repair.notes.template'
@@ -648,7 +901,14 @@ class RepairBatch(models.Model):
     partner_id = fields.Many2one('res.partner', string="Client")
     company_id = fields.Many2one('res.company', string="Société", default=lambda self: self.env.company)
     repair_count = fields.Integer(string="Nb Appareils", compute='_compute_repair_count', store=True)
-    state = fields.Selection([('draft', 'Brouillon'), ('confirmed', 'En attente'), ('under_repair', 'En cours'), ('processed', 'Traité')], string="État", compute='_compute_state', store=True, default='draft')
+    state = fields.Selection([('draft', 'Brouillon'), 
+                            ('confirmed', 'En attente'), 
+                            ('under_repair', 'En cours'), 
+                            ('processed', 'Traité')], 
+                            string="État", 
+                            compute='_compute_state', 
+                            store=True, default='draft'
+    )
 
     @api.depends('repair_ids')
     def _compute_repair_count(self):
@@ -678,84 +938,6 @@ class RepairBatch(models.Model):
                 vals['name'] = f"{prefix}{seq_name}"
         return super(RepairBatch, self).create(vals_list)
 
-class RepairFinishWizard(models.TransientModel):
-    _name = 'repair.finish.wizard'
-    _description = "Assistant de clôture"
-    repair_id = fields.Many2one('repair.order', string="Réparation", required=True)
-    category_id = fields.Many2one('repair.device.category', string="Catégorie Appareil")
-    notes_template_id = fields.Many2one('repair.notes.template', string="Gabarit rapide")
-    work_summary = fields.Text(string="Travaux effectués", required=True)
-
-    @api.onchange('notes_template_id')
-    def _onchange_notes_template_id(self):
-        if self.notes_template_id and self.notes_template_id.template_content:
-            self.work_summary = (self.work_summary or "") + "\n" + self.notes_template_id.template_content if self.work_summary else self.notes_template_id.template_content
-
-    def action_terminate(self):
-        self.ensure_one()
-        old_notes = self.repair_id.internal_notes or ""
-        separator = "\n\n--- CLÔTURE ---\n" if old_notes else ""
-        new_notes = f"{old_notes}{separator}{self.work_summary}"
-        self.repair_id.write({'internal_notes': new_notes, 'state': 'done', 'parts_waiting': False, 'quote_required': False})
-        self.repair_id.message_post(body="Réparation terminée et clôturée.")
-        return {'type': 'ir.actions.act_window_close'}
-
-class RepairQuotationWizard(models.TransientModel):
-    _name = 'repair.quotation.wizard'
-    _description = "Assistant Demande de Devis"
-    repair_id = fields.Many2one('repair.order', string="Réparation", required=True)
-    category_id = fields.Many2one('repair.device.category', string="Catégorie Appareil")
-    quotation_notes = fields.Text(string="Estimation Technique", required=False)
-    notes_template_id = fields.Many2one('repair.notes.template', string="Insérer un Gabarit", store=False)
-    
-    @api.onchange('notes_template_id')
-    def _onchange_notes_template_id(self):
-        if self.notes_template_id and self.notes_template_id.template_content:
-            new_content = self.notes_template_id.template_content
-            if self.quotation_notes:
-                self.quotation_notes += '\n\n---\n\n' + new_content
-            else:
-                self.quotation_notes = new_content
-            self.notes_template_id = False
-
-    def action_confirm_request(self):
-        self.ensure_one()
-
-        self._assign_technician_if_needed()
-
-        if not self.quotation_notes:
-            raise UserError("Pour une demande de devis, vous devez remplir l'estimation technique.")
-        
-        group_manager = self.env.ref('repair_custom.group_repair_manager')
-        for manager_user in group_manager.users:
-            # On met l'activité sur la REPARATION (repair_id)
-            self.repair_id.activity_schedule(
-                'mail.mail_activity_data_todo',
-                user_id=manager_user.id,
-                summary="Validation Devis Requise", 
-                note=f"Demande par {self.env.user.name} pour {self.repair_id.device_id_name}",
-                date_deadline=fields.Date.today(),
-            )
-        self.repair_id.write({'quotation_notes': self.quotation_notes, 'state': 'quotation_pending', 'quote_required': True})
-        return {'type': 'ir.actions.act_window_close'}
-
-    def action_force_start(self):
-        self.ensure_one()
-        return self.repair_id.with_context(force_start=True, atelier_employee_id=self._context.get('atelier_employee_id')).action_atelier_start()
-
-class RepairStartWarningWizard(models.TransientModel):
-    _name = 'repair.start.warning.wizard'
-    _description = "Avertissement démarrage réparation"
-    repair_id = fields.Many2one('repair.order', required=True)
-    message = fields.Text(readonly=True, default="Un devis est exigé pour cette réparation. Voulez-vous vraiment commencer sans l'avoir établi ?")
-
-    def action_force_start(self):
-        self.ensure_one()
-        return self.repair_id.with_context(force_start=True).action_atelier_start()
-
-    def action_go_to_quote(self):
-        self.ensure_one()
-        return self.repair_id.action_atelier_request_quote()
       
 class AtelierDashboardTile(models.Model):
     _name = 'atelier.dashboard.tile'
@@ -792,7 +974,10 @@ class AtelierDashboardTile(models.Model):
                 
             # --- 2. Filtre EN COURS (Logique Kiosque) ---
             elif record.category_type == 'progress':
-                domain = [('state', '=', 'under_repair')]
+                domain = [
+                    ('state', '=', 'under_repair'),
+                    ('quote_state', '!=', 'pending')
+                ]
                 # Si on est en mode Kiosque (Pierre est là), on compte SES réparations
                 if employee_id:
                     domain.append(('technician_employee_id', '=', employee_id))
@@ -804,14 +989,20 @@ class AtelierDashboardTile(models.Model):
             elif record.category_type == 'waiting':
                 domain = [('parts_waiting', '=', True)]
             elif record.category_type == 'quote_waiting':
-                domain = [('state', 'in', ['quotation_pending'])]
+                domain = [
+                    ('state', '=', 'under_repair'), 
+                    ('quote_state', '=', 'pending')
+                ]
                 # AJOUT DU FILTRE PROPRIÉTAIRE
                 if employee_id:
                     domain.append(('technician_employee_id', '=', employee_id))
                 else:
                     domain.append(('user_id', '=', current_uid))
             elif record.category_type == 'quote_validated':
-                domain = [('state', 'in', ['quotation_approved'])]
+                domain = [
+                    ('state', '=', 'under_repair'), 
+                    ('quote_state', '=', 'approved')
+                ]
                 # AJOUT DU FILTRE PROPRIÉTAIRE
                 if employee_id:
                     domain.append(('technician_employee_id', '=', employee_id))
@@ -901,6 +1092,7 @@ class AtelierDashboardTile(models.Model):
                 
         elif self.category_type == 'waiting':
             ctx.update({'search_default_parts': 1})
+            ctx.update({'search_default_my_session': 1})
             
         elif self.category_type == 'quote_waiting':
             ctx.update({'search_default_quote_waiting': 1})

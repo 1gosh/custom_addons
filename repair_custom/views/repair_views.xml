@@ -49,7 +49,7 @@
             <search string="Recherche Dossier">
                 <field name="name" string="Dossier"/>
                 <field name="partner_id"/>
-                
+                <filter name="filter_create_date" date="create_date"/>
                 <filter string="Brouillons" name="filter_draft" domain="[('state', '=', 'draft')]"/>
                 <filter string="Traités" name="filter_processed" domain="[('state', '=', 'processed')]"/>
                 <separator/>
@@ -149,13 +149,13 @@
                 <field name="show_unit_field" invisible="1"/>
                 <field name="device_id" invisible="1"/>
                 <field name="category_id" invisible="1"/>
+                <field name="quote_state" invisible="1"/>
                 <header>
                     <button name="action_validate" groups="repair_custom.group_repair_manager" invisible="state not in 'draft'" type="object" string="Confirmer la réparation" class="oe_highlight" data-hotkey="v"/>
                     <button name="action_repair_start" invisible="state not in 'confirmed'" type="object" string="Commencer" class="oe_highlight" data-hotkey="q"/>
                     <button name="action_repair_end" invisible="state not in 'under_repair'" type="object" string="Terminer la réparation" class="btn-success" data-hotkey="x"/>
-                    <button name="action_repair_cancel" groups="repair_custom.group_repair_manager" string="Annuler" type="object" invisible="state in ('done', 'cancel')" data-hotkey="l" class="btn-danger"/>
                     <button name="action_repair_cancel_draft" groups="repair_custom.group_repair_manager" invisible="state in 'draft'" string="Marquer comme brouillon" type="object" data-hotkey="z"/>
-                    <button name="action_open_unit" string="Voir l’appareil" type="object" icon="fa-external-link" invisible="not unit_id" class="btn-primary"/>
+                    <button name="action_repair_cancel" groups="repair_custom.group_repair_manager" string="Annuler" type="object" invisible="state in ('done', 'cancel')" data-hotkey="l" class="btn-danger"/>
                     <button name="action_print_repair_order" string="Bon" type="object" icon="fa-regular fa-print" invisible="state in 'draft'" class="btn-info"/>
                     <button name="%(action_report_repair_label)d" string="Etiquette" type="action" icon="fa-regular fa-print" invisible="state in 'draft'" class="btn-info"/>
                     <button name="action_open_pricing_wizard" icon="fa-file" invisible="state in 'draft'" string="Devis/Facture" type="object"/>
@@ -165,7 +165,7 @@
                 <sheet>
                     <div class="alert alert-warning mb-3 shadow-sm" 
                         role="alert" 
-                        invisible="state != 'quotation_pending'"
+                        invisible="quote_state != 'pending'"
                         style="border-left: 5px solid #dba728; background: #fff3cd; padding: 0;">
                         
                         <div class="row g-0"> <div class="col-12 col-md-4 d-flex flex-column justify-content-center p-3" 
@@ -219,6 +219,11 @@
                         </div>
                     </div>
                     <div class="oe_button_box" name="button_box">
+                        <button name="action_open_unit" 
+                                string="Fiche Appareil" 
+                                type="object" 
+                                icon="fa-external-link" 
+                                invisible="not unit_id" />
                         <button name="action_view_sale_order"
                                 type="object"
                                 class="oe_stat_button"
@@ -262,7 +267,6 @@
                     <group>
                         <group>
                             <field class="partner_custom" name="partner_id"
-                                widget="res_partner_many2one"
                                 context="{'res_partner_search_mode': 'customer', 'show_email': True, 'show_phone': True}"
                                 readonly="state not in 'draft' or batch_id"
                                 force_save="1"
@@ -270,7 +274,7 @@
                                 required="True"/>
                             <group>
                                 <group>
-                                    <field name="quote_required" readonly="state not in 'draft' or batch_id"/>
+                                    <field name="quote_required" invisible="state not in 'draft' and not quote_required" readonly="state not in 'draft' or batch_id"/>
                                 </group>
                                 <group>
                                     <field name="quote_threshold" readonly="state not in 'draft' or batch_id" invisible="(state not in 'draft' and quote_threshold == 0) or not quote_required"/>
@@ -420,7 +424,7 @@
                 <filter string="Cancelled" name="filter_cancel" domain="[('state', '=', 'cancel')]"/>
                 <separator/>
                 <filter string="Ready" name="ready" domain="[('state', 'in', 'confirmed')]" invisible="True"/>
-                <filter name="filter_create_date" date="create_date"/>
+                <filter name="filter_create_date" date="entry_date"/>
                 <field name="batch_id"/>
                 <group expand="0" string="Regrouper par">
                     <filter string="État" name="group_state" context="{'group_by': 'state'}"/>
@@ -680,10 +684,10 @@
                 <separator/>
                 
                     <filter string="À Faire" name="todo" domain="[('state', '=', 'confirmed')]"/>
-                    <filter string="En Cours" name="in_progress" domain="[('state', '=', 'under_repair')]"/>
+                    <filter string="En Cours" name="in_progress" domain="[('state', '=', 'under_repair'), ('quote_state', '!=', 'pending')]"/>
                     <filter string="Attente Pièces" name="parts" domain="[('parts_waiting', '=', True)]"/>
-                    <filter string="Devis en attente" name="quote_waiting" domain="[('state', '=', 'quotation_pending')]"/>
-                    <filter string="Devis validé" name="quote_validated" domain="[('state', '=', 'quotation_approved')]"/>
+                    <filter string="Devis en attente" name="quote_waiting" domain="[('state', '=', 'under_repair'), ('quote_state', '=', 'pending')]"/>
+                    <filter string="Devis validé" name="quote_validated" domain="[('state', '=', 'under_repair'), ('quote_state', '=', 'approved')]"/>
                 
                 <separator/>
 
@@ -711,25 +715,55 @@
         <field name="arch" type="xml">
             <form string="Fiche Atelier">
                 <header>
-                    <button name="action_atelier_start" string="Commencer" type="object" class="oe_highlight" invisible="not ( (state == 'confirmed' and not quote_required) or state == 'quotation_approved' )"/>
-                    <button name="action_atelier_request_quote" string="Établir le devis" type="object" class="btn-warning" invisible="state not in 'confirmed'"/>
-                    <button name="action_manager_validate_quote" string="Valider le devis" type="object" class="btn-success" groups="repair_custom.group_repair_manager" invisible="state != 'quotation_pending'"/>
+                    <button name="action_atelier_start" string="Commencer" type="object" class="oe_highlight" invisible="state not in 'confirmed'"/>
+                    <button name="action_atelier_request_quote" string="Établir le devis" type="object" class="btn-warning" invisible="state not in 'under_repair' or quote_state not in ('draft', 'none')"/>
+                    <button name="action_manager_validate_quote" string="Valider le devis" type="object" class="btn-info" groups="repair_custom.group_repair_manager" invisible="state not in 'under_repair' or quote_state != 'pending'"/>
                     <button name="action_atelier_parts_toggle" string="Commande de pièces" type="object" class="btn-secondary" invisible="state != 'under_repair' or parts_waiting"/>
-                    <button name="action_atelier_parts_toggle" string="Pièces reçues" type="object" class="btn-primary" invisible="state != 'under_repair' or not parts_waiting"/>
-                    <button name="action_atelier_finish" string="Terminer" type="object" class="btn-success" invisible="state != 'under_repair'"/>
+                    <button name="action_atelier_parts_toggle" string="Pièces reçues" type="object" class="btn-secondary" invisible="state != 'under_repair' or not parts_waiting"/>
+                    <button name="action_repair_end" string="Terminer" type="object" class="btn-success" invisible="state != 'under_repair'"/>
+                    <button name="action_repair_delivered" string="Livrer" type="object" class="oe_highligh" invisible="state != 'done'"/>
+                    <button name="action_atelier_abort" string="Abandonner" type="object" class="btn-danger" invisible="state not in ('under_repair', 'done')"/>
 
                     <field name="state" widget="statusbar" statusbar_visible="confirmed,under_repair,done"/>
 
                     <field name="quote_required" invisible="1"/>
+                    <field name="quote_state" invisible="1"/>
                     <field name="parts_waiting" invisible="1"/>
                     <field name="category_id" invisible="1"/>
                     <field name="company_id" invisible="1"/>
+                    <field name="has_history" invisible="1"/>
+                    <field name="repair_warranty" invisible="1"/>
                 </header>
 
                 <sheet>
-                    <widget name="web_ribbon" title="Terminé" bg_color="bg-success" invisible="state != 'done'"/>
-                    <widget name="web_ribbon" title="En Attente Devis" bg_color="bg-warning" invisible="state != 'quotation_pending'"/>
+                    <widget name="web_ribbon" title="Livré" bg_color="bg-gray" invisible="state != 'delivered'"/>
+                    <widget name="web_ribbon" title="Attente Validation" bg_color="bg-warning" 
+                            invisible="quote_state != 'pending' or state != 'under_repair'"/>
+                    <widget name="web_ribbon" title="Devis Validé" bg_color="bg-info" 
+                            invisible="quote_state != 'approved' or state != 'under_repair'"/>
                     <widget name="web_ribbon" title="Attente Pièces" bg_color="bg-info" invisible="not parts_waiting"/>
+
+                    <div class="alert alert-info text-center mb-1" role="alert" invisible="repair_warranty == 'aucune'">
+                        <div class="d-flex align-items-center justify-content-center" invisible="repair_warranty != 'sar'">
+                            <i class="fa fa-exclamation-triangle fa-2x me-1"/>
+                            <div style="font-size: 16px;">
+                                RETOUR GARANTIE (SAR) - Précédent tech : <field name="previous_technician_id" readonly="1"/> 
+                                (<field name="previous_end_date" widget="datetime" options="{'show_time':false}" readonly="1"/>)
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-center" invisible="repair_warranty != 'sav'">
+                            <i class="fa fa-exclamation-triangle fa-2x me-1"/>
+                            <div style="font-size: 16px;">
+                                <strong>RETOUR GARANTIE (SAV)</strong> - 
+                                Vendu le <!---->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info text-center mb-0" role="alert" 
+                        invisible="repair_warranty == 'sar' or not has_history">
+                        <i class="fa fa-info-circle"/> Cet appareil a un historique de réparation (Hors garantie).
+                    </div>
 
                     <div class="oe_title">
                         <field name="entry_date" class="o_form_label" string="Date d'entrée" widget="datetime" options="{'show_time':false}" readonly="state not in 'draft'" />
@@ -742,22 +776,40 @@
                     <group>
                         <group>
                             <field class="partner_custom" name="partner_id"
-                                widget="res_partner_many2one"
-                                context="{'res_partner_search_mode': 'customer', 'show_email': True, 'show_phone': True}"
+                                context="{'show_email': True, 'show_phone': True}"
                                 readonly="1"
                                 options="{'no_open': True}"/>
                         </group>
                         <group>
-                            <field name="technician_employee_id" invisible="not technician_employee_id" widget="many2one_avatar_employee" readonly="1"/>
+                            <field class="technician" options="{'no_open': True}" name="technician_employee_id" invisible="not technician_employee_id" readonly="1"/>
                             <field name="tag_ids" string="Pannes" widget="many2many_tags" options="{'color_field': 'color'}" readonly="1"/>
                             <field name="notes" string="Notes" invisible="not notes" readonly="1"/>
                         </group>
                     </group>
-                        <group string="Travail">
-                            <field name="work_time"/>
-                            <field name="notes_template_id" domain="['|', ('category_ids', '=', False), ('category_ids', 'parent_of', category_id)]" options="{'no_create': True, 'no_open': True}"/>
-                            <field name="internal_notes" style="background: #f0f0f0; font-family: monospace; padding: 10px; border: 1px solid #ccc; min-height: 150px;"/> 
-                        </group>
+                    <notebook>
+                        <page string="Infos">
+                            <group>
+                                <group>
+                                    <field name="work_time"/>
+                                    <field name="notes_template_id" domain="['|', ('category_ids', '=', False), ('category_ids', 'parent_of', category_id)]" options="{'no_create': True, 'no_open': True}"/>
+                                    <field name="internal_notes" style="background: rgb(245, 245, 245); font-family: monospace; padding: 10px; border: 1px solid #ccc; min-height: 100px;"/> 
+                                </group>
+                            </group> 
+                        </page>
+                        <page string="Historique" name="history" invisible="not has_history">
+                            <field name="history_repair_ids">   
+                                <tree decoration-muted="state == 'cancel'" decoration-info="state == 'under_repair'" create="0" delete="0">
+                                    <field name="name"/>
+                                    <field name="entry_date" widget="datetime" options="{'show_time':false}"/>
+                                    <field name="technician_employee_id"/>
+                                    <field name="internal_notes" optional="hide"/>
+                                    <field name="state" widget="badge" 
+                                        decoration-warning="state == 'done'" 
+                                        decoration-success="state == 'delivered'"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
                 </sheet>
                 
                 <div class="oe_chatter">
@@ -769,43 +821,29 @@
         </field>
     </record>
 
-    <record id="view_repair_finish_wizard" model="ir.ui.view">
-        <field name="name">repair.finish.wizard.form</field>
-        <field name="model">repair.finish.wizard</field>
+    <record id="view_repair_start_wizard" model="ir.ui.view">
+        <field name="name">repair.start.wizard.form</field>
+        <field name="model">repair.start.wizard</field>
         <field name="arch" type="xml">
-            <form string="Travail terminé ?">
-                <field name="category_id" invisible="1"/>
-                <group>
-                    <field name="notes_template_id" domain="['|', ('category_ids', '=', False), ('category_ids', 'parent_of', category_id)]" options="{'no_create': True, 'no_open': True}"/>
-                    <field name="work_summary" placeholder="Ex: Remplacement condo C4, bias ajusté à 25mV..." style="background: #f0f0f0; font-family: monospace; padding: 10px; border: 1px solid #ccc; min-height: 150px;"/>
-                </group>
+            <form string="Démarrer la réparation">
+                <p>Un devis est exigé pour cette réparation. Vous pouvez faire la demande maintenant ou passer.</p>
                 <footer>
-                    <button name="action_terminate" string="Clôturer la réparation" type="object" class="btn-success" data-hotkey="q"/>
-                    <button string="Annuler" class="btn-secondary" special="cancel" data-hotkey="z"/>
+                    <button name="action_force_start" string="Passer" type="object" class="btn-success"/>
+                    <button name="action_go_to_quote" string="Faire le Devis" type="object" class="btn-warning"/>
                 </footer>
             </form>
         </field>
     </record>
 
-    <record id="view_repair_quotation_wizard" model="ir.ui.view">
-        <field name="name">repair.quotation.wizard.form</field>
-        <field name="model">repair.quotation.wizard</field>
+    <record id="view_repair_warn_quote_wizard" model="ir.ui.view">
+        <field name="name">repair.warn.quote.wizard.form</field>
+        <field name="model">repair.warn.quote.wizard</field>
         <field name="arch" type="xml">
-            <form string="Demande de Devis">
-                <field name="category_id" invisible="1"/>
-                <p class="text-muted">
-                    Veuillez indiquer ci-dessous les éléments nécessaires pour le chiffrage (Pièces à commander, temps estimé...).
-                </p>
-                <group>
-                    <field name="notes_template_id" domain="['|', ('category_ids', '=', False), ('category_ids', 'parent_of', category_id)]" options="{'no_create': True, 'no_open': True}"/>
-                    <field name="quotation_notes" 
-                           placeholder="Ex: Transformateur HS + 2h de Main d'oeuvre..." 
-                           style="height: 150px"/>
-                </group>
+            <form string="Avertissement de clôture réparation">
+                <p>Cette réparation nécessite un devis</p>
                 <footer>
-                    <button name="action_confirm_request" string="Envoyer" type="object" class="btn-primary"/>
-                    <button name="action_force_start" string="Commencer sans devis" type="object" class="btn-danger" confirm="Êtes-vous sûr de vouloir commencer la réparation sans validation du devis ?"/>
-                    <button string="Annuler" class="btn-secondary" special="cancel"/>
+                    <button name="action_go_to_quote" string="Faire le Devis" type="object" class="btn-success"/>
+                    <button name="action_force_terminate" string="Clôturer" type="object" class="btn-danger"/>
                 </footer>
             </form>
         </field>
