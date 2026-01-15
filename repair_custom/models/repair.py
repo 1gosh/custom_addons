@@ -419,21 +419,41 @@ class Repair(models.Model):
         return self.write({'state': 'draft', 'end_date': False})
 
     def action_repair_done(self):
-        if self.quote_required and self.quote_state != 'approved':
-            
+        # 1. LE GARDE-FOU (Avec l'exception force_stop pour le Wizard)
+        if self.quote_required and self.quote_state != 'approved' and not self.env.context.get('force_stop'):
             return {
                 'name': _("Alerte : Devis non validé"),
                 'type': 'ir.actions.act_window',
-                'res_model': 'repair.warn.quote.wizard', # Nouveau petit wizard
+                'res_model': 'repair.warn.quote.wizard',
                 'view_mode': 'form',
                 'target': 'new',
                 'context': {'default_repair_id': self.id}
             }
             
-        return self.write({
+        # 2. CHANGEMENT D'ÉTAT
+        res = self.write({
             'state': 'done', 
             'end_date': fields.Datetime.now()
         })
+
+        # 3. NOTIFICATION AUX MANAGERS (Logique modifiée)
+        # Assurez-vous que l'ID XML ci-dessous existe bien dans votre fichier data
+        pickup_type = self.env.ref('repair_custom.mail_act_repair_done', raise_if_not_found=True)
+        group_manager = self.env.ref('repair_custom.group_repair_manager', raise_if_not_found=True)
+
+        if pickup_type and group_manager:
+            for rec in self:
+                # On boucle sur TOUS les utilisateurs du groupe Manager
+                for manager_user in group_manager.users:
+                    rec.activity_schedule(
+                        activity_type_id=pickup_type.id,
+                        user_id=manager_user.id,
+                        summary="Appareil Prêt - Contacter Client",
+                        note=f"L'appareil {rec.device_id_name} est réparé. À facturer et livrer.",
+                        date_deadline=fields.Date.today(),
+                    )
+            
+        return res
 
     def action_repair_end(self):
         if self.filtered(lambda repair: repair.state != 'under_repair'):
@@ -452,10 +472,22 @@ class Repair(models.Model):
         
         # 2. Écriture en masse (Plus rapide pour la base de données)
         # On peut écrire sur 'self' directement, cela mettra à jour tous les enregistrements sélectionnés
-        return self.write({
+        self.write({
             'state': 'delivered',
             'end_date': fields.Datetime.now() 
         })
+
+        # 2. Fermeture propre de l'activité "Appeler Client"
+        pickup_type_id = self.env.ref('repair_custom.mail_act_repair_done').id
+        
+        # On peut le faire sur le recordset 'self' entier
+        for rec in self:
+            activities = rec.activity_ids.filtered(lambda a: a.activity_type_id.id == pickup_type_id)
+            if activities:
+                activities.action_feedback(feedback="Client livré (Appareil récupéré)")
+        
+        return True
+
 
     def action_repair_start(self):
         self.ensure_one()
@@ -633,19 +665,18 @@ class Repair(models.Model):
             raise UserError(_("Veuillez remplir l'estimation technique avant de demander un devis."))
         
         group_manager = self.env.ref('repair_custom.group_repair_manager')
+        activity_type_id = self.env.ref('repair_custom.mail_act_repair_quote_validate').id
+        
         for manager_user in group_manager.users:
-            # On met l'activité sur la REPARATION (repair_id)
             self.activity_schedule(
-                'mail.mail_activity_data_todo',
+                activity_type_id=activity_type_id, # <--- ICI
                 user_id=manager_user.id,
                 summary="Validation Devis Requise", 
                 note=f"Demande par {self.env.user.name} pour {self.device_id_name}",
                 date_deadline=fields.Date.today(),
             )
-        return self.write({
-            'quote_state': 'pending', 
-            'quote_required': True
-        })
+        
+        return self.write({'quote_state': 'pending', 'quote_required': True})
 
     def action_create_quotation_wizard(self):
         """ MANAGER : Générer le Devis Odoo depuis l'alerte """
@@ -670,19 +701,15 @@ class Repair(models.Model):
     def action_manager_validate_quote(self):
         """ Le manager valide -> On nettoie les notifications et on autorise la reprise """
         self.ensure_one()
-        
-        # 1. Nettoyage des activités (pour tout le monde)
-        activities_to_close = self.env['mail.activity'].search([
-            ('res_model', '=', 'repair.order'),
-            ('res_id', '=', self.id),
-            ('summary', '=', 'Validation Devis Requise')
-        ])
-        
-        if activities_to_close:
-            activities_to_close.action_feedback(feedback=f"Validé par {self.env.user.name}")
 
-        self.message_post(body="Devis validé par le management. Reprise de l'intervention autorisée.")
+        target_type_id = self.env.ref('repair_custom.mail_act_repair_quote_validate').id
         
+        # On filtre les activités de CETTE réparation qui ont CE type
+        activities = self.activity_ids.filtered(lambda a: a.activity_type_id.id == target_type_id)
+        if activities:
+            activities.action_feedback(feedback=f"Validé par {self.env.user.name}")
+
+        self.message_post(body="Devis validé par le management.")
         return self.write({'quote_state': 'approved'})
 
     def action_atelier_parts_toggle(self):
@@ -768,12 +795,13 @@ class RepairWarnQuoteWizard(models.TransientModel):
     
     def action_force_terminate(self):
         self.ensure_one()
-        self.repair_id.write({'state': 'done', 
-                            'parts_waiting': False, 
-                            'end_date': fields.Datetime.now()
-                            })
-        self.repair_id.message_post(body="Réparation terminée")
-        return {'type': 'ir.actions.act_window_close'}
+        
+        # Log de tracabilité
+        self.repair_id.message_post(body="⚠️ Clôture forcée (Devis non validé ignoré).")
+        
+        # MAGIE : On rappelle la méthode d'origine avec le contexte 'force_stop'
+        # Cela va passer outre le 'if' bloquant et exécuter la création d'activité !
+        return self.repair_id.with_context(force_stop=True).action_repair_done()
 
     def action_go_to_quote(self):
         self.ensure_one()

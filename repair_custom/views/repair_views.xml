@@ -3,17 +3,20 @@
     <data>
 
     <record id="repair_order_view_activity" model="ir.ui.view">
-        <field name="name">repair.order.view.activity</field>
+        <field name="name">repair.order.activity</field>
         <field name="model">repair.order</field>
         <field name="arch" type="xml">
-            <activity string="Activity view">
+            <activity string="Activités Atelier">
                 <templates>
                     <div t-name="activity-box">
-                        <field name="user_id" widget="many2one_avatar_user" domain="[('share', '=', False)]"/>
-                        <div>
-                            <field name="name" display="full" class="o_text_block o_text_bold"/>
-                            <!-- <field name="product_id" class="o_text_block"/> -->
-                            <!-- <field name="schedule_date" widget="date" class="d-block"/> -->
+                        <field name="user_id" widget="many2one_avatar_user"/>
+                        <div class="ms-2">
+                            <field name="device_id_name" class="o_text_block o_text_bold"/>
+                            
+                            <field name="partner_id" class="o_text_block text-muted"/>
+                            <div class="small">
+                                <i class="fa fa-barcode"/> <field name="name"/>
+                            </div>
                         </div>
                     </div>
                 </templates>
@@ -716,13 +719,13 @@
             <form string="Fiche Atelier">
                 <header>
                     <button name="action_atelier_start" string="Commencer" type="object" class="oe_highlight" invisible="state not in 'confirmed'"/>
+                    <button name="action_repair_end" string="Terminer" type="object" class="btn-success" invisible="state != 'under_repair'"/>
+                    <button name="action_repair_delivered" string="Livrer" type="object" class="oe_highligh" invisible="state != 'done'"/>
+                    <button name="action_atelier_abort" string="Abandonner" type="object" class="btn-danger" invisible="state not in ('under_repair', 'done')"/>
                     <button name="action_atelier_request_quote" string="Établir un devis" type="object" class="btn-warning" invisible="state not in 'under_repair' or quote_state not in ('draft', 'none')"/>
                     <button name="action_manager_validate_quote" string="Valider le devis" type="object" class="btn-info" groups="repair_custom.group_repair_manager" invisible="state not in 'under_repair' or quote_state != 'pending'"/>
                     <button name="action_atelier_parts_toggle" string="Commande de pièces" type="object" class="btn-secondary" invisible="state != 'under_repair' or parts_waiting"/>
                     <button name="action_atelier_parts_toggle" string="Pièces reçues" type="object" class="btn-secondary" invisible="state != 'under_repair' or not parts_waiting"/>
-                    <button name="action_repair_end" string="Terminer" type="object" class="btn-success" invisible="state != 'under_repair'"/>
-                    <button name="action_repair_delivered" string="Livrer" type="object" class="oe_highligh" invisible="state != 'done'"/>
-                    <button name="action_atelier_abort" string="Abandonner" type="object" class="btn-danger" invisible="state not in ('under_repair', 'done')"/>
 
                     <field name="state" widget="statusbar" statusbar_visible="confirmed,under_repair,done"/>
 
@@ -734,7 +737,37 @@
                     <field name="has_history" invisible="1"/>
                     <field name="repair_warranty" invisible="1"/>
                 </header>
-
+                <div role="status" class="alert alert-danger text-center" invisible="(not quote_required or quote_threshold == 0) and quote_state not in 'approved'">
+                    <i class="fa fa-exclamation-triangle me-1"/>
+                    <span>Devis &gt; </span>
+                    <field name="quote_threshold" 
+                        widget="monetary" 
+                        options="{'currency_field': 'currency_id'}" 
+                        readonly="1" 
+                        class="d-inline fw-bold"/>
+                </div>
+                <div role="status" class="alert alert-danger text-center" invisible="(not quote_required or quote_threshold > 0) and quote_state not in 'approved'">
+                    <i class="fa fa-exclamation-triangle me-1"/>
+                    <span>Devis Exigé</span>
+                </div>
+                <div class="alert alert-info text-center" role="alert" invisible="repair_warranty == 'aucune'">
+                    <div class="d-flex align-items-center justify-content-center" invisible="repair_warranty != 'sar'">
+                        <i class="fa fa-info-circle me-1"/>
+                        <a>
+                            RETOUR GARANTIE (SAR) - Précédent tech : <field name="previous_technician_id" readonly="1"/> (<field name="previous_end_date" widget="datetime" options="{'show_time':false}" readonly="1"/>)
+                        </a>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-center" invisible="repair_warranty != 'sav'">
+                        <i class="fa fa-info-circle fa-1x me-1"/>
+                        <a>
+                            <strong>RETOUR GARANTIE (SAV)</strong> - Vendu le <!---->
+                        </a>
+                    </div>
+                </div>
+                <div class="alert alert-info text-center" role="alert" invisible="repair_warranty == 'sar' or not has_history">
+                    <i class="fa fa-info-circle me-1"/>
+                    Cet appareil a un historique de réparation.
+                </div>
                 <sheet>
                     <widget name="web_ribbon" title="Livré" bg_color="bg-success" invisible="state != 'delivered'"/>
                     <widget name="web_ribbon" title="Attente Validation" bg_color="bg-warning" 
@@ -742,29 +775,6 @@
                     <widget name="web_ribbon" title="Devis Validé" bg_color="bg-info" 
                             invisible="quote_state != 'approved' or state != 'under_repair'"/>
                     <widget name="web_ribbon" title="Attente Pièces" bg_color="bg-info" invisible="not parts_waiting"/>
-
-
-                    <div class="alert alert-info text-center mb-1" role="alert" invisible="repair_warranty == 'aucune'">
-                        <div class="d-flex align-items-center justify-content-center" invisible="repair_warranty != 'sar'">
-                            <i class="fa fa-exclamation-triangle fa-2x me-1"/>
-                            <div style="font-size: 16px;">
-                                RETOUR GARANTIE (SAR) - Précédent tech : <field name="previous_technician_id" readonly="1"/> 
-                                (<field name="previous_end_date" widget="datetime" options="{'show_time':false}" readonly="1"/>)
-                            </div>
-                        </div>
-                        <div class="d-flex align-items-center justify-content-center" invisible="repair_warranty != 'sav'">
-                            <i class="fa fa-exclamation-triangle fa-2x me-1"/>
-                            <div style="font-size: 16px;">
-                                <strong>RETOUR GARANTIE (SAV)</strong> - 
-                                Vendu le <!---->
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="alert alert-info text-center mb-0" role="alert" 
-                        invisible="repair_warranty == 'sar' or not has_history">
-                        <i class="fa fa-info-circle"/> Cet appareil a un historique de réparation (Hors garantie).
-                    </div>
 
                     <div class="oe_title">
                         <field name="entry_date" class="o_form_label" string="Date d'entrée" widget="datetime" options="{'show_time':false}" readonly="state not in 'draft'" />
@@ -853,7 +863,7 @@
     <record id="action_repair_order_atelier" model="ir.actions.act_window">
         <field name="name">Tableau de Bord Atelier</field>
         <field name="res_model">repair.order</field>
-        <field name="view_mode">tree,form,calendar</field>
+        <field name="view_mode">tree,form,calendar,activity</field>
         <field name="search_view_id" ref="view_repair_order_atelier_search"/>
         <field name="domain">[('state', 'not in', ['draft', 'cancel'])]</field>
         <field name="context">{'search_default_state': ['confirmed', 'under_repair']}</field> 
