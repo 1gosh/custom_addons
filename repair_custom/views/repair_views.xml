@@ -624,6 +624,40 @@
         </field>
     </record>
 
+    <record id="view_repair_template_selector_form" model="ir.ui.view">
+        <field name="name">repair.template.selector.form</field>
+        <field name="model">repair.template.selector</field>
+        <field name="arch" type="xml">
+            <form string="Insérer Gabarit">
+                <field name="repair_id" invisible="1"/>
+                <group>
+                    <group>
+                        <field name="template_id" options="{'no_create': True}"/>
+                    </group>
+                    <group>
+                        <field name="mode" widget="radio" options="{'horizontal': true}"/>
+                    </group>
+                </group>
+                
+                <p class="text-muted" invisible="not template_id">
+                    Décochez les lignes que vous ne souhaitez pas inclure.
+                </p>
+
+                <field name="line_ids" invisible="not template_id">
+                    <tree create="0" no_open="1" delete="0">
+                        <field name="is_selected" widget="boolean_toggle" width="50px"/>
+                        <field name="content"/>
+                    </tree>
+                </field>
+
+                <footer>
+                    <button name="action_confirm" string="Insérer" type="object" class="btn-primary"/>
+                    <button string="Annuler" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
     <record id="view_repair_order_atelier_tree" model="ir.ui.view">
         <field name="name">repair.atelier.tree</field>
         <field name="model">repair.order</field>
@@ -802,6 +836,14 @@
                             <group>
                                 <group>
                                     <field name="work_time" readonly="state in 'delivered'"/>
+                                    <label for="internal_notes" string="Notes Techniques"/>
+                                    <div class="o_row">
+                                        <button name="action_open_template_selector" 
+                                                type="object" 
+                                                string=" Insérer un modèle..." 
+                                                icon="fa-list-ul" 
+                                                class="btn-link pt-0 pb-0"/>
+                                    </div>
                                     <field name="notes_template_id" invisible="state in 'delivered'" domain="['|', ('category_ids', '=', False), ('category_ids', 'parent_of', category_id)]" options="{'no_create': True, 'no_open': True}"/>
                                     <field name="internal_notes" readonly="state in 'delivered'" style="background: rgb(245, 245, 245); font-family: monospace; padding: 10px; border: 1px solid #ccc; min-height: 100px;"/> 
                                 </group>
