@@ -45,6 +45,7 @@ class RepairPricingWizard(models.TransientModel):
     # --- DÉTAILS / NOTES ---
     device_name = fields.Char(string="Appareil", readonly=True)
     technician_employee_id = fields.Many2one('hr.employee', string="Technicien", readonly=True)
+    work_time = fields.Float(related="repair_id.work_time", readonly=True)
     add_work_details = fields.Boolean("Ajouter le détail des travaux", default=True)
     work_details = fields.Text("Détail à afficher sur la facture")
 

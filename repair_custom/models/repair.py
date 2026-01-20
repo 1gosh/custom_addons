@@ -1,6 +1,7 @@
 from random import randint
 from datetime import date, datetime, time
 from odoo import api, Command, fields, models, _
+from odoo.http import request 
 from odoo.exceptions import UserError, ValidationError
 from dateutil.relativedelta import relativedelta
 from odoo.tools import float_compare, float_is_zero, clean_context, html2plaintext
@@ -94,47 +95,113 @@ class Repair(models.Model):
     parts_waiting = fields.Boolean(string="Attente de pièces", default=False, tracking=True)
     diagnostic_notes = fields.Text(string="Diagnostic Technique")
 
-    # ------------ LOGIQUE GARANTIE -----------
+    # ==========================================================================
+    # OPTIMISATION : GESTION CENTRALISÉE DE L'HISTORIQUE ET GARANTIE
+    # ==========================================================================
 
-    # Historique
-    has_history = fields.Boolean(compute='_compute_history_repairs', string="A un historique")
+    # 1. CHAMPS DE DONNÉES (Calculés en base)
+    has_history = fields.Boolean(compute='_compute_history_data', string="A un historique", store=False)
+    
     history_repair_ids = fields.Many2many(
         'repair.order', 
-        compute='_compute_history_repairs', 
-        string="Historique Appareil",
-        help="Liste des réparations précédentes sur cet appareil."
+        compute='_compute_history_data', 
+        string="Historique Appareil"
     )
-
-    @api.depends('unit_id')
-    def _compute_history_repairs(self):
-        for rec in self:
-            # Sécurité si pas d'unité
-            if not rec.unit_id:
-                rec.history_repair_ids = False
-                rec.has_history = False
-                continue
-
-            # On cherche toutes les réparations liées à cet appareil
-            domain = [('unit_id', '=', rec.unit_id.id)]
-            
-            # --- LE FILTRE MAGIQUE ---
-            # Si la fiche actuelle existe déjà (a un ID), on l'EXCLUT de la recherche
-            if isinstance(rec.id, int):
-                domain.append(('id', '!=', rec.id))
-            
-            # On récupère les résultats triés du plus récent au plus vieux
-            other_repairs = self.env['repair.order'].search(domain, order='entry_date desc')
-            
-            rec.history_repair_ids = other_repairs
-            rec.has_history = len(other_repairs) > 0
 
     previous_repair_id = fields.Many2one(
         'repair.order', 
-        string="Réparation Précédente (Ref)", 
-        compute='_compute_warranty', 
-        store=True,
-        readonly=True
+        string="Dernière Réparation", 
+        compute='_compute_history_data',
+        store=True 
     )
+
+    # 2. CHAMPS D'INTERFACE (Modifiables)
+    repair_warranty = fields.Selection([
+        ('aucune', 'Aucune'), 
+        ('sav', 'SAV'), 
+        ('sar', 'SAR')], 
+        string="Garantie",
+        default='aucune',
+        copy=False
+    )
+
+    # 3. LE CERVEAU BACKEND (1 seule requête DB pour tout le monde)
+    @api.depends('unit_id')
+    def _compute_history_data(self):
+        for rec in self:
+            if not rec.unit_id:
+                rec.history_repair_ids = False
+                rec.has_history = False
+                rec.previous_repair_id = False
+                continue
+
+            # Une seule recherche optimisée
+            domain = [
+                ('unit_id', '=', rec.unit_id.id),
+                ('state', 'in', ['delivered', 'done']) # On cherche l'historique validé
+            ]
+            if isinstance(rec.id, int):
+                domain.append(('id', '!=', rec.id))
+            
+            # On récupère tout, trié par date (le plus récent en premier)
+            repairs = self.env['repair.order'].search(domain, order='end_date desc, write_date desc')
+            
+            rec.history_repair_ids = repairs
+            rec.has_history = bool(repairs)
+            rec.previous_repair_id = repairs[0] if repairs else False
+
+    # 4. LE CERVEAU INTERFACE (1 seul Onchange pour la logique métier + Popup)
+    @api.onchange('unit_id', 'entry_date')
+    def _onchange_unit_workflow(self):
+        """ 
+        Gère à la fois :
+        1. La suggestion de garantie (SAR/Aucune) sans écraser le SAV manuel.
+        2. L'affichage de la Popup d'avertissement.
+        """
+        if not self.unit_id:
+            return
+
+        # A. On s'assure d'avoir les données fraîches (Historique)
+        self._compute_history_data()
+        
+        # B. Logique de calcul de la garantie (SAR ?)
+        is_sar = False
+        prev_repair = self.previous_repair_id # Déjà calculé juste au-dessus
+        
+        if prev_repair:
+            ref_date = prev_repair.end_date or prev_repair.write_date
+            if ref_date:
+                limit_date = ref_date.date() + relativedelta(months=3)
+                current_date = self.entry_date.date() if self.entry_date else fields.Date.today()
+                if current_date <= limit_date:
+                    is_sar = True
+
+        # C. Application de la garantie (si pas SAV manuel ou changement d'appareil)
+        unit_changed = (self.unit_id != self._origin.unit_id)
+        if unit_changed or self.repair_warranty != 'sav':
+            self.repair_warranty = 'sar' if is_sar else 'aucune'
+
+        # D. Gestion de la Popup (Uniquement si on change d'appareil)
+        # On ne veut pas afficher la popup si on change juste la date
+        if unit_changed and prev_repair:
+            tech_name = prev_repair.technician_employee_id.name or 'Inconnu'
+            prev_date_str = (prev_repair.end_date or prev_repair.write_date).strftime('%d/%m/%Y')
+            
+            # Message dynamique selon si c'est SAR ou pas
+            if is_sar:
+                return {'warning': {
+                    'title': _("Retour Garantie (SAR)"),
+                    'message': _("ℹ INFO : Appareil sous garantie jusqu'au %s.\n(Réparé le %s par %s)") % (
+                        limit_date.strftime('%d/%m/%Y'), prev_date_str, tech_name
+                    )
+                }}
+            else:
+                return {'warning': {
+                    'title': _("Hors Garantie"),
+                    'message': _("ℹ INFO : Cet appareil a déjà été réparé par %s le %s.\n(Garantie expirée)") % (
+                        tech_name, prev_date_str
+                    )
+                }}
     
     # On récupère les infos via le lien previous_repair_id
     # store=True permet de figer la valeur et facilite la recherche
@@ -152,99 +219,6 @@ class Repair(models.Model):
         store=True,
         readonly=True
     )
-
-    repair_warranty = fields.Selection([('aucune', 'Aucune'), ('sav', 'SAV'), ('sar', 'SAR'),], 
-        string="Garantie",
-        default='aucune',
-        compute='_compute_warranty',
-        store=True,
-        readonly=True
-    )
-
-    # ==========================================================================
-    # 2. LOGIQUE DE CALCUL (BACKEND & SAVE)
-    # ==========================================================================
-
-    @api.depends('unit_id', 'entry_date')
-    def _compute_warranty(self):
-        for rec in self:
-            # Réinitialisation
-            rec.previous_repair_id = False
-            rec.repair_warranty = 'aucune'
-            
-            if not rec.unit_id:
-                continue
-
-            # 1. Recherche : On inclut DONE et DELIVERED
-            # (Cela couvre les cas où vous auriez oublié de cliquer sur "Livrer")
-            domain = [
-                ('unit_id', '=', rec.unit_id.id),
-                ('state', 'in', ['delivered', 'done']) 
-            ]
-            
-            current_id = rec._origin.id
-            if current_id:
-                domain.append(('id', '!=', current_id))
-            
-            # 2. On récupère la plus récente
-            last_repair = self.env['repair.order'].search(domain, order='end_date desc, write_date desc', limit=1)
-
-            if last_repair:
-                rec.previous_repair_id = last_repair.id
-                
-                # --- Logique de calcul ---
-                # On utilise end_date (qui est mis à jour lors de la livraison)
-                ref_date_dt = last_repair.end_date or last_repair.write_date
-                
-                if ref_date_dt:
-                    date_end_prev = ref_date_dt.date()
-                    
-                    # Sécurité pour la date d'entrée
-                    date_current_entry = rec.entry_date.date() if rec.entry_date else fields.Date.today()
-                    
-                    # Limite = +3 mois
-                    warranty_limit = date_end_prev + relativedelta(months=3)
-                    
-                    if date_current_entry <= warranty_limit:
-                        rec.repair_warranty = 'sar'
-                    else:
-                        rec.repair_warranty = 'aucune'
-
-    # ==========================================================================
-    # 3. INTERFACE UTILISATEUR (WARNING POPUP)
-    # ==========================================================================
-
-    @api.onchange('previous_repair_id', 'repair_warranty')
-    def _onchange_warranty_warning(self):
-        """
-        Sert UNIQUEMENT à afficher la popup.
-        Les données sont déjà calculées par le compute ci-dessus.
-        """
-        if not self.previous_repair_id:
-            return {}
-
-        # On formate les dates pour l'affichage
-        prev_date = self.previous_end_date or self.previous_repair_id.write_date
-        prev_date_str = prev_date.strftime('%d/%m/%Y') if prev_date else 'Inconnue'
-        
-        tech_name = self.previous_technician_id.name or 'Inconnu'
-        limit_date = prev_date + relativedelta(months=3) if prev_date else False
-        limit_str = limit_date.strftime('%d/%m/%Y') if limit_date else '?'
-
-        if self.repair_warranty == 'sar':
-            return {'warning': {
-                'title': _("Retour Garantie (SAR)"),
-                'message': _("Appareil sous garantie jusqu'au %s.\n(Réparé le %s par %s)") % (
-                    limit_str, prev_date_str, tech_name
-                )
-            }}
-        else:
-            return {'warning': {
-                'title': _("Appareil Hors Garantie"),
-                'message': _("ℹ INFO : Cet appareil a déjà été réparé par %s le %s.\nLa garantie de 3 mois est expirée depuis le %s.") % (
-                    tech_name, prev_date_str, limit_str
-                )
-            }}
 
     # --- APPAREILS ---
     category_id = fields.Many2one('repair.device.category', string="Catégorie", check_company=True)
@@ -648,7 +622,7 @@ class Repair(models.Model):
         # 3. Log
         tech_name = self.technician_employee_id.name if self.technician_employee_id else self.env.user.name
         if self.env.context.get('force_start'):
-            self.message_post(body=f"<b>{tech_name}</b> a forcé le démarrage (Devis ignoré).")
+            self.message_post(body=f"⚠️ {tech_name} a forcé le démarrage (Devis ignoré).")
         else:
             self.message_post(body=f"<b>{tech_name}</b> a commencé l'intervention.")
 
@@ -726,6 +700,11 @@ class Repair(models.Model):
             'technician_employee_id': False,
             'quote_state': 'none'
         })
+    
+    def action_save_repair(self):
+        """ Sauvegarde explicite pour le mobile """
+        self.ensure_one()
+        return True
 
     def action_open_template_selector(self):
         self.ensure_one()
@@ -941,6 +920,7 @@ class RepairTemplateSelector(models.TransientModel):
     _description = "Assistant d'import de gabarit"
 
     repair_id = fields.Many2one('repair.order', required=True)
+    category_id = fields.Many2one('repair.device.category', string="Catégorie Filtre")
     
     # On choisit le gabarit ici
     template_id = fields.Many2one('repair.notes.template', string="Choisir un modèle")
@@ -1158,78 +1138,55 @@ class AtelierDashboardTile(models.Model):
     def action_open_reparations(self):
         self.ensure_one()
         
-        # IMPORTANT : On garde le contexte actuel (qui contient 'atelier_employee_id')
+        action = self.env['ir.actions.act_window']._for_xml_id('repair_custom.action_repair_order_atelier')
+        
         today_start = datetime.combine(date.today(), time.min)
         ctx = self._context.copy()
+        
+        # On initialise le domaine de base (on écrase celui du XML pour être sûr)
         domain = [('state', 'not in', ['draft', 'cancel'])]
-        
-        # On prépare l'action de base
-        action = {
-            'name': self.name,
-            'type': 'ir.actions.act_window',
-            'res_model': 'repair.order',
-            'view_mode': 'tree,form',
-            'context': ctx,
-            # Ceinture de sécurité (Domaine dur)
-            'domain': domain, 
-            'views': [
-                (self.env.ref('repair_custom.view_repair_order_atelier_tree').id, 'tree'),
-                (self.env.ref('repair_custom.view_repair_order_atelier_form').id, 'form'),
-                (self.env.ref('repair_custom.view_repair_order_calendar').id, 'calendar'),
-            ],
-        }
-        
-        # --- Activation des filtres "Retirables" (Search Defaults) ---
-        # Ces clés ('search_default_XXX') correspondent aux 'name' définis dans votre XML de recherche
-
-        if self.category_type == 'today':
-            # On applique le filtre temporel directement dans le domaine de l'action
-            action['domain'].append(('write_date', '>=', today_start))
-            
-            # On active le filtre "Ma Session" pour être sûr
-            ctx.update({'search_default_my_session': 1})
-            
-            history_view = self.env.ref('repair_custom.view_repair_order_atelier_history_tree', raise_if_not_found=False)
-            if history_view:
-                # On dit à l'action : "Utilise cette vue Tree là, pas celle par défaut"
-                action['views'] = [(history_view.id, 'tree'), (self.env.ref('repair_custom.view_repair_order_atelier_form').id, 'form')]
-        
         if self.category_type == 'todo':
-            # Active le filtre XML name="todo"
             ctx.update({'search_default_todo': 1})
-            # On masque les brouillons via le domaine dur ici
-            action['domain'].append(('state', '!=', 'draft'))
-            
+            domain.append(('state', '!=', 'draft'))
+
         elif self.category_type == 'progress':
-            # Active le filtre XML name="in_progress"
-            ctx.update({'search_default_in_progress': 1})
-            
-            # Active le filtre XML name="my_session"
-            # Ce filtre va lire 'atelier_employee_id' qui est dans le ctx
-            ctx.update({'search_default_my_session': 1})
-            
-            # Si le technicien crée une fiche depuis cette vue, on le pré-remplit
+            ctx.update({'search_default_in_progress': 1, 'search_default_my_session': 1})
             if ctx.get('atelier_employee_id'):
                 ctx.update({'default_technician_employee_id': ctx.get('atelier_employee_id')})
-                
+
         elif self.category_type == 'waiting':
-            ctx.update({'search_default_parts': 1})
-            ctx.update({'search_default_my_session': 1})
-            
+            ctx.update({'search_default_parts': 1, 'search_default_my_session': 1})
+
         elif self.category_type == 'quote_waiting':
-            ctx.update({'search_default_quote_waiting': 1})
-            ctx.update({'search_default_my_session': 1})
-        
-        elif self.category_type == 'quote_validated':
-            ctx.update({'search_default_quote_validated': 1})
-            ctx.update({'search_default_my_session': 1})
+            ctx.update({'search_default_quote_waiting': 1, 'search_default_my_session': 1})
 
+        elif self.category_type == 'quote_validated':
+            ctx.update({'search_default_quote_validated': 1, 'search_default_my_session': 1})
+            
         elif self.category_type == 'done':
-            ctx.update({'search_default_done': 1})
+            ctx.update({'search_default_done': 1, 'search_default_my_session': 1})
+
+        elif self.category_type == 'today':
+            # Cas spécial : Historique
+            domain.append(('write_date', '>=', today_start))
             ctx.update({'search_default_my_session': 1})
             
-        return action
+            # Pour l'historique, on veut peut-être forcer une autre vue Tree
+            # Mais on garde la logique de l'action XML pour le reste
+            history_view = self.env.ref('repair_custom.view_repair_order_atelier_history_tree', raise_if_not_found=False)
+            if history_view:
+                
+                action['views'] = [
+                    (history_view.id, 'tree'),
+                    (self.env.ref('repair_custom.view_repair_order_atelier_kanban').id, 'kanban'),
+                    (self.env.ref('repair_custom.view_repair_order_atelier_form').id, 'form'),
+                ]
 
+        action['domain'] = domain
+        action['context'] = ctx
+        action['name'] = self.name
+
+        return action
 
 class HrEmployee(models.Model):
     _inherit = 'hr.employee'

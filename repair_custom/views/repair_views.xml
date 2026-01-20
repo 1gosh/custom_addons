@@ -127,7 +127,7 @@
                     width="50" widget="datetime" options="{'show_time':false}" />
                 <field name="state" optional="show" widget="badge" decoration-success="state in 'done'"
                     decoration-info="state in 'confirmed'" decoration-warning="state in 'under_repair'"
-                    decoration-danger="state in 'cancel'" decoration-muted="state in 'draft'" readonly="True"
+                    decoration-danger="state in 'cancel'" decoration-muted="state in 'draft'" decoration-primary="state in 'delivered'" readonly="True"
                     width="50" on_change="1" />
                 <field name="device_id_name" optional="show"/>
                 <field name="partner_id" readonly="1" optional="show" string="Client" width="100" on_change="1" />
@@ -157,13 +157,14 @@
                     <button name="action_validate" groups="repair_custom.group_repair_manager" invisible="state not in 'draft'" type="object" string="Confirmer la réparation" class="oe_highlight" data-hotkey="v"/>
                     <button name="action_repair_start" invisible="state not in 'confirmed'" type="object" string="Commencer" class="oe_highlight" data-hotkey="q"/>
                     <button name="action_repair_end" invisible="state not in 'under_repair'" type="object" string="Terminer la réparation" class="btn-success" data-hotkey="x"/>
+                    <button name="action_repair_delivered" string="Livrer" type="object" class="oe_highlight" invisible="state != 'done'"/>
                     <button name="action_repair_cancel_draft" groups="repair_custom.group_repair_manager" invisible="state in 'draft'" string="Marquer comme brouillon" type="object" data-hotkey="z"/>
                     <button name="action_repair_cancel" groups="repair_custom.group_repair_manager" string="Annuler" type="object" invisible="state in ('done', 'cancel')" data-hotkey="l" class="btn-danger"/>
                     <button name="action_print_repair_order" string="Bon" type="object" icon="fa-regular fa-print" invisible="state in 'draft'" class="btn-info"/>
                     <button name="%(action_report_repair_label)d" string="Etiquette" type="action" icon="fa-regular fa-print" invisible="state in 'draft'" class="btn-info"/>
                     <button name="action_open_pricing_wizard" icon="fa-file" invisible="state in 'draft'" string="Devis/Facture" type="object"/>
                     <button name="action_add_device_to_batch" string="Ajouter appareil" type="object" class="btn-secondary" icon="fa-plus-square" invisible="state not in 'confirmed'"/>
-                    <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,under_repair,done" on_change="1"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,under_repair,done, delivered" on_change="1"/>
                 </header>
                 <sheet>
                     <div class="alert alert-warning mb-3 shadow-sm" 
@@ -345,6 +346,7 @@
                         <page string="Atelier">
                             <group>
                                 <group>
+                                    <field name="work_time" readonly="state in ('done', 'delivered')"/>
                                     <field name="notes_template_id" 
                                         domain="['|', ('category_ids', '=', False), ('category_ids', 'parent_of', category_id)]" 
                                         placeholder="Ex: Protocole Ampli Vintage"/>
@@ -365,6 +367,20 @@
                         </page>
                     </notebook>
                 </sheet>
+                <div class="d-md-none bg-white border-top shadow p-3" 
+                    style="position: fixed; bottom: 0; left: 0; width: 100%; z-index: 100;">
+                    
+                    <button name="action_save_repair" 
+                            string="ENREGISTRER" 
+                            type="object" 
+                            class="btn btn-success w-100"
+                            icon="fa-check"/>
+                </div>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
             </form>
         </field>
     </record>
@@ -494,16 +510,13 @@
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
             No repair order found. Let's create one!
-            </p><p>
-            In a repair order, you can detail the components you remove,
-            add or replace and record the time you spent on the different
-            operations.
             </p>
         </field>
         <field name="view_ids" eval="[(5, 0, 0),
-        (0, 0, {'view_mode': 'tree', 'view_id': ref('view_repair_order_tree')}),
-        (0, 0, {'view_mode': 'form', 'view_id': ref('view_repair_order_form')}),
-        (0, 0, {'view_mode': 'calendar', 'view_id': ref('view_repair_order_calendar')})]"/>
+            (0, 0, {'view_mode': 'tree', 'view_id': ref('view_repair_order_tree')}),
+            (0, 0, {'view_mode': 'kanban', 'view_id': ref('view_repair_kanban')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_repair_order_form')}),
+            (0, 0, {'view_mode': 'calendar', 'view_id': ref('view_repair_order_calendar')})]"/>
     </record>
 
     <record id="action_repair_order_graph" model="ir.actions.act_window">
@@ -630,9 +643,10 @@
         <field name="arch" type="xml">
             <form string="Insérer Gabarit">
                 <field name="repair_id" invisible="1"/>
+                <field name="category_id" invisible="1"/>
                 <group>
                     <group>
-                        <field name="template_id" options="{'no_create': True}"/>
+                        <field name="template_id" domain="['|', ('category_ids', '=', False), ('category_ids', 'parent_of', category_id)]" options="{'no_create': True, 'no_open': True}"/>
                     </group>
                     <group>
                         <field name="mode" widget="radio" options="{'horizontal': true}"/>
@@ -655,6 +669,64 @@
                     <button string="Annuler" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>
+        </field>
+    </record>
+
+    <record id="view_repair_order_atelier_kanban" model="ir.ui.view">
+        <field name="name">repair.atelier.kanban</field>
+        <field name="model">repair.order</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" sample="1" quick_create="false">
+                
+                <field name="name"/>
+                <field name="priority"/>
+                <field name="device_id_name"/>
+                <field name="partner_id"/>
+                <field name="entry_date"/>
+                <field name="parts_waiting"/>
+                <field name="quote_required"/>
+                <field name="quote_state"/>
+                <field name="state"/> <templates>
+                    <t t-name="kanban-box">
+                        <div t-attf-class="oe_kanban_card oe_kanban_global_click p-3">
+                            
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="o_kanban_record_title overflow-hidden me-2">
+                                    <strong style="font-size: 1.1rem;">
+                                        <span t-if="record.device_id_name.raw_value"><field name="device_id_name"/></span>
+                                        <span t-else=""><field name="name"/></span>
+                                    </strong>
+                                </div>
+                                <div class="flex-shrink-0">
+                                    <field name="priority" readonly="1" widget="priority"/>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-7 text-truncate">
+                                    <field name="partner_id"/>
+                                </div>
+                                <div class="col-5 text-end">
+                                    <field name="entry_date" widget="datetime" options="{'show_time':false}"/>
+                                </div>
+                            </div>
+
+                            <div class="d-flex flex-wrap align-items-center gap-1">
+                                
+                                <span t-if="record.parts_waiting.raw_value" 
+                                      class="mt-2 badge text-bg-info border border-info rounded-pill">
+                                    <i class="fa fa-cube me-1"/> Pièces
+                                </span>
+
+                                <span t-if="record.quote_required.raw_value &amp;&amp; record.quote_state.raw_value != 'approved'" 
+                                      class="mt-2 badge text-bg-warning border border-warning text-dark rounded-pill">
+                                    <i class="fa fa-file-text-o me-1"/> Devis
+                                </span>
+                            </div>
+
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
         </field>
     </record>
 
@@ -754,7 +826,7 @@
                 <header>
                     <button name="action_atelier_start" string="Commencer" type="object" class="oe_highlight" invisible="state not in 'confirmed'"/>
                     <button name="action_repair_end" string="Terminer" type="object" class="btn-success" invisible="state != 'under_repair'"/>
-                    <button name="action_repair_delivered" string="Livrer" type="object" class="oe_highligh" invisible="state != 'done'"/>
+                    <button name="action_repair_delivered" string="Livrer" type="object" class="oe_highlight" invisible="state != 'done'"/>
                     <button name="action_atelier_abort" string="Abandonner" type="object" class="btn-danger" invisible="state not in ('under_repair', 'done')"/>
                     <button name="action_atelier_request_quote" string="Établir un devis" type="object" class="btn-warning" invisible="state not in 'under_repair' or quote_state not in ('draft', 'none')"/>
                     <button name="action_manager_validate_quote" string="Valider le devis" type="object" class="btn-info" groups="repair_custom.group_repair_manager" invisible="state not in 'under_repair' or quote_state != 'pending'"/>
@@ -838,13 +910,14 @@
                                     <field name="work_time" readonly="state in 'delivered'"/>
                                     <label for="internal_notes" string="Notes Techniques"/>
                                     <div class="o_row">
-                                        <button name="action_open_template_selector" 
+                                        <button name="action_open_template_selector"
+                                                invisible="state in 'delivered'"
                                                 type="object" 
                                                 string=" Insérer un modèle..." 
                                                 icon="fa-list-ul" 
                                                 class="btn-link pt-0 pb-0"/>
                                     </div>
-                                    <field name="notes_template_id" invisible="state in 'delivered'" domain="['|', ('category_ids', '=', False), ('category_ids', 'parent_of', category_id)]" options="{'no_create': True, 'no_open': True}"/>
+                                    <!-- <field name="notes_template_id" invisible="state in 'delivered'" domain="['|', ('category_ids', '=', False), ('category_ids', 'parent_of', category_id)]" options="{'no_create': True, 'no_open': True}"/> -->
                                     <field name="internal_notes" readonly="state in 'delivered'" style="background: rgb(245, 245, 245); font-family: monospace; padding: 10px; border: 1px solid #ccc; min-height: 100px;"/> 
                                 </group>
                             </group> 
@@ -864,7 +937,15 @@
                         </page>
                     </notebook>
                 </sheet>
-                
+                <div class="d-md-none bg-white border-top shadow p-3" 
+                    style="position: fixed; bottom: 0; left: 0; width: 100%; z-index: 100;">
+                    
+                    <button name="action_save_repair" 
+                            string="ENREGISTRER" 
+                            type="object" 
+                            class="btn btn-success w-100"
+                            icon="fa-check"/>
+                </div>
                 <div class="oe_chatter">
                     <field name="message_follower_ids"/>
                     <field name="activity_ids"/>
@@ -905,10 +986,17 @@
     <record id="action_repair_order_atelier" model="ir.actions.act_window">
         <field name="name">Tableau de Bord Atelier</field>
         <field name="res_model">repair.order</field>
-        <field name="view_mode">tree,form,calendar,activity</field>
+        <field name="view_mode">kanban,tree,form,calendar,activity</field>
+        <field name="mobile_view_mode">kanban</field>
         <field name="search_view_id" ref="view_repair_order_atelier_search"/>
         <field name="domain">[('state', 'not in', ['draft', 'cancel'])]</field>
-        <field name="context">{'search_default_state': ['confirmed', 'under_repair']}</field> 
+        <field name="context">{}</field> 
+        
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'tree', 'view_id': ref('view_repair_order_atelier_tree')}),
+            (0, 0, {'view_mode': 'kanban', 'view_id': ref('view_repair_order_atelier_kanban')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_repair_order_atelier_form')}),
+            (0, 0, {'view_mode': 'calendar', 'view_id': ref('view_repair_order_calendar')})]"/>
     </record>
 
     <record id="view_atelier_dashboard_kanban" model="ir.ui.view">
