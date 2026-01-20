@@ -120,7 +120,7 @@
         <field name="model">repair.order</field>
         <field name="priority" eval="1"/>
         <field name="arch" type="xml">
-            <tree string="Repairs order" multi_edit="1" sample="1" decoration-info="state in 'draft'" decoration-warning="batch_id">
+            <tree string="Repairs order" multi_edit="1" sample="1" decoration-info="state in 'draft'">
                 <field name="batch_id" optional="hide"/>
                 <field name="priority" optional="show" widget="priority" nolabel="1" />
                 <field name="entry_date" optional="show" string="Date d'entrée" readonly="True"
@@ -134,6 +134,11 @@
                 <field name="repair_warranty" optional="show" readonly="True" />
                 <field name="pickup_location_id" optional="hide" readonly="True" />
                 <field name="technician_employee_id" optional="show"/>
+                <field name="activity_summary" string="Action Requise" optional="show"
+                    decoration-warning="activity_summary and 'Devis' in activity_summary"
+                    decoration-success="activity_summary and 'Prêt' in activity_summary"
+                    decoration-info="activity_summary and 'Contacter' in activity_summary"
+                    decoration-muted="not activity_summary"/>
                 <field name="notes" optional="show"/>
             </tree>
         </field>

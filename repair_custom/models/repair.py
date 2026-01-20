@@ -419,7 +419,7 @@ class Repair(models.Model):
                     rec.activity_schedule(
                         activity_type_id=pickup_type.id,
                         user_id=manager_user.id,
-                        summary="Appareil Prêt - Contacter Client",
+                        summary="Appareil Prêt",
                         note=f"L'appareil {rec.device_id_name} est réparé. À facturer et livrer.",
                         date_deadline=fields.Date.today(),
                     )
@@ -648,7 +648,7 @@ class Repair(models.Model):
             self.activity_schedule(
                 activity_type_id=activity_type_id, # <--- ICI
                 user_id=manager_user.id,
-                summary="Validation Devis Requise", 
+                summary="Devis", 
                 note=f"Demande par {self.env.user.name} pour {self.device_id_name}",
                 date_deadline=fields.Date.today(),
             )
