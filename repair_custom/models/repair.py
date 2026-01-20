@@ -239,7 +239,7 @@ class Repair(models.Model):
             
     serial_number = fields.Char("N° de série")
     unit_id = fields.Many2one('repair.device.unit', string="Appareils existants", readonly=True)
-    device_id_name = fields.Char("Appareil", related="unit_id.device_name", store=True, readonly=False)
+    device_id_name = fields.Char("Appareil", related="unit_id.device_name", store=True, readonly=True)
     show_unit_field = fields.Boolean(string="Afficher champ unité", compute="_compute_show_unit_field")
 
     @api.onchange('device_id')
@@ -324,9 +324,9 @@ class Repair(models.Model):
             if rec.batch_id:
                 domain = [('batch_id', '=', rec.batch_id.id)]
 
-                if isinstance(rec.id, int):
-                    domain.append(('id', '!=', rec.id))
-                # -----------------------------
+                # if isinstance(rec.id, int):
+                #     domain.append(('id', '!=', rec.id))
+                # # -----------------------------
                 
                 rec.batch_count = self.env['repair.order'].search_count(domain)
             else:
@@ -352,22 +352,6 @@ class Repair(models.Model):
                 'default_entry_date': self.entry_date,
                 'default_batch_id': current_batch_id,
             }
-        }
-
-    def action_view_batch_repairs(self):
-        self.ensure_one()
-        if not self.batch_id:
-            return
-        return {
-            'name': _("Dossier %s") % self.batch_id.name,
-            'type': 'ir.actions.act_window',
-            'res_model': 'repair.order',
-            'view_mode': 'tree,form',
-            'domain': [('batch_id', '=', self.batch_id.id)],
-            'context': {'create': False},
-            'views': [
-                (self.env.ref('repair_custom.view_repair_order_form').id, 'form'),
-            ],
         }
         
     def write(self, vals):
@@ -407,8 +391,21 @@ class Repair(models.Model):
         # 2. CHANGEMENT D'ÉTAT
         res = self.write({
             'state': 'done', 
+            'parts_waiting': False,
             'end_date': fields.Datetime.now()
         })
+
+        # --- NETTOYAGE DES ACTIVITÉS EN COURS ---
+        # On ferme proprement les demandes de devis qui traînent
+        quote_act_type = self.env.ref('repair_custom.mail_act_repair_quote_validate', raise_if_not_found=False)
+        
+        if quote_act_type:
+            # On filtre les activités liées à ces réparations (self) qui sont du type "Devis"
+            activities_to_clean = self.activity_ids.filtered(lambda a: a.activity_type_id.id == quote_act_type.id)
+            
+            # On les valide automatiquement
+            if activities_to_clean:
+                activities_to_clean.action_feedback(feedback="Clôture automatique : Réparation terminée.")
 
         # 3. NOTIFICATION AUX MANAGERS (Logique modifiée)
         # Assurez-vous que l'ID XML ci-dessous existe bien dans votre fichier data
@@ -622,9 +619,15 @@ class Repair(models.Model):
         # 3. Log
         tech_name = self.technician_employee_id.name if self.technician_employee_id else self.env.user.name
         if self.env.context.get('force_start'):
-            self.message_post(body=f"⚠️ {tech_name} a forcé le démarrage (Devis ignoré).")
+            if self.env.context.get('start_with_quote'):
+                # Cas : Bouton "Faire le devis" du Wizard
+                self.message_post(body=f"{tech_name} a commencé l'intervention (Devis demandé en parallèle).")
+            else:
+                # Cas : Bouton "Passer" du Wizard
+                self.message_post(body=f"⚠️ {tech_name} a forcé le démarrage (Devis ignoré).")
         else:
-            self.message_post(body=f"<b>{tech_name}</b> a commencé l'intervention.")
+            # Cas : Démarrage standard (Pas de blocage)
+            self.message_post(body=f"{tech_name} a commencé l'intervention.")
 
         return True
     
@@ -695,10 +698,17 @@ class Repair(models.Model):
 
     def action_atelier_abort(self):
         self.ensure_one()
+
+        tech_name = self.technician_employee_id.name or self.env.user.name
+        self.message_post(body=f"❌ {tech_name} a abandonné l'intervention (Retour file d'attente).")
+
+        if self.activity_ids:
+            self.activity_ids.unlink()
         return self.write({
             'state': 'confirmed', 
             'technician_employee_id': False,
-            'quote_state': 'none'
+            'quote_state': 'none',
+            'parts_waiting': False,
         })
     
     def action_save_repair(self):
@@ -813,7 +823,7 @@ class RepairStartWizard(models.TransientModel):
     def action_go_to_quote(self):
         """ Option 2 : On commence ET on demande le devis tout de suite """
         self.ensure_one()
-        self.repair_id.with_context(force_start=True).action_atelier_start()
+        self.repair_id.with_context(force_start=True, start_with_quote=True).action_atelier_start()
         return self.repair_id.action_atelier_request_quote()
         
 
@@ -868,6 +878,36 @@ class RepairDeviceUnit(models.Model):
     def action_view_repairs(self):
         self.ensure_one()
         return {'type': 'ir.actions.act_window', 'name': 'Réparations', 'res_model': 'repair.order', 'view_mode': 'tree,form', 'domain': [('unit_id', '=', self.id)], 'context': {'default_unit_id': self.id}}
+
+    functional_state = fields.Selection([
+        ('broken', 'En panne'),
+        ('fixing', 'En Atelier'),
+        ('working', 'Réparé')
+    ], string="État physique", compute='_compute_functional_state', store=True)
+
+    @api.depends('repair_order_ids.state')
+    def _compute_functional_state(self):
+        for unit in self:
+            # 1. Y a-t-il une réparation active en ce moment ?
+            active_repairs = unit.repair_order_ids.filtered(
+                lambda r: r.state in ['confirmed', 'under_repair']
+            )
+            
+            if active_repairs:
+                unit.functional_state = 'fixing'
+            else:
+                # 2. Sinon, quel est le résultat de la TOUTE DERNIÈRE intervention ?
+                # On trie par date de fin (ou d'écriture) décroissante
+                last_repair = unit.repair_order_ids.sorted(
+                    key=lambda r: r.end_date or r.write_date, 
+                    reverse=True
+                )
+                
+                if last_repair and last_repair[0].state in ['done', 'delivered']:
+                    unit.functional_state = 'working'
+                else:
+                    # Pas d'historique ou dernière réparation annulée/brouillon
+                    unit.functional_state = 'broken'
 
 class AccountMove(models.Model):
     _inherit = 'account.move'
@@ -992,6 +1032,7 @@ class RepairTemplateLine(models.TransientModel):
 class RepairBatch(models.Model):
     _name = 'repair.batch'
     _description = "Dossier de Dépôt"
+    _order = 'date desc'
     name = fields.Char("Réf. Dossier", required=True, copy=False, readonly=True, default='New')
     date = fields.Datetime(string="Date de création", default=lambda self: fields.Datetime.now())
     repair_ids = fields.One2many('repair.order', 'batch_id', string="Réparations")

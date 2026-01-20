@@ -35,26 +35,16 @@ class RepairDevice(models.Model):
         for rec in self:
             rec.unit_count = self.env['repair.device.unit'].search_count([('device_id', '=', rec.id)])
 
-    @api.depends("brand_id", "name")
+    @api.depends("brand_id", "brand_id.name", "name")
     def _compute_display_name(self):
         for rec in self:
-            rec.display_name = f"{rec.brand_id.name or ''} {rec.name or ''}".strip()
+            brand = rec.brand_id.name or ''
+            model = rec.name or ''
+            rec.display_name = f"{brand} {model}".strip()
 
     display_name = fields.Char(
         "Nom complet", compute="_compute_display_name", store=True,
     )
-    # --- SMART BUTTON ---
-    unit_count = fields.Integer(
-        string="Appareils physiques",
-        compute='_compute_unit_count',
-        store=False,
-    )
-
-    def _compute_unit_count(self):
-        for rec in self:
-            rec.unit_count = self.env['repair.device.unit'].search_count([
-                ('device_id', '=', rec.id)
-            ])
 
     def action_view_units(self):
         """Ouvre la liste des unités liées à ce modèle."""
@@ -158,8 +148,7 @@ class RepairDevice(models.Model):
 
     _sql_constraints = [
         ("unique_brand_model", "unique(brand_id, name)", "Ce modèle existe déjà pour cette marque."),
-    ]   
-
+    ]
 
 class RepairDeviceVariant(models.Model):
     _name = "repair.device.variant"
@@ -243,7 +232,7 @@ class RepairDeviceUnit(models.Model):
         store=True
     )
 
-    @api.depends("device_id", "variant_id")
+    @api.depends("device_id.display_name", "variant_id.name")
     def _compute_device_name(self):
         for rec in self:
             if rec.device_id:
@@ -254,12 +243,7 @@ class RepairDeviceUnit(models.Model):
             else:
                 rec.device_name = _("Aucun modèle")
 
-    def _compute_is_admin(self):
-        user = self.env.user
-        for rec in self:
-            rec.is_admin = user.has_group('repair_custom.group_repair_admin')
-
-    @api.depends("device_id", "variant_id", "serial_number")
+    @api.depends("device_id.display_name", "variant_id.name", "serial_number")
     def _compute_display_name(self):
         for rec in self:
             name = rec.device_id.display_name or ""
@@ -296,6 +280,11 @@ class RepairDeviceUnit(models.Model):
             # Optionnel: remettre la vue en mode lecture explicitement
             'flags': {'mode': 'readonly'} if not ctx['edit_admin'] else {},
         }
+    
+    def _compute_is_admin(self):
+        user = self.env.user
+        for rec in self:
+            rec.is_admin = user.has_group('repair_custom.group_repair_admin')
 
     # _sql_constraints = [
     #     (

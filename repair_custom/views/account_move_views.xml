@@ -5,13 +5,10 @@
         <field name="inherit_id" ref="account.view_move_form"/>
         <field name="arch" type="xml">
             
-            <xpath expr="//sheet/group" position="before">
-                <div class="alert alert-info" role="alert" invisible="not repair_id">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong><i class="fa fa-wrench"/> Réparation liée : </strong>
-                            <field name="repair_id" readonly="1" class="fw-bold"/>
-                        </div>
+            <xpath expr="//sheet" position="before">
+                <div class="alert alert-info text-center" role="alert" invisible="not repair_id">
+                    <div class="d-flex justify-content-center align-items-center">
+                        <a><strong><i class="fa fa-wrench"/> Réparation liée :</strong> <field name="repair_id" readonly="1" class="fw-bold"/></a>
                     </div>
                     <!-- <hr style="margin: 5px 0; border-top: 1px solid #badbcc;"/>
                     <strong>Notes Atelier :</strong><br/>

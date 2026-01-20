@@ -242,20 +242,10 @@
                                 invisible="invoice_count == 0">
                             <field name="invoice_count" widget="statinfo" string="Factures"/>
                         </button>
-                        <button name="action_view_batch_repairs"
-                            type="object"
-                            class="oe_stat_button"
-                            icon="fa-folder-open"
-                            invisible="batch_count == 0">
-                        <div class="o_field_widget o_stat_info">
-                            <span class="o_stat_value"><field name="batch_count"/></span>
-                            <span class="o_stat_text">Autre(s)</span>
-                        </div>
-                    </button>
                     </div>
                     <div class="oe_title">
                         <h4 invisible="not batch_id" class="text-muted">
-                            <i class="fa fa-folder-open"/> Dossier : <field name="batch_id" readonly="1" class="oe_inline"/>
+                            <i class="fa fa-folder-open"/> <span invisible="batch_count == 0"></span>(1/<span class="o_stat_value"><field name="batch_count"/></span>) Dossier : <field name="batch_id" readonly="1" class="oe_inline"/>
                         </h4>
                         <label class="o_form_label" invisible="unit_id" for="entry_date"/>
                         <field name="entry_date" invisible="not unit_id" class="o_form_label" string="Date d'entrée" widget="datetime" options="{'show_time':false}" readonly="state not in 'draft'" />
@@ -786,7 +776,6 @@
                             ('partner_id', 'ilike', self), 
                             ('device_id', 'ilike', self), 
                             ('serial_number', 'ilike', self)]"/>
-                <field name="partner_id"/>  
 
                 <filter string="Ma Session" name="my_session" domain="[('technician_employee_id', '=', context.get('atelier_employee_id'))]"/>
                 

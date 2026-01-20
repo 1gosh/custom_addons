@@ -99,6 +99,10 @@
                 <field name="serial_number"/>
                 <field name="device_name"/>
                 <field name="partner_id"/>
+                <field name="functional_state" widget="badge" 
+                       decoration-danger="functional_state == 'broken'"
+                       decoration-warning="functional_state == 'fixing'"
+                       decoration-success="functional_state == 'working'"/>
             </tree>
         </field>
     </record>
