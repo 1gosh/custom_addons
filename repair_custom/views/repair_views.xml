@@ -189,6 +189,15 @@
                                     L'atelier a soumis une estimation technique. 
                                     Veuillez valider pour lancer la réparation.
                                 </p>
+                                <div class="d-flex align-items-center justify-content-between px-3 py-2 mb-3 rounded" 
+                                    style="background-color: rgba(255, 255, 255, 0.6); border: 1px solid #e6dbb9;">
+                                    <span class="text-muted small fw-bold text-uppercase">
+                                        <i class="fa fa-clock-o me-1"/> Temps passé
+                                    </span>
+                                    <span class="fw-bold text-dark fs-5">
+                                        <field name="work_time" widget="float_time" readonly="1" class="me-1"/> h
+                                    </span>
+                                </div>
                                 <button name="action_create_quotation_wizard" 
                                         string="Créer le Devis" 
                                         type="object" 
@@ -220,7 +229,7 @@
                                         overflow-y: auto;
                                         max-height: 200px;
                                     ">
-                                        <field name="quotation_notes" readonly="1" nolabel="1"/>
+                                        <field name="internal_notes" readonly="1" nolabel="1"/>
                                     </div>
                                 </div>
                             </div>
@@ -328,7 +337,7 @@
                                         options="{'color_field': 'color'}"
                                         placeholder="Entrer les pannes"
                                         readonly="state not in 'draft'"
-                                        domain="category_id and ['|', '|', ('category_ids', '=', False), ('category_ids', 'parent_of', category_id), ('category_ids', 'child_of', category_id)] or [('category_ids', '=', False)]"
+                                        domain="['|', '|', ('is_global', '=', True), ('category_ids', 'parent_of', category_id), ('category_ids', 'child_of', category_id)]"
                                         context="{'default_category_ids': [category_id]}"
                                         required="True"
                                         string="Pannes"
@@ -390,6 +399,9 @@
                 <field name="partner_id"/>
                 <field name="state"/>
                 <field name="activity_state"/>
+                <field name="quote_required"/>
+                <field name="quote_state"/>
+                <field name="repair_warranty"/>
                 <progressbar field="activity_state" colors='{"planned": "success", "today": "warning", "overdue": "danger"}'/>
                 <templates>
                     <t t-name="kanban-box">
@@ -411,6 +423,23 @@
                                         <field name="device_id_name"/>
                                     </span>
                                 </div>
+                            </div>
+                            <div class="d-flex flex-wrap align-items-center gap-1">
+
+                                <span t-if="record.quote_required.raw_value &amp;&amp; record.quote_state.raw_value != 'approved'" 
+                                      class="mt-2 badge text-bg-warning border border-warning text-dark rounded-pill">
+                                    <i class="fa fa-file-text-o me-1"/> Devis
+                                </span>
+
+                                <span t-if="record.repair_warranty.raw_value == 'sav'" 
+                                    class="mt-2 badge text-bg-primary border border-primary rounded-pill">
+                                    <i class="fa fa-shield me-1"/> SAV
+                                </span>
+
+                                <span t-if="record.repair_warranty.raw_value == 'sar'" 
+                                    class="mt-2 badge text-bg-primary border border-primary rounded-pill">
+                                    <i class="fa fa-history me-1"/> SAR
+                                </span>
                             </div>
                         </div>
                     </t>
@@ -681,6 +710,7 @@
                 <field name="parts_waiting"/>
                 <field name="quote_required"/>
                 <field name="quote_state"/>
+                <field name="repair_warranty"/>
                 <field name="state"/> <templates>
                     <t t-name="kanban-box">
                         <div t-attf-class="oe_kanban_card oe_kanban_global_click p-3">
@@ -715,6 +745,16 @@
                                 <span t-if="record.quote_required.raw_value &amp;&amp; record.quote_state.raw_value != 'approved'" 
                                       class="mt-2 badge text-bg-warning border border-warning text-dark rounded-pill">
                                     <i class="fa fa-file-text-o me-1"/> Devis
+                                </span>
+
+                                <span t-if="record.repair_warranty.raw_value == 'sav'" 
+                                    class="mt-2 badge text-bg-primary border border-primary rounded-pill">
+                                    <i class="fa fa-shield me-1"/> SAV
+                                </span>
+
+                                <span t-if="record.repair_warranty.raw_value == 'sar'" 
+                                    class="mt-2 badge text-bg-primary border border-primary rounded-pill">
+                                    <i class="fa fa-history me-1"/> SAR
                                 </span>
                             </div>
 
@@ -1105,30 +1145,37 @@
         </field>
     </record>
 
-        <menuitem id="menu_repair_order" groups="repair_custom.group_repair_manager" name="Repairs" sequence="28"
-                  web_icon="repair_custom,static/description/icon.png"/>
+    <record id="action_repair_device_audit" model="ir.actions.act_window">
+        <field name="res_model">repair.device</field>
+        <field name="view_mode">tree,form</field>
+    </record>
 
-        <menuitem id="menu_repair_atelier" name="Atelier" sequence="10" action="action_atelier_kiosk_entry"
-                  web_icon="repair_custom,static/description/icon.png" groups="repair_custom.group_repair_technician"/>
+    <menuitem id="menu_repair_order" groups="repair_custom.group_repair_manager" name="Repairs" sequence="28"
+                web_icon="repair_custom,static/description/icon.png"/>
 
-        <menuitem id="repair_order_menu" sequence="20" name="Orders" action="action_repair_order_tree" groups="repair_custom.group_repair_technician"
-                  parent="menu_repair_order"/>
+    <menuitem id="menu_repair_atelier" name="Atelier" sequence="10" action="action_atelier_kiosk_entry"
+                web_icon="repair_custom,static/description/icon.png" groups="repair_custom.group_repair_technician"/>
 
-        <menuitem id="repair_menu_batch" sequence="30" name="Dossiers" action="action_repair_batch" parent="menu_repair_order"/>
+    <menuitem id="repair_order_menu" sequence="20" name="Orders" action="action_repair_order_tree" groups="repair_custom.group_repair_technician"
+                parent="menu_repair_order"/>
 
-        <menuitem id="repair_menu_reporting" name="Reporting" parent="menu_repair_order" groups="repair_custom.group_repair_manager"/>
+    <menuitem id="repair_menu_batch" sequence="30" name="Dossiers" action="action_repair_batch" parent="menu_repair_order"/>
 
-        <menuitem id="repair_menu_config" sequence="40" name="Configuration" parent="menu_repair_order" groups="repair_custom.group_repair_manager"/>
+    <menuitem id="repair_menu_reporting" name="Reporting" parent="menu_repair_order" groups="repair_custom.group_repair_manager"/>
 
-        <menuitem id="menu_repair_pickup_location" name="Lieux" parent="repair_menu_config" action="action_repair_pickup_location"/>
+    <menuitem id="repair_menu_config" sequence="40" name="Configuration" parent="menu_repair_order" groups="repair_custom.group_repair_manager"/>
 
-        <menuitem id="repair_menu_tag" name="Pannes" parent="repair_menu_config" action="action_repair_order_tag"/>
-    
-        <menuitem id="repair_atelier_menu_config" sequence="50" name="Configuration" parent="menu_repair_atelier" groups="repair_custom.group_repair_manager"/>
-        <menuitem id="menu_atelier_config_tiles"
-              name="Tuiles"
-              parent="repair_atelier_menu_config" 
-              action="action_atelier_dashboard_config"
-              sequence="10"/>
+    <menuitem id="menu_repair_pickup_location" name="Lieux" parent="repair_menu_config" action="action_repair_pickup_location"/>
+
+    <menuitem id="repair_menu_tag" name="Pannes" parent="repair_menu_config" action="action_repair_order_tag"/>
+
+    <menuitem id="repair_menu_device_audit" name="Gestionnaire d'Appareils" parent="repair_menu_config" action="action_repair_device_audit" sequence="50"/>
+
+    <menuitem id="repair_atelier_menu_config" sequence="50" name="Configuration" parent="menu_repair_atelier" groups="repair_custom.group_repair_manager"/>
+    <menuitem id="menu_atelier_config_tiles"
+            name="Tuiles"
+            parent="repair_atelier_menu_config" 
+            action="action_atelier_dashboard_config"
+            sequence="10"/>
     </data>
 </odoo>

@@ -46,6 +46,14 @@
         </field>
     </record>
 
+    <record id="action_repair_device_reclassify" model="ir.actions.act_window">
+        <field name="name">Gérer</field>
+        <field name="res_model">repair.device.reclassify</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="binding_model_id" ref="model_repair_device"/>
+        <field name="binding_view_types">list</field>
+    </record>
 
     <menuitem id="menu_repair_device" name="Appareils Hi-Fi" sequence="29"
             web_icon="repair_devices,static/description/icon.png" groups="repair_custom.group_repair_technician"/>

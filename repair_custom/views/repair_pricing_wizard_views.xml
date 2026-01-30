@@ -22,7 +22,7 @@
                         <group string="Contexte de l'Intervention">
                             <field name="device_name" readonly="1" style="font-weight: bold;"/>
                             <field name="technician_employee_id" readonly="1"/>
-                            <field name="work_time" readonly="1"/>
+                            <field name="work_time" widget="float_time" readonly="1"/>
                             <field name="internal_notes" 
                                 readonly="1" 
                                 style="max-height: 150px; overflow-y: auto; background: #f0f0f0; padding: 5px; font-family: monospace;"/>

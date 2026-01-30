@@ -10,6 +10,7 @@
         'security/ir.model.access.csv',
         "views/device_views.xml",
         "views/menu.xml",
+        "views/repair_device_reclassify_views.xml",
     ],
     'installable': True,
     'application': True,

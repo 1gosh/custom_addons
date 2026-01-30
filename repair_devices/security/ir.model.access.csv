@@ -16,3 +16,5 @@ access_repair_device_variant_admin,Variantes d'appareils administrateur,model_re
 access_repair_device_unit_admin,Appareils (unités) administrateur,model_repair_device_unit,repair_custom.group_repair_admin,1,1,1,1
 access_repair_device_brand_admin,Marques administrateur,model_repair_device_brand,repair_custom.group_repair_admin,1,1,1,1
 access_repair_device_category_admin,Catégories administrateur,model_repair_device_category,repair_custom.group_repair_admin,1,1,1,1
+
+access_repair_device_reclassify,repair.device.reclassify,model_repair_device_reclassify,repair_custom.group_repair_manager,1,1,1,1

@@ -18,6 +18,27 @@
         </field>
     </record>
 
+    <record id="view_repair_device_search" model="ir.ui.view">
+        <field name="name">repair.device.search.panel</field>
+        <field name="model">repair.device</field>
+        <field name="arch" type="xml">
+            <search string="Test">
+                <searchpanel>
+                    <field name="category_id" 
+                            enable_counters="1" 
+                            icon="fa-folder"
+                            string="Catégories"/>
+                    
+                    <field name="brand_id" 
+                            enable_counters="1" 
+                            icon="fa-tag" 
+                            select="multi"
+                            string="Marques"/>
+                </searchpanel>
+            </search>
+        </field>
+    </record>
+
     <record id="view_repair_device_form" model="ir.ui.view">
         <field name="name">repair.device.form</field>
         <field name="model">repair.device</field>

@@ -90,7 +90,6 @@ class Repair(models.Model):
     # --- LOGIQUE DEVIS ---
     quote_required = fields.Boolean(string="Devis Exigé", default=False, tracking=True)
     quote_threshold = fields.Integer(string="Seuil du devis")
-    quotation_notes = fields.Text(string="Estimation Technique", help="Notes pour le devis (saisies par l'atelier)")
     
     parts_waiting = fields.Boolean(string="Attente de pièces", default=False, tracking=True)
     diagnostic_notes = fields.Text(string="Diagnostic Technique")
@@ -636,9 +635,7 @@ class Repair(models.Model):
 
         self._assign_technician_if_needed()
 
-        if not self.quotation_notes and self.internal_notes:
-            self.quotation_notes = self.internal_notes
-        if not self.quotation_notes:
+        if not self.internal_notes:
             raise UserError(_("Veuillez remplir l'estimation technique avant de demander un devis."))
         
         group_manager = self.env.ref('repair_custom.group_repair_manager')
@@ -867,6 +864,38 @@ class RepairTags(models.Model):
                     existing_tag.write({'category_ids': [(4, c) for c in cats]})
             return existing_tag.id, existing_tag.display_name
         return super(RepairTags, self).name_create(clean_name)
+    
+    @api.model
+    def _name_search(self, name, args=None, operator='ilike', limit=100, name_get_uid=None, order=None):
+        """
+        Recherche intelligente :
+        1. Supporte les mots dans le désordre.
+        2. FILTRE PAR CATÉGORIE (Si le contexte le permet).
+        """
+        args = args or []
+        domain = []
+
+        # 1. FILTRE TEXTUEL (Mots clés)
+        if name:
+            search_terms = name.split()
+            for term in search_terms:
+                # On cherche le terme dans le nom
+                domain += [('name', operator, term)]
+
+        # 2. FILTRE CONTEXTUEL (Catégorie active)
+        # On regarde si la vue appelante nous a envoyé l'ID de la catégorie en cours
+        # (ex: depuis la fiche réparation)
+        ctx_category_id = self.env.context.get('filter_category_id') or self.env.context.get('default_category_id')
+
+        if ctx_category_id:
+            # LOGIQUE : Montrer le tag SI...
+            # - Il est marqué "Global" (Valable pour tout)
+            # - OU il est explicitement lié à la catégorie en cours (ou ses parents si vous gérez la hiérarchie)
+            # - OU il n'a aucune catégorie spécifique (Optionnel, selon votre rigueur)
+            
+            domain += ['|', ('is_global', '=', True), ('category_ids', 'in', ctx_category_id)]
+
+        return self._search(domain + args, limit=limit, access_rights_uid=name_get_uid, order=order)
 
 class RepairDeviceUnit(models.Model):
     _inherit = 'repair.device.unit'

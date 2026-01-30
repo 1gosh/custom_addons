@@ -7,6 +7,8 @@ class RepairPricingWizard(models.TransientModel):
     _description = "Calculatrice de Prix et Ventilation"
 
     repair_id = fields.Many2one('repair.order', required=True)
+    
+    # On utilise uniquement ce champ désormais
     internal_notes = fields.Text(string="Notes technicien", readonly=True)
     
     # --- CONFIGURATION ---
@@ -45,7 +47,10 @@ class RepairPricingWizard(models.TransientModel):
     # --- DÉTAILS / NOTES ---
     device_name = fields.Char(string="Appareil", readonly=True)
     technician_employee_id = fields.Many2one('hr.employee', string="Technicien", readonly=True)
+    
+    # CORRECTION : Le related ne suffit pas au chargement initial, on va le forcer dans le default_get
     work_time = fields.Float(related="repair_id.work_time", readonly=True)
+    
     add_work_details = fields.Boolean("Ajouter le détail des travaux", default=True)
     work_details = fields.Text("Détail à afficher sur la facture")
 
@@ -60,48 +65,48 @@ class RepairPricingWizard(models.TransientModel):
         if service:
             res['manual_product_id'] = service.id
 
-        # 2. RÉCUPÉRATION FORCÉE DES NOTES
-        # On ne se fie pas au champ related, on va chercher l'objet directement via l'ID du contexte
+        # 2. RÉCUPÉRATION FORCÉE DES DONNÉES
         active_repair_id = self.env.context.get('default_repair_id') or self.env.context.get('active_id')
         context = self.env.context
         
-        # CAS 1 : On vient d'un BATCH
+        # CAS A : On vient d'un BATCH
         if context.get('active_model') == 'repair.batch' and context.get('active_id'):
             batch = self.env['repair.batch'].browse(context.get('active_id'))
             if batch.repair_ids:
-                # On prend tous les repairs du batch
                 all_repairs = batch.repair_ids
                 first_repair = all_repairs[0]
-                remaining = all_repairs[1:] # Les autres
+                remaining = all_repairs[1:]
                 
                 res['batch_id'] = batch.id
                 res['repair_id'] = first_repair.id
                 res['remaining_repair_ids'] = [(6, 0, remaining.ids)]
                 res['step_info'] = f"Appareil 1 / {len(all_repairs)}"
                 
-                # On charge les infos du PREMIER appareil (notes, device name...)
-                # (Copie de votre logique existante pour peupler les champs)
+                # Chargement des infos
                 clean_notes = tools.html2plaintext(first_repair.internal_notes or "")
                 res['work_details'] = clean_notes.strip()
                 res['internal_notes'] = clean_notes.strip()
                 res['device_name'] = first_repair.device_id_name
                 res['technician_employee_id'] = first_repair.technician_employee_id.id
                 
+                # --- CORRECTION WORK TIME (BATCH) ---
+                res['work_time'] = first_repair.work_time 
+                
+        # CAS B : On vient d'une réparation UNIQUE
         if active_repair_id:
             repair = self.env['repair.order'].browse(active_repair_id)
             if repair.exists():
-                if context.get('default_generation_type') == 'quote':
-                    # Si mode Devis -> On prend les notes d'estimation (quotation_notes)
-                    raw_notes = repair.quotation_notes or ""
-                else:
-                    # Si mode Facture (ou par défaut) -> On prend les notes techniques (internal_notes)
-                    raw_notes = repair.internal_notes or ""
-
+                # --- MODIFICATION ICI : On prend toujours internal_notes ---
+                raw_notes = repair.internal_notes or ""
+                
                 clean_notes = tools.html2plaintext(raw_notes).strip()
                 res['work_details'] = clean_notes.strip()
                 res['internal_notes'] = clean_notes.strip()
                 res['device_name'] = repair.device_id_name
                 res['technician_employee_id'] = repair.technician_employee_id.id or False
+
+                # --- CORRECTION WORK TIME (UNIQUE) ---
+                res['work_time'] = repair.work_time
 
         return res
 
@@ -120,16 +125,13 @@ class RepairPricingWizard(models.TransientModel):
         next_repair = self.remaining_repair_ids[0]
         new_remaining = self.remaining_repair_ids[1:]
         
-        # Calcul du numéro d'étape pour l'affichage
         total_repairs = len(self.batch_id.repair_ids)
         next_step_number = total_repairs - len(new_remaining)
         new_step_info = f"Appareil {next_step_number} / {total_repairs}"
 
-        # 4. RESET DES VALEURS (Pour avoir un formulaire propre pour le suivant)
-        # Il faut re-exécuter la logique de chargement des notes/produits par défaut
+        # 4. RESET DES VALEURS 
         clean_notes = tools.html2plaintext(next_repair.internal_notes or "")
         
-        # On met à jour le wizard pour la prochaine vue
         self.write({
             'repair_id': next_repair.id,
             'remaining_repair_ids': [(6, 0, new_remaining.ids)],
@@ -138,7 +140,7 @@ class RepairPricingWizard(models.TransientModel):
             
             # Reset des champs de saisie
             'target_total_amount': 0.0,
-            'extra_parts_ids': [(5, 0, 0)], # Vider les pièces
+            'extra_parts_ids': [(5, 0, 0)],
             'manual_product_id': self.env['product.product'].search([('type', '=', 'service'), ('default_code', '=', 'SERV')], limit=1).id,
             
             # Chargement des infos du nouvel appareil
@@ -146,9 +148,11 @@ class RepairPricingWizard(models.TransientModel):
             'technician_employee_id': next_repair.technician_employee_id.id,
             'internal_notes': clean_notes.strip(),
             'work_details': clean_notes.strip(),
+            
+            # --- CORRECTION WORK TIME (BOUCLE SUIVANTE) ---
+            'work_time': next_repair.work_time,
         })
         
-        # 5. RECHARGER LA VUE (Action window qui se rappelle elle-même)
         return {
             'type': 'ir.actions.act_window',
             'res_model': self._name,
@@ -156,6 +160,7 @@ class RepairPricingWizard(models.TransientModel):
             'view_mode': 'form',
             'target': 'new',
         }
+
 
     def _get_invoice_lines_formatted(self):
         """ Helper qui génère la structure exacte des lignes pour 'account.move' 

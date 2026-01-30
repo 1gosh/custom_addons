@@ -343,6 +343,27 @@ class RepairDeviceCategory(models.Model):
     device_model_ids = fields.One2many("repair.device", "category_id", string="Modèles de cette catégorie")
     product_count = fields.Integer("# Appareils", compute="_compute_device_count", help="Nombre d’appareils dans cette catégorie (ne compte pas les sous-catégories).")
 
+    @api.model
+    def _name_search(self, name, args=None, operator='ilike', limit=100, name_get_uid=None, order=None):
+        """
+        Permet de trouver "Sources numériques / CD / Lecteur" 
+        en tapant simplement "lecteur cd" ou "cd lecteur".
+        """
+        args = args or []
+        domain = []
+        
+        if name:
+            # 1. On découpe les mots
+            search_terms = name.split()
+            
+            for term in search_terms:
+                # 2. Chaque mot doit se trouver quelque part dans le chemin complet
+                # L'opérateur 'ilike' cherche n'importe où dans la chaine
+                domain += [('complete_name', operator, term)]
+        
+        # On passe le domaine construit à la méthode de recherche standard
+        return self._search(domain + args, limit=limit, access_rights_uid=name_get_uid, order=order)
+
     # --- Calculs et contraintes ---
     @api.depends("name", "parent_id.complete_name")
     def _compute_complete_name(self):
