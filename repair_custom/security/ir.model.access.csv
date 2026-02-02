@@ -22,3 +22,6 @@ access_repair_start_wizard_technician,Wizard départ reparation technicien,model
 access_repair_start_wizard_manager,Wizard départ reparation gestionnaire,model_repair_start_wizard,repair_custom.group_repair_manager,1,1,1,1
 access_repair_template_selector_tech,repair.template.selector.tech,model_repair_template_selector,repair_custom.group_repair_technician,1,1,1,0
 access_repair_template_line_tech,repair.template.line.tech,model_repair_template_line,repair_custom.group_repair_technician,1,1,1,0
+
+access_repair_manager,repair.order.manager,model_repair_manager,repair_custom.group_repair_manager,1,1,1,1
+access_repair_abandon_wizard,repair.order.manager,model_repair_abandon_wizard,repair_custom.group_repair_manager,1,1,1,1

@@ -158,20 +158,26 @@
                 <field name="device_id" invisible="1"/>
                 <field name="category_id" invisible="1"/>
                 <field name="quote_state" invisible="1"/>
+                <field name="delivery_state" invisible="1"/>
                 <header>
                     <button name="action_validate" groups="repair_custom.group_repair_manager" invisible="state not in 'draft'" type="object" string="Confirmer la réparation" class="oe_highlight" data-hotkey="v"/>
                     <button name="action_repair_start" invisible="state not in 'confirmed'" type="object" string="Commencer" class="oe_highlight" data-hotkey="q"/>
                     <button name="action_repair_end" invisible="state not in 'under_repair'" type="object" string="Terminer la réparation" class="btn-success" data-hotkey="x"/>
-                    <button name="action_repair_delivered" string="Livrer" type="object" class="oe_highlight" invisible="state != 'done'"/>
+                    <button name="action_set_irreparable" string="Non Réparable" type="object" class="btn-danger" invisible="state not in ['under_repair']"/>
+                    <button name="action_repair_delivered" string="Livrer" type="object" class="btn-secondary" invisible="delivery_state != 'none' or state not in ['done', 'irreparable']"/>
+                    <button name="action_open_abandon_wizard" string="Abandon" type="object" class="btn-warning" invisible="delivery_state != 'none' or state == 'draft'"/>
                     <button name="action_repair_cancel_draft" groups="repair_custom.group_repair_manager" invisible="state in 'draft'" string="Marquer comme brouillon" type="object" data-hotkey="z"/>
                     <button name="action_repair_cancel" groups="repair_custom.group_repair_manager" string="Annuler" type="object" invisible="state in ('done', 'cancel')" data-hotkey="l" class="btn-danger"/>
-                    <button name="action_print_repair_order" string="Bon" type="object" icon="fa-regular fa-print" invisible="state in 'draft'" class="btn-info"/>
-                    <button name="%(action_report_repair_label)d" string="Etiquette" type="action" icon="fa-regular fa-print" invisible="state in 'draft'" class="btn-info"/>
+                    <button name="action_print_repair_order" string="Bon" type="object" icon="fa-regular fa-print" invisible="state in 'draft, done, delivered'" class="btn-info"/>
+                    <button name="%(action_report_repair_label)d" string="Etiquette" type="action" icon="fa-regular fa-print" invisible="state in 'draft, done, delivered'" class="btn-info"/>
                     <button name="action_open_pricing_wizard" icon="fa-file" invisible="state in 'draft'" string="Devis/Facture" type="object"/>
                     <button name="action_add_device_to_batch" string="Ajouter appareil" type="object" class="btn-secondary" icon="fa-plus-square" invisible="state not in 'confirmed'"/>
-                    <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,under_repair,done, delivered" on_change="1"/>
+
+                    <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,under_repair,done" onchange="1"/>
                 </header>
                 <sheet>
+                    <widget name="web_ribbon" title="Livré" bg_color="bg-success" invisible="delivery_state != 'delivered'"/>
+                    <widget name="web_ribbon" title="Abandonné" bg_color="bg-warning" invisible="delivery_state != 'abandoned'"/>
                     <div class="alert alert-warning mb-3 shadow-sm" 
                         role="alert" 
                         invisible="quote_state != 'pending'"
@@ -195,7 +201,7 @@
                                         <i class="fa fa-clock-o me-1"/> Temps passé
                                     </span>
                                     <span class="fw-bold text-dark fs-5">
-                                        <field name="work_time" widget="float_time" readonly="1" class="me-1"/> h
+                                        <field name="work_time" widget="float_time" readonly="1"/> h
                                     </span>
                                 </div>
                                 <button name="action_create_quotation_wizard" 
@@ -280,14 +286,21 @@
                                 force_save="1"
                                 options="{'no_quick_create':True}"
                                 required="True"/>
-                            <group>
-                                <group>
-                                    <field name="quote_required" invisible="state not in 'draft' and not quote_required" readonly="state not in 'draft' or batch_id"/>
-                                </group>
-                                <group>
-                                    <field name="quote_threshold" readonly="state not in 'draft' or batch_id" invisible="(state not in 'draft' and quote_threshold == 0) or not quote_required"/>
-                                </group>
-                            </group>
+
+                            <label for="quote_required" string="Devis Exigé"/>
+                            
+                            <div class="o_row">
+                                <field name="quote_required" 
+                                    readonly="state not in 'draft' or batch_id"/>
+                                
+                                <field name="quote_threshold" 
+                                    placeholder="Seuil (0 = Toujours)"
+                                    invisible="not quote_required"
+                                    readonly="state not in 'draft' or batch_id"
+                                    nolabel="1"
+                                    class="oe_inline"/>
+                            </div>
+
                         </group>
                         <group>
                             <field name="repair_warranty" widget="radio" options="{'horizontal': True}" readonly="state not in 'draft'"/>
@@ -305,7 +318,8 @@
                                         domain="[('partner_id', '=', partner_id)]"
                                         options="{'no_create': True, 'no_open': True}"
                                         invisible="not show_unit_field"
-                                        readonly="state not in 'draft'"/>
+                                        readonly="state not in 'draft'"
+                                        string="Appareil(s) existant(s)"/>
                                     <field name="category_id" readonly="state not in 'draft' or unit_id" force_save="1"/>
                                     <label for="device_id"/>
                                     <div class="o_row">
@@ -361,7 +375,8 @@
                                 <group>
                                     <field name="unit_id"
                                             invisible="not unit_id"
-                                            readonly="1"/>
+                                            readonly="1"
+                                            string="Appareil"/>
                                     <field name="technician_employee_id" 
                                         groups="repair_custom.group_repair_manager" 
                                         options="{'no_open':True}"
@@ -877,16 +892,16 @@
                     <field name="has_history" invisible="1"/>
                     <field name="repair_warranty" invisible="1"/>
                 </header>
-                <div role="status" class="alert alert-danger text-center" invisible="(not quote_required or quote_threshold == 0) and quote_state not in 'approved'">
+                <div role="status" class="alert alert-danger text-center" 
+                    invisible="not quote_required or quote_threshold == 0 or quote_state == 'approved'">
                     <i class="fa fa-exclamation-triangle me-1"/>
                     <span>Devis &gt; </span>
                     <field name="quote_threshold" 
-                        widget="monetary" 
-                        options="{'currency_field': 'currency_id'}" 
                         readonly="1" 
-                        class="d-inline fw-bold"/>
+                        class="d-inline fw-bold"/> €
                 </div>
-                <div role="status" class="alert alert-danger text-center" invisible="(not quote_required or quote_threshold > 0) and quote_state not in 'approved'">
+                <div role="status" class="alert alert-danger text-center" 
+                    invisible="not quote_required or quote_threshold > 0 or quote_state == 'approved'">
                     <i class="fa fa-exclamation-triangle me-1"/>
                     <span>Devis Exigé</span>
                 </div>

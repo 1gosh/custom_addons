@@ -48,6 +48,7 @@ class Repair(models.Model):
     )
     import_state = fields.Char("Statut pour l'import")
     notes = fields.Text(string="Notes")
+    currency_id = fields.Many2one('res.currency', default=lambda self: self.env.company.currency_id)
     
     technician_user_id = fields.Many2one('res.users', string="Technicien (Utilisateur)", readonly=True)
     
@@ -72,7 +73,7 @@ class Repair(models.Model):
         ('confirmed', 'Confirmed'),
         ('under_repair', 'Under Repair'),
         ('done', 'Repaired'),
-        ('delivered', 'Livré / Clôturé'),
+        ('irreparable', 'Non Réparable'),
         ('cancel', 'Cancelled')], string='Status',
         copy=False, default='draft', readonly=True, tracking=True, index=True)
 
@@ -83,6 +84,12 @@ class Repair(models.Model):
         ('approved', 'Validé'),
         ('refused', 'Refusé')
     ], string="Statut Devis", default='none', tracking=True)
+
+    delivery_state = fields.Selection([
+        ('none', 'En Atelier'),
+        ('delivered', 'Livré au Client'),
+        ('abandoned', 'Abandonné')
+    ], string="Statut Logistique", default='none', tracking=True, copy=False)
         
     priority = fields.Selection([('0', 'Normal'), ('1', 'Urgent')], default='0', string="Priority")
     partner_id = fields.Many2one('res.partner', 'Customer', index=True, check_company=True, required=True)
@@ -137,7 +144,7 @@ class Repair(models.Model):
             # Une seule recherche optimisée
             domain = [
                 ('unit_id', '=', rec.unit_id.id),
-                ('state', 'in', ['delivered', 'done']) # On cherche l'historique validé
+                ('state', 'in', ['done']) # On cherche l'historique validé
             ]
             if isinstance(rec.id, int):
                 domain.append(('id', '!=', rec.id))
@@ -237,7 +244,7 @@ class Repair(models.Model):
             self.category_id = self.device_id.category_id
             
     serial_number = fields.Char("N° de série")
-    unit_id = fields.Many2one('repair.device.unit', string="Appareils existants", readonly=True)
+    unit_id = fields.Many2one('repair.device.unit', readonly=True)
     device_id_name = fields.Char("Appareil", related="unit_id.device_name", store=True, readonly=True)
     show_unit_field = fields.Boolean(string="Afficher champ unité", compute="_compute_show_unit_field")
 
@@ -430,6 +437,10 @@ class Repair(models.Model):
             raise UserError(_("La réparation doit être en cours pour être terminée."))
         return self.action_repair_done() 
 
+    def action_set_irreparable(self):
+        """ Marque la réparation comme impossible (ex: après devis refusé) """
+        return self.write({'state': 'irreparable', 'end_date': fields.Datetime.now()})
+
     def action_repair_delivered(self):
         """ 
         Passage à l'état Livré.
@@ -439,11 +450,13 @@ class Repair(models.Model):
         for rec in self:
             if rec.state != 'done':
                 raise UserError(_("La réparation %s doit être 'Terminée' avant d'être livrée.") % rec.name)
-        
+            elif rec.delivery_state != 'none':
+                raise UserError("Cet appareil est déjà sorti de l'atelier.")
+
         # 2. Écriture en masse (Plus rapide pour la base de données)
         # On peut écrire sur 'self' directement, cela mettra à jour tous les enregistrements sélectionnés
         self.write({
-            'state': 'delivered',
+            'delivery_state': 'delivered',
             'end_date': fields.Datetime.now() 
         })
 
@@ -457,7 +470,6 @@ class Repair(models.Model):
                 activities.action_feedback(feedback="Client livré (Appareil récupéré)")
         
         return True
-
 
     def action_repair_start(self):
         self.ensure_one()
@@ -650,7 +662,7 @@ class Repair(models.Model):
                 date_deadline=fields.Date.today(),
             )
         
-        return self.write({'quote_state': 'pending', 'quote_required': True})
+        return self.write({'quote_state': 'pending'})
 
     def action_create_quotation_wizard(self):
         """ MANAGER : Générer le Devis Odoo depuis l'alerte """
@@ -822,7 +834,6 @@ class RepairStartWizard(models.TransientModel):
         self.ensure_one()
         self.repair_id.with_context(force_start=True, start_with_quote=True).action_atelier_start()
         return self.repair_id.action_atelier_request_quote()
-        
 
 class RepairPickupLocation(models.Model):
     _name = 'repair.pickup.location'
@@ -921,7 +932,6 @@ class RepairDeviceUnit(models.Model):
             active_repairs = unit.repair_order_ids.filtered(
                 lambda r: r.state in ['confirmed', 'under_repair']
             )
-            
             if active_repairs:
                 unit.functional_state = 'fixing'
             else:
@@ -931,8 +941,7 @@ class RepairDeviceUnit(models.Model):
                     key=lambda r: r.end_date or r.write_date, 
                     reverse=True
                 )
-                
-                if last_repair and last_repair[0].state in ['done', 'delivered']:
+                if last_repair and last_repair[0].state in ['done']:
                     unit.functional_state = 'working'
                 else:
                     # Pas d'historique ou dernière réparation annulée/brouillon
@@ -975,6 +984,7 @@ class SaleOrder(models.Model):
                 "view_mode": "tree,form",
                 "domain": [('sale_order_id', '=', self.id)],
             }
+            
 
 class RepairNotesTemplate(models.Model):
     _name = 'repair.notes.template'

@@ -5,6 +5,9 @@
     "author": "martinl",
     "depends": [
         "base",
+        'stock',       # <--- INDISPENSABLE pour stock.lot
+        'product',     # <--- INDISPENSABLE pour product.product
+        'sale_management',
     ],
     "data": [
         'security/ir.model.access.csv',

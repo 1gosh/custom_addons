@@ -30,6 +30,9 @@ The following topics are covered by this module:
         'views/repair_invoice_template_views.xml',
         'views/repair_pricing_wizard_views.xml',
         'views/repair_notes_template_views.xml',
+        'views/repair_manager_wizard_views.xml',
+        'views/repair_abandon_wizard_views.xml',
+        'views/stock_lot_views.xml',
         'report/repair_reports.xml',
         'report/repairorder_final.xml',
         "report/paper_formats.xml",
@@ -40,6 +43,7 @@ The following topics are covered by this module:
         'data/repair_data.xml',
         'data/dashboard_data.xml',
         'data/mail_activity_data.xml',
+        'data/stock_data.xml',
     ],
     'assets': {
         'web.assets_backend': [

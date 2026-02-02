@@ -1,0 +1,35 @@
+<odoo>
+    <record id="stock_production_lot_view_form_repair_custom" model="ir.ui.view">
+        <field name="name">stock.lot.form.inherit.repair.custom</field>
+        <field name="model">stock.lot</field>
+        <field name="inherit_id" ref="stock.view_production_lot_form"/>
+        <field name="arch" type="xml">
+            
+            <xpath expr="//div[@name='button_box']" position="inside">
+                
+                <button name="action_lot_open_repairs" icon="fa-wrench" class="oe_stat_button" type="object">
+                    <div class="o_field_widget o_stat_info">
+                        
+                        <div class="o_field_widget o_stat_info align-items-baseline flex-row gap-1 me-1">
+                            <span class="o_stat_text text-danger" invisible="in_repair_count == 0">En cours:</span>
+                            <span class="o_stat_text text-muted" invisible="in_repair_count > 0">En cours:</span>
+                            <span class="o_stat_value">
+                                <field name="in_repair_count" widget="statinfo" nolabel="1" class="mr4"/>
+                            </span>
+                        </div>
+
+                        <div class="o_field_widget o_stat_info align-items-baseline flex-row gap-1 me-1">
+                            <span class="o_stat_text">Historique:</span>
+                            <span class="o_stat_value">
+                                <field name="repaired_count" widget="statinfo" nolabel="1" class="mr4"/>
+                            </span>
+                        </div>
+
+                    </div>
+                </button>
+
+            </xpath>
+
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,56 @@
+<odoo>
+    <record id="view_repair_manager_form" model="ir.ui.view">
+        <field name="name">repair.manager.form</field>
+        <field name="model">repair.manager</field>
+        <field name="arch" type="xml">
+            <form string="Mise à jour de Masse">
+                <sheet>
+                    <div class="alert alert-info" role="alert">
+                        Sélectionnez les champs à modifier pour les <field name="repair_count" readonly="1" class="fw-bold"/> réparations sélectionnées.
+                    </div>
+
+                    <group>
+                        <group string="Pannes">
+                            <field name="update_tags" widget="checkbox"/>
+                            <field name="tag_action" invisible="not update_tags" widget="radio"/>
+                            <field name="new_tag_ids" widget="many2many_tags" 
+                                   invisible="not update_tags"
+                                   options="{'color_field': 'color', 'no_create': True}"
+                                   placeholder="Sélectionnez les pannes..."/>
+                        </group>
+
+                        <group string="Attribution">
+                            <field name="update_technician" widget="checkbox"/>
+                            <field name="new_technician_id" invisible="not update_technician" options="{'no_create': True}"/>
+                        </group>
+                    </group>
+
+                    <group>
+                        <group string="Informations">
+                            <field name="update_priority" widget="checkbox"/>
+                            <field name="new_priority" widget="priority" invisible="not update_priority"/>
+                            
+                            <field name="update_warranty" widget="checkbox"/>
+                            <field name="new_warranty" invisible="not update_warranty"/>
+                        </group>
+                    </group>
+                    
+                    <field name="repair_ids" invisible="1"/>
+                </sheet>
+                <footer>
+                    <button name="action_apply" string="Appliquer les modifications" type="object" class="btn-primary" data-hotkey="q"/>
+                    <button string="Annuler" class="btn-secondary" special="cancel" data-hotkey="z"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_repair_manager" model="ir.actions.act_window">
+        <field name="name">Gérer</field>
+        <field name="res_model">repair.manager</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="binding_model_id" ref="model_repair_order"/>
+        <field name="binding_view_types">list</field>
+    </record>
+</odoo>

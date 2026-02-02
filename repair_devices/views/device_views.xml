@@ -44,6 +44,7 @@
         <field name="model">repair.device</field>
         <field name="arch" type="xml">
             <form>
+                <field name="product_id" invisible="1"/>
                 <sheet>
                     <div name="button_box" class="oe_button_box" position="inside">
                         <button name="action_view_units"
@@ -52,22 +53,37 @@
                                 icon="fa-cube">
                             <field name="unit_count" widget="statinfo" string="Appareils physiques"/>
                         </button>
+                        <button name="action_view_product" 
+                                type="object" 
+                                class="oe_stat_button" 
+                                icon="fa-shopping-cart"
+                                invisible="not product_id">
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">Vente</span>
+                            </div>
+                        </button>
                     </div>
                     <div class="oe_title">
                         <label for="display_name" string="Nom de l'appareil"/>
                         <h1><field name="display_name"/></h1>
                     </div>
                     <group>
-                        <field name="brand_id"/>
-                        <field name="name"/>
-                        <field name="variant_ids"
-                            widget="many2many_tags"
-                            options="{'color_field': 'color', 'no_create_edit': True}"
-                            placeholder="Ajouter des variantes (ex: MKII, Silver Edition, US)"
-                            string="Variantes"
-                            can_create="True"
-                            can_write="True"/>
-                        <field name="category_id"/>
+                        <group>
+                            <field name="brand_id"/>
+                            <field name="name"/>
+                            <field name="variant_ids"
+                                widget="many2many_tags"
+                                options="{'color_field': 'color', 'no_create_edit': True}"
+                                placeholder="Ajouter des variantes (ex: MKII, Silver Edition, US)"
+                                string="Variantes"
+                                can_create="True"
+                                can_write="True"/>
+                            <field name="category_id"/>
+                        </group>
+                        <group name="main_info" position="inside">
+                            <field name="list_price" widget="monetary"/>
+                            <field name="product_id" readonly="1" groups="base.group_no_one"/>
+                        </group>
                     </group>
                 </sheet>
             </form>
@@ -130,6 +146,7 @@
         <field name="arch" type="xml">
             <form>
                 <field name="is_admin" invisible="1"/>
+                <field name="stock_lot_id" invisible="1"/>
                 <header>
                     <button name="action_toggle_edit"
                             type="object"
@@ -143,6 +160,13 @@
                             class="btn-secondary"
                             groups="repair_custom.group_repair_admin"
                             invisible="not context.get('edit_admin')"/>
+                    <button name="action_convert_to_stock" 
+                        string="Référencer pour la Vente" 
+                        type="object" 
+                        class="btn-secondary"
+                        confirm="Voulez-vous créer l'article et le lot de stock pour cet appareil ?"
+                        invisible="stock_lot_id"/>
+                    <field name="stock_state" widget="statusbar" statusbar_visible="client,stock" onchange="1"/>
                 </header>
                 <sheet>
                     <div class="oe_title">
@@ -157,6 +181,7 @@
                             <field name="variant_id" readonly="not context.get('edit_admin')" placeholder="Pas de variante"/>
                         </group>
                         <group>
+                            <field name="stock_lot_id" invisible="not stock_lot_id" readonly="1"/>
                             <field name="notes" placeholder="Notes techniques, observations..."/>
                         </group>
                     </group>

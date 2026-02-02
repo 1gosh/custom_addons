@@ -150,150 +150,6 @@ class RepairDevice(models.Model):
         ("unique_brand_model", "unique(brand_id, name)", "Ce modèle existe déjà pour cette marque."),
     ]
 
-class RepairDeviceVariant(models.Model):
-    _name = "repair.device.variant"
-    _description = "Variante d'un modèle d'appareil"
-    _order = "name"
-
-    name = fields.Char("Nom de la variante", required=True)
-    color = fields.Integer("Couleur", default=lambda self: randint(1, 11))
-
-    device_ids = fields.Many2many(
-        "repair.device",
-        "repair_device_variant_rel",  # même table relationnelle !
-        "variant_id",
-        "device_id",
-        string="Modèles associés",
-    )
-
-    @api.model_create_multi
-    def create(self, vals_list):
-        records = super().create(vals_list)
-        for rec, vals in zip(records, vals_list):
-            device_ctx = self.env.context.get('default_device_id')
-            if device_ctx:
-                device = self.env['repair.device'].browse(device_ctx)
-                device.variant_ids = [(4, rec.id)]
-        return records
-    
-    @api.model
-    def name_create(self, name):
-        """Création rapide (ex: saisie au vol) depuis un champ Many2one/Many2many."""
-        variant = self.create({'name': name})
-        return variant.id, variant.name
-
-
-class RepairDeviceUnit(models.Model):
-    _name = "repair.device.unit"
-    _description = "Instance physique d'un appareil"
-
-    device_id = fields.Many2one(
-        "repair.device",
-        string="Modèle d’appareil",
-        ondelete="cascade"
-    )
-    variant_id = fields.Many2one(
-        "repair.device.variant",
-        string="Variante"
-    )
-    partner_id = fields.Many2one(
-        "res.partner",
-        string="Propriétaire",
-        ondelete="set null",
-    )
-    serial_number = fields.Char("Numéro de série")
-    state = fields.Selection(
-        [
-            ('new', 'Neuf'),
-            ('tb', 'Très bon état'),
-            ('good', 'Bon état'),
-            ('bad', 'Mauvais état')
-        ],
-        string="État",
-        default='good',
-        required=True,
-    )
-    notes = fields.Text("Notes")
-    image = fields.Image("Photo")
-    display_name = fields.Char(
-        string="Nom complet",
-        compute="_compute_display_name",
-        store=True
-    )
-    is_admin = fields.Boolean(
-        compute="_compute_is_admin",
-        string="Administrateur",
-        store=False
-    )
-
-    device_name = fields.Char(
-        string="Appareil",
-        compute="_compute_device_name",
-        store=True
-    )
-
-    @api.depends("device_id.display_name", "variant_id.name")
-    def _compute_device_name(self):
-        for rec in self:
-            if rec.device_id:
-                name = rec.device_id.display_name
-                if rec.variant_id:
-                    name += f" ({rec.variant_id.name})"
-                rec.device_name = name
-            else:
-                rec.device_name = _("Aucun modèle")
-
-    @api.depends("device_id.display_name", "variant_id.name", "serial_number")
-    def _compute_display_name(self):
-        for rec in self:
-            name = rec.device_id.display_name or ""
-            if rec.variant_id:
-                name += f" ({rec.variant_id.name})"
-            if rec.serial_number:
-                name += f" – SN: {rec.serial_number}"
-            rec.display_name = name
-
-    @api.onchange('device_id')
-    def _onchange_device_id(self):
-        if self.device_id:
-            return {'domain': {'variant_id': [('id', 'in', self.device_id.variant_ids.ids)]}}
-        else:
-            return {'domain': {'variant_id': []}}
-
-    @api.constrains('variant_id', 'device_id')
-    def _check_variant_device_consistency(self):
-        for rec in self:
-            if rec.variant_id and rec.variant_id not in rec.device_id.variant_ids:
-                raise ValidationError(_("La variante sélectionnée n’appartient pas à ce modèle."))
-
-    def action_toggle_edit(self):
-        self.ensure_one()
-        ctx = dict(self.env.context or {})
-        ctx['edit_admin'] = not bool(ctx.get('edit_admin'))
-        return {
-            'type': 'ir.actions.act_window',
-            'res_model': self._name,
-            'res_id': self.id,
-            'view_mode': 'form',
-            'target': 'current',
-            'context': ctx,
-            # Optionnel: remettre la vue en mode lecture explicitement
-            'flags': {'mode': 'readonly'} if not ctx['edit_admin'] else {},
-        }
-    
-    def _compute_is_admin(self):
-        user = self.env.user
-        for rec in self:
-            rec.is_admin = user.has_group('repair_custom.group_repair_admin')
-
-    # _sql_constraints = [
-    #     (
-    #         'unique_device_serial', 
-    #         'unique(device_id, serial_number)', 
-    #         "Ce numéro de série est déjà enregistré pour ce modèle. Veuillez utiliser l'unité existante."
-    #     )
-    # ]
-
 # --- 1. MARQUES ---------------------------------------------------------
 
 class RepairDeviceBrand(models.Model):
@@ -391,3 +247,141 @@ class RepairDeviceCategory(models.Model):
         else:
             for record in self:
                 record.display_name = record.name
+
+
+class RepairDeviceVariant(models.Model):
+    _name = "repair.device.variant"
+    _description = "Variante d'un modèle d'appareil"
+    _order = "name"
+
+    name = fields.Char("Nom de la variante", required=True)
+    color = fields.Integer("Couleur", default=lambda self: randint(1, 11))
+
+    device_ids = fields.Many2many(
+        "repair.device",
+        "repair_device_variant_rel",  # même table relationnelle !
+        "variant_id",
+        "device_id",
+        string="Modèles associés",
+    )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        for rec, vals in zip(records, vals_list):
+            device_ctx = self.env.context.get('default_device_id')
+            if device_ctx:
+                device = self.env['repair.device'].browse(device_ctx)
+                device.variant_ids = [(4, rec.id)]
+        return records
+    
+    @api.model
+    def name_create(self, name):
+        """Création rapide (ex: saisie au vol) depuis un champ Many2one/Many2many."""
+        variant = self.create({'name': name})
+        return variant.id, variant.name
+
+
+class RepairDeviceUnit(models.Model):
+    _name = "repair.device.unit"
+    _description = "Instance physique d'un appareil"
+
+    device_id = fields.Many2one(
+        "repair.device",
+        string="Modèle d’appareil",
+        ondelete="cascade"
+    )
+    variant_id = fields.Many2one(
+        "repair.device.variant",
+        string="Variante"
+    )
+    partner_id = fields.Many2one(
+        "res.partner",
+        string="Propriétaire",
+        ondelete="set null",
+    )
+    serial_number = fields.Char("Numéro de série")
+    notes = fields.Text("Notes")
+    image = fields.Image("Photo")
+    display_name = fields.Char(
+        string="Nom complet",
+        compute="_compute_display_name",
+        store=True
+    )
+    is_admin = fields.Boolean(
+        compute="_compute_is_admin",
+        string="Administrateur",
+        store=False
+    )
+    device_name = fields.Char(
+        string="Appareil",
+        compute="_compute_device_name",
+        store=True
+    )
+    stock_state = fields.Selection([
+        ('client', 'Propriété Client'),
+        ('stock', 'En Stock'),
+        ('rented', 'En Location'), # Pour plus tard
+    ], string="Statut Stock", default='client', tracking=True)
+
+    @api.depends("device_id.display_name", "variant_id.name")
+    def _compute_device_name(self):
+        for rec in self:
+            if rec.device_id:
+                name = rec.device_id.display_name
+                if rec.variant_id:
+                    name += f" ({rec.variant_id.name})"
+                rec.device_name = name
+            else:
+                rec.device_name = _("Aucun modèle")
+
+    @api.depends("device_id.display_name", "variant_id.name", "serial_number")
+    def _compute_display_name(self):
+        for rec in self:
+            name = rec.device_id.display_name or ""
+            if rec.variant_id:
+                name += f" ({rec.variant_id.name})"
+            if rec.serial_number:
+                name += f" – SN: {rec.serial_number}"
+            rec.display_name = name
+
+    @api.onchange('device_id')
+    def _onchange_device_id(self):
+        if self.device_id:
+            return {'domain': {'variant_id': [('id', 'in', self.device_id.variant_ids.ids)]}}
+        else:
+            return {'domain': {'variant_id': []}}
+
+    @api.constrains('variant_id', 'device_id')
+    def _check_variant_device_consistency(self):
+        for rec in self:
+            if rec.variant_id and rec.variant_id not in rec.device_id.variant_ids:
+                raise ValidationError(_("La variante sélectionnée n’appartient pas à ce modèle."))
+
+    def action_toggle_edit(self):
+        self.ensure_one()
+        ctx = dict(self.env.context or {})
+        ctx['edit_admin'] = not bool(ctx.get('edit_admin'))
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': self._name,
+            'res_id': self.id,
+            'view_mode': 'form',
+            'target': 'current',
+            'context': ctx,
+            # Optionnel: remettre la vue en mode lecture explicitement
+            'flags': {'mode': 'readonly'} if not ctx['edit_admin'] else {},
+        }
+    
+    def _compute_is_admin(self):
+        user = self.env.user
+        for rec in self:
+            rec.is_admin = user.has_group('repair_custom.group_repair_admin')
+
+    # _sql_constraints = [
+    #     (
+    #         'unique_device_serial', 
+    #         'unique(device_id, serial_number)', 
+    #         "Ce numéro de série est déjà enregistré pour ce modèle. Veuillez utiliser l'unité existante."
+    #     )
+    # ]
