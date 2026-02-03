@@ -37,8 +37,8 @@
                         <field name="repair_order_count" widget="statinfo" string="Réparations"/>
                     </button>
                 </div>
-                <notebook>
-                    <page string="Réparations associées">
+                 <notebook>
+                    <page string="Réparations associées" invisible="not repair_order_ids">
                         <field name="repair_order_ids" readonly="1">
                             <tree string="Repairs order" multi_edit="1" sample="1" decoration-info="state == 'draft'">
                                 <field name="name" string="Référence" optional="show"/>

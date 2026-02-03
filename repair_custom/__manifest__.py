@@ -19,11 +19,13 @@ The following topics are covered by this module:
     * Notes for the technician and for the final customer
 """,
     'depends': ['repair_devices', 'web', 'stock', 'sale_management', 'account'],
+    'post_init_hook': '_post_init_tag_repair_orders',
     'data': [
         'security/ir.model.access.csv',
         'security/repair_security.xml',
         'views/repair_views.xml',
         'views/sale_order_views.xml',
+        'views/sale_unit_wizard_views.xml',
         'views/tracking_views.xml',
         'views/repair_device_views.xml',
         'views/account_move_views.xml',
@@ -42,6 +44,7 @@ The following topics are covered by this module:
         'data/dashboard_data.xml',
         'data/mail_activity_data.xml',
         'data/stock_data.xml',
+        'data/cron_data.xml',
     ],
     'assets': {
         'web.assets_backend': [

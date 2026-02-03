@@ -15,6 +15,7 @@
         "views/menu.xml",
         "views/repair_device_reclassify_views.xml",
     ],
+    'post_init_hook': '_post_init_sync_products',
     'installable': True,
     'application': True,
 }

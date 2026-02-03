@@ -71,10 +71,9 @@
                                 can_write="True"/>
                             <field name="category_id"/>
                         </group>
-                        <!-- <group name="main_info" position="inside">
-                            <field name="list_price" widget="monetary"/>
-                            <field name="product_id" readonly="1" groups="base.group_no_one"/>
-                        </group> -->
+                        <group>
+                            <field name="product_tmpl_id" readonly="1" groups="base.group_no_one" string="Produit lié"/>
+                        </group>
                     </group>
                 </sheet>
             </form>
@@ -254,6 +253,18 @@
                 <field name="name" string="Product Categories"/>
                 <field name="parent_id"/>
             </search>
+        </field>
+    </record>
+
+    <!-- Server action to sync products -->
+    <record id="action_sync_device_products" model="ir.actions.server">
+        <field name="name">Synchroniser les produits</field>
+        <field name="model_id" ref="model_repair_device"/>
+        <field name="binding_model_id" ref="model_repair_device"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">
+action = records.action_sync_products()
         </field>
     </record>
 

@@ -30,6 +30,12 @@ class RepairDevice(models.Model):
         string="Variantes"
     )
     unit_count = fields.Integer("# Appareils physiques", compute="_compute_unit_count")
+    product_tmpl_id = fields.Many2one(
+        'product.template',
+        string="Produit lié",
+        ondelete='set null',
+        copy=False,
+    )
 
     def _compute_unit_count(self):
         for rec in self:
@@ -56,6 +62,19 @@ class RepairDevice(models.Model):
             'view_mode': 'tree,form',
             'domain': [('device_id', '=', self.id)],
             'context': {'default_device_id': self.id},
+        }
+
+    def action_sync_products(self):
+        """Manual action to sync products for selected devices."""
+        self._sync_product_template()
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _("Synchronisation terminée"),
+                'message': _("%s produit(s) synchronisé(s)") % len(self),
+                'type': 'success',
+            }
         }
 
     @api.model
@@ -145,6 +164,37 @@ class RepairDevice(models.Model):
                     break # On arrête à la première marque trouvée
 
         return defaults
+
+    def _sync_product_template(self):
+        """Create or update the linked product.template."""
+        for rec in self:
+            # Ensure display_name is computed
+            rec._compute_display_name()
+
+            vals = {
+                'name': rec.display_name or f"{rec.brand_id.name} {rec.name}",
+                'type': 'product',
+                'sale_ok': True,
+                'purchase_ok': False,
+                'tracking': 'serial',
+            }
+            if rec.product_tmpl_id:
+                rec.product_tmpl_id.write(vals)
+            else:
+                product = self.env['product.template'].create(vals)
+                rec.write({'product_tmpl_id': product.id})
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        records._sync_product_template()
+        return records
+
+    def write(self, vals):
+        res = super().write(vals)
+        if 'name' in vals or 'brand_id' in vals:
+            self._sync_product_template()
+        return res
 
     _sql_constraints = [
         ("unique_brand_model", "unique(brand_id, name)", "Ce modèle existe déjà pour cette marque."),

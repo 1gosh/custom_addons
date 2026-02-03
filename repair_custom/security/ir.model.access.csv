@@ -24,3 +24,5 @@ access_repair_template_selector_tech,repair.template.selector.tech,model_repair_
 access_repair_template_line_tech,repair.template.line.tech,model_repair_template_line,repair_custom.group_repair_technician,1,1,1,0
 
 access_repair_manager,repair.order.manager,model_repair_manager,repair_custom.group_repair_manager,1,1,1,1
+access_sale_unit_wizard_manager,Wizard vente appareil gestionnaire,model_sale_unit_wizard,repair_custom.group_repair_manager,1,1,1,1
+access_sale_unit_wizard_admin,Wizard vente appareil administrateur,model_sale_unit_wizard,repair_custom.group_repair_admin,1,1,1,1

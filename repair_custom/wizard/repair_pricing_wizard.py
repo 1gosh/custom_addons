@@ -362,6 +362,7 @@ class RepairPricingWizard(models.TransientModel):
         so_vals = {
             'partner_id': partner.id,
             'order_line': formatted_lines,
+            'order_type': 'repair_quote',
         }
         
         # Lier le Devis aux réparations

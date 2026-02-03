@@ -399,6 +399,10 @@ class Repair(models.Model):
         admin = self.env.user.has_group('repair_custom.group_repair_admin')
         if not admin and any(repair.state == 'done' for repair in self):
             raise UserError(_("Impossible d'annuler une réparation terminée."))
+        # Restore stock_state on cancellation
+        units = self.mapped('unit_id').filtered(lambda u: u and u.stock_state == 'in_repair')
+        if units:
+            units.write({'stock_state': 'client'})
         return self.write({'state': 'cancel'})
 
     def action_repair_cancel_draft(self):
@@ -505,6 +509,11 @@ class Repair(models.Model):
             'end_date': fields.Datetime.now()
         })
 
+        # Update stock_state on device units
+        units = self.mapped('unit_id').filtered(lambda u: u and u.stock_state == 'in_repair')
+        if units:
+            units.write({'stock_state': 'client'})
+
         # Cleanup activities
         pickup_type_id = self.env.ref('repair_custom.mail_act_repair_done').id
         for rec in self:
@@ -527,6 +536,7 @@ class Repair(models.Model):
         if self.variant_id and self.variant_id not in self.device_id.variant_ids:
             self.device_id.write({'variant_ids': [(4, self.variant_id.id)]})
         if self.unit_id:
+            self.unit_id.write({'stock_state': 'in_repair'})
             return self._action_repair_confirm()
         if self.device_id and self.partner_id:
             sn = self.serial_number
@@ -539,6 +549,7 @@ class Repair(models.Model):
                 vals['variant_id'] = self.variant_id.id
             new_unit = self.env['repair.device.unit'].create(vals)
             self.write({'unit_id': new_unit.id, 'serial_number': new_unit.serial_number})
+            new_unit.write({'stock_state': 'in_repair'})
         return self._action_repair_confirm()
 
     # --- INVOICING ---
