@@ -66,12 +66,36 @@ class SaleOrder(models.Model):
     repair_count = fields.Integer(
         "Repair Order(s)", compute='_compute_repair_count', groups='stock.group_stock_user')
 
-    order_type = fields.Selection([
+    computed_order_type = fields.Selection([
         ('standard', 'Commande Standard'),
         ('repair_quote', 'Devis Réparation'),
         ('equipment_sale', 'Vente Équipement'),
         ('rental', 'Location'),
-    ], string="Type de commande", default='standard', tracking=True)
+    ], string="Type de commande", compute='_compute_order_type', store=True)
+
+    @api.depends('sale_order_template_id', 'sale_order_template_id.template_type')
+    def _compute_order_type(self):
+        for order in self:
+            if order.sale_order_template_id:
+                order.computed_order_type = order.sale_order_template_id.template_type
+            else:
+                order.computed_order_type = 'standard'
+
+    def _is_rental(self):
+        self.ensure_one()
+        return self.computed_order_type == 'rental'
+
+    def _is_equipment_sale(self):
+        self.ensure_one()
+        return self.computed_order_type == 'equipment_sale'
+
+    def _is_repair_quote(self):
+        self.ensure_one()
+        return self.computed_order_type == 'repair_quote'
+
+    def _requires_special_stock_handling(self):
+        self.ensure_one()
+        return self.computed_order_type in ('rental', 'equipment_sale')
 
     # --- Rental fields ---
     rental_start_date = fields.Date("Date début location")
@@ -112,7 +136,7 @@ class SaleOrder(models.Model):
         """Override to handle equipment sales and rentals."""
         for order in self:
             # Validate rental dates
-            if order.order_type == 'rental':
+            if order._is_rental():
                 if not order.rental_start_date or not order.rental_end_date:
                     raise UserError(_("Veuillez définir les dates de location avant de confirmer."))
                 if order.rental_end_date < order.rental_start_date:
@@ -125,7 +149,7 @@ class SaleOrder(models.Model):
         for order in self:
             units = order.order_line.mapped('device_unit_id').filtered(lambda u: u)
 
-            if order.order_type == 'rental':
+            if order._is_rental():
                 # Mark as rented
                 units.write({'stock_state': 'rented'})
                 order.rental_state = 'active'
@@ -200,7 +224,7 @@ class SaleOrder(models.Model):
                 if all(move.state == 'assigned' for move in picking.move_ids):
                     picking.button_validate()
 
-            elif order.order_type == 'equipment_sale':
+            elif order._is_equipment_sale():
                 # Mark as sold immediately
                 units.write({
                     'stock_state': 'sold',
@@ -208,7 +232,7 @@ class SaleOrder(models.Model):
                 })
 
             # Auto-validate pickings for both types
-            if order.order_type in ['rental', 'equipment_sale']:
+            if order._requires_special_stock_handling():
                 pickings = order.picking_ids.filtered(
                     lambda p: p.state not in ['done', 'cancel']
                 )
@@ -222,7 +246,7 @@ class SaleOrder(models.Model):
     def action_return_rental(self):
         """Mark rental as returned and restore stock with internal transfer."""
         for order in self:
-            if order.order_type != 'rental':
+            if not order._is_rental():
                 continue
 
             units = order.order_line.mapped('device_unit_id').filtered(lambda u: u)
@@ -287,7 +311,7 @@ class SaleOrder(models.Model):
     def _cron_check_overdue_rentals(self):
         """Daily cron to mark overdue rentals."""
         overdue = self.search([
-            ('order_type', '=', 'rental'),
+            ('computed_order_type', '=', 'rental'),
             ('rental_state', '=', 'active'),
             ('rental_end_date', '<', fields.Date.today()),
         ])
@@ -335,7 +359,7 @@ class SaleOrderLine(models.Model):
         SaleOrder.action_confirm() instead of standard outgoing deliveries.
         """
         # Filter out rental lines - they will be handled separately
-        rental_lines = self.filtered(lambda l: l.order_id.order_type == 'rental')
+        rental_lines = self.filtered(lambda l: l.order_id._is_rental())
         non_rental_lines = self - rental_lines
 
         # Process non-rental lines normally (equipment_sale, standard, repair_quote)

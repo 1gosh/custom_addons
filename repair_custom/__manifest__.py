@@ -2,7 +2,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 {
     'name': 'repair_custom',
-    'version': '1.0',
+    'version': '17.0.1.1.0',
     'category': 'Inventory/Inventory',
     'summary': 'Custom repair management for workshop',
     "author": "martinl",
@@ -40,6 +40,7 @@ The following topics are covered by this module:
         "report/repair_label.xml",
         "report/custom_invoice.xml",
         'data/repair_order_sequence.xml',
+        'data/sale_order_template_data.xml',
         'data/repair_data.xml',
         'data/dashboard_data.xml',
         'data/mail_activity_data.xml',

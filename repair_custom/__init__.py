@@ -21,11 +21,16 @@ def _create_warehouse_data(env):
 
 
 def _post_init_tag_repair_orders(env):
-    """Tag existing sale.order records linked to repairs as 'repair_quote'."""
+    """Tag existing sale.order records linked to repairs with repair_quote template."""
+    repair_quote_template = env.ref('repair_custom.sale_order_template_repair_quote', raise_if_not_found=False)
+    if not repair_quote_template:
+        return
+
     repair_so_ids = env['repair.order'].search([
         ('sale_order_id', '!=', False)
     ]).mapped('sale_order_id')
+
     if repair_so_ids:
         repair_so_ids.filtered(
-            lambda so: so.order_type in (False, 'standard')
-        ).write({'order_type': 'repair_quote'})
+            lambda so: not so.sale_order_template_id
+        ).write({'sale_order_template_id': repair_quote_template.id})

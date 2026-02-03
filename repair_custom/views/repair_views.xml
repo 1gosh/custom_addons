@@ -1197,11 +1197,10 @@
     <menuitem id="repair_menu_commerce" sequence="35" name="Commerce" parent="menu_repair_order" groups="repair_custom.group_repair_manager"/>
 
     <record id="action_equipment_sales" model="ir.actions.act_window">
-        <field name="name">Vente</field>
+        <field name="name">Ventes Équipement</field>
         <field name="res_model">sale.order</field>
         <field name="view_mode">tree,form</field>
-        <field name="domain">[('order_type', '=', 'equipment_sale')]</field>
-        <field name="context">{'default_order_type': 'equipment_sale'}</field>
+        <field name="domain">[('computed_order_type', '=', 'equipment_sale')]</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 Créez une vente d'équipement Hi-Fi.
@@ -1210,11 +1209,10 @@
     </record>
 
     <record id="action_rentals" model="ir.actions.act_window">
-        <field name="name">Location</field>
+        <field name="name">Locations</field>
         <field name="res_model">sale.order</field>
         <field name="view_mode">tree,form</field>
-        <field name="domain">[('order_type', '=', 'rental')]</field>
-        <field name="context">{'default_order_type': 'rental'}</field>
+        <field name="domain">[('computed_order_type', '=', 'rental')]</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 Créez une location d'équipement Hi-Fi.

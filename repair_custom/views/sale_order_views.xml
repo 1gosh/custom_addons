@@ -19,38 +19,38 @@
                     </button>
                 </xpath>
 
-                <!-- Order type field after partner -->
-                <xpath expr="//field[@name='partner_id']" position="after">
-                    <field name="order_type" invisible="order_type == 'standard'" readonly="state != 'draft'"/>
-                </xpath>
-
                 <!-- Wizard button in header -->
                 <xpath expr="//header" position="inside">
+                    <field name="computed_order_type" invisible="1"/>
                     <button name="action_open_sale_unit_wizard"
                         string="Ajouter Appareil"
                         type="object"
                         class="btn-secondary"
                         icon="fa-plus-square"
-                        invisible="order_type not in ('equipment_sale', 'rental') or state != 'draft'"/>
+                        invisible="computed_order_type not in ('equipment_sale', 'rental') or state != 'draft'"/>
                     <button name="action_return_rental"
                         string="Marquer Retourné"
                         type="object"
                         class="btn-success"
                         icon="fa-undo"
-                        invisible="order_type != 'rental' or rental_state not in ('active', 'overdue')"/>
+                        invisible="computed_order_type != 'rental' or rental_state not in ('active', 'overdue')"/>
                 </xpath>
 
                 <!-- Rental fields group before order lines -->
-                <xpath expr="//field[@name='order_line']" position="before">
-                    <group string="Location" invisible="order_type != 'rental'" col="4">
-                        <field name="rental_start_date" required="order_type == 'rental'" readonly="state != 'draft'"/>
-                        <field name="rental_end_date" required="order_type == 'rental'" readonly="state != 'draft'"/>
-                        <field name="rental_state" widget="badge"
+                <xpath expr="//notebook" position="before">
+                    <group invisible="computed_order_type != 'rental'">
+                        <group>
+                            <field name="rental_start_date" required="computed_order_type == 'rental'" readonly="state != 'draft'"/>
+                            <field name="rental_end_date" required="computed_order_type == 'rental'" readonly="state != 'draft'"/>
+                        </group>
+                        <group>
+                            <field name="rental_state" widget="badge"
                             decoration-info="rental_state == 'draft'"
                             decoration-success="rental_state in ('active', 'returned')"
                             decoration-danger="rental_state == 'overdue'"/>
-                        <field name="rental_return_date" invisible="rental_state not in ('returned',)"/>
-                        <field name="rental_notes" placeholder="Notes sur la location..." colspan="4"/>
+                            <field name="rental_return_date" invisible="rental_state not in ('returned',)"/>
+                            <field name="rental_notes" placeholder="Notes sur la location..."/>
+                        </group>
                     </group>
                 </xpath>
 

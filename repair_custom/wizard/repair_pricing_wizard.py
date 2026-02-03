@@ -359,10 +359,11 @@ class RepairPricingWizard(models.TransientModel):
 
         partner = self.batch_id.partner_id if self.batch_id else self.repair_id.partner_id
         
+        repair_quote_template = self.env.ref('repair_custom.sale_order_template_repair_quote')
         so_vals = {
             'partner_id': partner.id,
             'order_line': formatted_lines,
-            'order_type': 'repair_quote',
+            'sale_order_template_id': repair_quote_template.id,
         }
         
         # Lier le Devis aux réparations
