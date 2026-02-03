@@ -13,17 +13,33 @@ class SaleUnitWizard(models.TransientModel):
     device_id = fields.Many2one('repair.device', string="Modèle d'appareil", required=True)
 
     # Step 2: select or create unit
-    create_new_unit = fields.Boolean("Créer une nouvelle unité", default=False)
+    has_available_units = fields.Boolean(
+        compute='_compute_has_available_units',
+        string="Has Available Units"
+    )
     unit_id = fields.Many2one(
         'repair.device.unit',
         string="Appareil en stock",
         domain="[('device_id', '=', device_id), ('stock_state', '=', 'stock')]",
     )
     variant_id = fields.Many2one('repair.device.variant', string="Variante")
-    serial_number = fields.Char("Numéro de série", help="Obligatoire pour créer un nouveau stock")
+    serial_number = fields.Char("Numéro de série", help="Entrez un numéro de série pour créer une nouvelle unité, ou sélectionnez un appareil existant ci-dessus")
 
     # Step 3: price
-    price_unit = fields.Float("Prix de vente", required=True)
+    price_unit = fields.Monetary("Prix de vente", required=True, currency_field='currency_id')
+    currency_id = fields.Many2one('res.currency', default=lambda self: self.env.company.currency_id)
+
+    @api.depends('device_id')
+    def _compute_has_available_units(self):
+        for wizard in self:
+            if wizard.device_id:
+                count = self.env['repair.device.unit'].search_count([
+                    ('device_id', '=', wizard.device_id.id),
+                    ('stock_state', '=', 'stock')
+                ])
+                wizard.has_available_units = count > 0
+            else:
+                wizard.has_available_units = False
 
     @api.onchange('category_id')
     def _onchange_category_id(self):
@@ -35,6 +51,15 @@ class SaleUnitWizard(models.TransientModel):
     def _onchange_device_id(self):
         self.unit_id = False
         self.variant_id = False
+        self.serial_number = False
+
+    @api.onchange('unit_id')
+    def _onchange_unit_id(self):
+        if self.unit_id:
+            # Clear serial_number and variant when selecting existing unit
+            # to prevent having both paths filled
+            self.serial_number = False
+            self.variant_id = False
 
     def _get_stock_location(self):
         """Get the main stock location (WH/Stock)."""
@@ -88,11 +113,24 @@ class SaleUnitWizard(models.TransientModel):
 
         stock_lot = None
 
-        if self.create_new_unit:
-            # Create new unit + stock.lot + stock.quant
-            if not self.serial_number:
-                raise UserError(_("Le numéro de série est obligatoire pour créer une nouvelle unité."))
+        # Determine path based on which fields are filled (mutually exclusive)
+        if self.unit_id:
+            # Use existing unit
+            unit = self.unit_id
 
+            # Find or create the stock.lot for this unit
+            if unit.serial_number:
+                stock_lot = self.env['stock.lot'].search([
+                    ('name', '=', unit.serial_number),
+                    ('product_id', '=', product.id),
+                ], limit=1)
+
+                if not stock_lot:
+                    # Create stock.lot and initial inventory for existing unit
+                    stock_lot = self._create_stock_lot_and_quant(product, unit.serial_number)
+
+        elif self.serial_number:
+            # Create new unit + stock.lot + stock.quant
             # Create stock.lot and initial inventory
             stock_lot = self._create_stock_lot_and_quant(product, self.serial_number)
 
@@ -107,21 +145,8 @@ class SaleUnitWizard(models.TransientModel):
             unit = self.env['repair.device.unit'].create(unit_vals)
 
         else:
-            # Use existing unit
-            if not self.unit_id:
-                raise UserError(_("Veuillez sélectionner un appareil en stock."))
-            unit = self.unit_id
-
-            # Find or create the stock.lot for this unit
-            if unit.serial_number:
-                stock_lot = self.env['stock.lot'].search([
-                    ('name', '=', unit.serial_number),
-                    ('product_id', '=', product.id),
-                ], limit=1)
-
-                if not stock_lot:
-                    # Create stock.lot and initial inventory for existing unit
-                    stock_lot = self._create_stock_lot_and_quant(product, unit.serial_number)
+            # Error: must select unit OR enter serial number
+            raise UserError(_("Veuillez sélectionner un appareil en stock ou entrer un numéro de série."))
 
         # Create sale order line
         line_vals = {

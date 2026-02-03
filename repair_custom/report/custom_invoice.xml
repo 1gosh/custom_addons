@@ -27,6 +27,16 @@
                 <div class="col-6 mb-2"></div>
             </xpath>
 
+            <!-- Hide tax header for equipment sale invoices -->
+            <xpath expr="//th[@name='th_taxes']" position="attributes">
+                <attribute name="t-if">not o._is_equipment_sale_invoice()</attribute>
+            </xpath>
+
+            <!-- Hide tax data cells for equipment sale invoices -->
+            <xpath expr="//td[@name='td_taxes']" position="attributes">
+                <attribute name="t-if">not o._is_equipment_sale_invoice()</attribute>
+            </xpath>
+
         </template>
     </data>
 </odoo>

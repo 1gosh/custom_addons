@@ -22,10 +22,11 @@
                 <!-- Wizard button in header -->
                 <xpath expr="//header" position="inside">
                     <field name="computed_order_type" invisible="1"/>
+                    <field name="rental_end_date" invisible="1"/>
                     <button name="action_open_sale_unit_wizard"
                         string="Ajouter Appareil"
                         type="object"
-                        class="btn-secondary"
+                        class="btn-primary"
                         icon="fa-plus-square"
                         invisible="computed_order_type not in ('equipment_sale', 'rental') or state != 'draft'"/>
                     <button name="action_return_rental"
@@ -37,27 +38,39 @@
                 </xpath>
 
                 <!-- Rental fields group before order lines -->
-                <xpath expr="//notebook" position="before">
-                    <group invisible="computed_order_type != 'rental'">
-                        <group>
-                            <field name="rental_start_date" required="computed_order_type == 'rental'" readonly="state != 'draft'"/>
-                            <field name="rental_end_date" required="computed_order_type == 'rental'" readonly="state != 'draft'"/>
-                        </group>
-                        <group>
-                            <field name="rental_state" widget="badge"
-                            decoration-info="rental_state == 'draft'"
-                            decoration-success="rental_state in ('active', 'returned')"
-                            decoration-danger="rental_state == 'overdue'"/>
-                            <field name="rental_return_date" invisible="rental_state not in ('returned',)"/>
-                            <field name="rental_notes" placeholder="Notes sur la location..."/>
-                        </group>
-                    </group>
+                <xpath expr="//field[@name='sale_order_template_id']" position="after">
+                    <field name="rental_start_date"
+                    string="Dates de location"
+                    widget="daterange"
+                    options="{'end_date_field': 'rental_end_date', 'show_time':false}"
+                    required="computed_order_type == 'rental'"
+                    readonly="state != 'draft'"
+                    invisible="computed_order_type != 'rental'"
+                    />
+                    <field name="rental_return_date" invisible="computed_order_type != 'rental' or rental_state not in ('returned',)"/>
+                </xpath>
+
+                <xpath expr="//field[@name='payment_term_id']" position="before">
+                    <field name="rental_state" widget="badge" invisible="computed_order_type != 'rental'"
+                        decoration-info="rental_state == 'draft'"
+                        decoration-success="rental_state in ('active', 'returned')"
+                        decoration-danger="rental_state == 'overdue'"/>
+                    <field name="rental_notes" placeholder="Notes sur la location..." invisible="computed_order_type != 'rental'"/>
+                </xpath>
+
+                <xpath expr="//field[@name='payment_term_id']" position="attributes">
+                    <attribute name="invisible">1</attribute>
                 </xpath>
 
                 <!-- Device unit on order lines -->
                 <xpath expr="//field[@name='order_line']/tree/field[@name='product_id']" position="after">
                     <field name="device_unit_id" optional="hide" string="Appareil"/>
                     <field name="lot_id" optional="hide" string="N° Série (Stock)"/>
+                </xpath>
+
+                <!-- Hide "Delivered" column for rental orders -->
+                <xpath expr="//field[@name='order_line']/tree/field[@name='qty_delivered']" position="attributes">
+                    <attribute name="column_invisible">parent.computed_order_type == 'rental'</attribute>
                 </xpath>
            </field>
         </record>
