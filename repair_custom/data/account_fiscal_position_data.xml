@@ -13,7 +13,6 @@
         <!-- Tax mapping: ANY tax → 20% VAT -->
         <record id="fiscal_position_repair_tax_mapping" model="account.fiscal.position.tax">
             <field name="position_id" ref="fiscal_position_repair"/>
-            <field name="tax_src_id" eval="False"/>
             <field name="tax_dest_id" ref="account_tax_20_vat"/>
         </record>
 
@@ -29,7 +28,6 @@
         <!-- Tax mapping: ANY tax → 0% Margin -->
         <record id="fiscal_position_equipment_sale_tax_mapping" model="account.fiscal.position.tax">
             <field name="position_id" ref="fiscal_position_equipment_sale"/>
-            <field name="tax_src_id" eval="False"/>
             <field name="tax_dest_id" ref="account_tax_0_margin"/>
         </record>
 
@@ -45,7 +43,6 @@
         <!-- Tax mapping: ANY tax → 20% VAT -->
         <record id="fiscal_position_rental_tax_mapping" model="account.fiscal.position.tax">
             <field name="position_id" ref="fiscal_position_rental"/>
-            <field name="tax_src_id" eval="False"/>
             <field name="tax_dest_id" ref="account_tax_20_vat"/>
         </record>
     </data>
