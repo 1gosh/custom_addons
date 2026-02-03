@@ -10,6 +10,7 @@ class RepairDeviceUnit(models.Model):
         selection_add=[
             ('in_repair', 'En Réparation'),
             ('sold', 'Vendu'),
+            ('rented', 'En Location'),
         ],
         ondelete={'in_repair': 'set default', 'sold': 'set default'},
     )
@@ -108,20 +109,44 @@ class SaleOrder(models.Model):
             }
 
     def action_confirm(self):
-        """Override to handle equipment_sale and rental stock_state transitions."""
-        res = super().action_confirm()
+        """Override to handle equipment sales and rentals."""
         for order in self:
-            if order.order_type == 'equipment_sale':
-                units = order.order_line.mapped('device_unit_id').filtered(lambda u: u)
-                units.write({'stock_state': 'sold', 'partner_id': order.partner_id.id})
-            elif order.order_type == 'rental':
+            # Validate rental dates
+            if order.order_type == 'rental':
                 if not order.rental_start_date or not order.rental_end_date:
                     raise UserError(_("Veuillez définir les dates de location avant de confirmer."))
                 if order.rental_end_date < order.rental_start_date:
                     raise UserError(_("La date de fin doit être postérieure à la date de début."))
-                units = order.order_line.mapped('device_unit_id').filtered(lambda u: u)
+
+        # Call parent to create pickings/moves
+        res = super().action_confirm()
+
+        # Update device units immediately (no waiting for picking validation)
+        for order in self:
+            units = order.order_line.mapped('device_unit_id').filtered(lambda u: u)
+
+            if order.order_type == 'rental':
+                # Mark as rented
                 units.write({'stock_state': 'rented'})
                 order.rental_state = 'active'
+
+            elif order.order_type == 'equipment_sale':
+                # Mark as sold immediately
+                units.write({
+                    'stock_state': 'sold',
+                    'partner_id': order.partner_id.id,
+                })
+
+            # Auto-validate pickings for both types
+            if order.order_type in ['rental', 'equipment_sale']:
+                pickings = order.picking_ids.filtered(
+                    lambda p: p.state not in ['done', 'cancel']
+                )
+                for picking in pickings:
+                    # Validate if all moves are ready
+                    if all(move.state == 'assigned' for move in picking.move_ids):
+                        picking.button_validate()
+
         return res
 
     def action_return_rental(self):
@@ -168,6 +193,47 @@ class SaleOrderLine(models.Model):
         string="Appareil physique",
         ondelete='set null',
     )
+    lot_id = fields.Many2one(
+        'stock.lot',
+        string="Numéro de série (Stock)",
+        help="Numéro de série pour le suivi du stock",
+        copy=False,
+    )
+
+    def _prepare_procurement_values(self, group_id=False):
+        """Override to pass lot_id to stock moves."""
+        values = super()._prepare_procurement_values(group_id=group_id)
+        if self.lot_id:
+            values['lot_id'] = self.lot_id.id
+        return values
+
+    def _action_launch_stock_rule(self, previous_product_uom_qty=False):
+        """Override to set lot_id on move lines after procurement."""
+        res = super()._action_launch_stock_rule(previous_product_uom_qty=previous_product_uom_qty)
+
+        # Link the lot to the stock move lines
+        for line in self:
+            if line.lot_id and line.move_ids:
+                for move in line.move_ids:
+                    # Set lot on move lines
+                    for move_line in move.move_line_ids:
+                        if not move_line.lot_id:
+                            move_line.lot_id = line.lot_id
+
+        return res
+
+
+class StockPicking(models.Model):
+    _inherit = 'stock.picking'
+
+    def button_validate(self):
+        """Override simplified - state changes now happen at order confirmation."""
+        res = super().button_validate()
+
+        # Stock state is now managed centrally in SaleOrder.action_confirm()
+        # This override kept for potential future extensions (logging, notifications, etc.)
+
+        return res
 
 
 class HrEmployee(models.Model):
