@@ -130,6 +130,26 @@ class SaleOrder(models.Model):
                 units.write({'stock_state': 'rented'})
                 order.rental_state = 'active'
 
+                # Convert outgoing delivery to internal transfer (Stock → Rented location)
+                rented_location = self.env.ref('repair_custom.stock_location_rented', raise_if_not_found=False)
+                if rented_location:
+                    pickings = order.picking_ids.filtered(
+                        lambda p: p.state not in ['done', 'cancel'] and p.picking_type_code == 'outgoing'
+                    )
+                    for picking in pickings:
+                        # Get internal picking type
+                        warehouse = picking.picking_type_id.warehouse_id
+                        internal_type = warehouse.int_type_id if warehouse else None
+
+                        if internal_type:
+                            # Change to internal transfer
+                            picking.write({'picking_type_id': internal_type.id})
+
+                            # Update destination location to Rented
+                            picking.location_dest_id = rented_location
+                            for move in picking.move_ids:
+                                move.location_dest_id = rented_location
+
             elif order.order_type == 'equipment_sale':
                 # Mark as sold immediately
                 units.write({
@@ -150,16 +170,67 @@ class SaleOrder(models.Model):
         return res
 
     def action_return_rental(self):
-        """Mark rental as returned and restore stock."""
+        """Mark rental as returned and restore stock with internal transfer."""
         for order in self:
             if order.order_type != 'rental':
                 continue
+
             units = order.order_line.mapped('device_unit_id').filtered(lambda u: u)
             units.write({'stock_state': 'stock'})
+
+            # Create internal transfer from Rented → Stock
+            rented_location = self.env.ref('repair_custom.stock_location_rented', raise_if_not_found=False)
+            warehouse = order.warehouse_id or self.env['stock.warehouse'].search([
+                ('company_id', '=', order.company_id.id)
+            ], limit=1)
+
+            if rented_location and warehouse:
+                stock_location = warehouse.lot_stock_id
+                internal_type = warehouse.int_type_id
+
+                # Create picking for return
+                picking_vals = {
+                    'picking_type_id': internal_type.id,
+                    'location_id': rented_location.id,
+                    'location_dest_id': stock_location.id,
+                    'origin': order.name,
+                    'partner_id': order.partner_id.id,
+                }
+                picking = self.env['stock.picking'].create(picking_vals)
+
+                # Create moves for each rented device
+                for line in order.order_line.filtered(lambda l: l.device_unit_id):
+                    move_vals = {
+                        'name': line.name,
+                        'product_id': line.product_id.id,
+                        'product_uom': line.product_uom.id,
+                        'product_uom_qty': 1.0,
+                        'location_id': rented_location.id,
+                        'location_dest_id': stock_location.id,
+                        'picking_id': picking.id,
+                    }
+
+                    # Link to stock.lot if available
+                    if line.lot_id:
+                        move_vals['lot_ids'] = [(4, line.lot_id.id)]
+
+                    move = self.env['stock.move'].create(move_vals)
+                    move._action_confirm()
+                    move._action_assign()
+
+                    # Set lot on move lines
+                    if line.lot_id and move.move_line_ids:
+                        move.move_line_ids.write({'lot_id': line.lot_id.id})
+
+                # Auto-validate the return picking
+                if all(move.state == 'assigned' for move in picking.move_ids):
+                    picking.button_validate()
+
             order.write({
                 'rental_state': 'returned',
                 'rental_return_date': fields.Date.today(),
             })
+
         return True
 
     @api.model
