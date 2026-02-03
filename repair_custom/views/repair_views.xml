@@ -1201,6 +1201,7 @@
         <field name="res_model">sale.order</field>
         <field name="view_mode">tree,form</field>
         <field name="domain">[('computed_order_type', '=', 'equipment_sale')]</field>
+        <field name="context">{'default_sale_order_template_id': ref('repair_custom.sale_order_template_equipment_sale')}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 Créez une vente d'équipement Hi-Fi.
@@ -1213,6 +1214,7 @@
         <field name="res_model">sale.order</field>
         <field name="view_mode">tree,form</field>
         <field name="domain">[('computed_order_type', '=', 'rental')]</field>
+        <field name="context">{'default_sale_order_template_id': ref('repair_custom.sale_order_template_rental')}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 Créez une location d'équipement Hi-Fi.
