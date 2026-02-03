@@ -57,6 +57,7 @@
                 <!-- Device unit on order lines -->
                 <xpath expr="//field[@name='order_line']/tree/field[@name='product_id']" position="after">
                     <field name="device_unit_id" optional="hide" string="Appareil"/>
+                    <field name="lot_id" optional="hide" string="N° Série (Stock)"/>
                 </xpath>
            </field>
         </record>

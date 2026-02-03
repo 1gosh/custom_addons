@@ -371,7 +371,7 @@ class RepairDeviceUnit(models.Model):
     stock_state = fields.Selection([
         ('client', 'Propriété Client'),
         ('stock', 'En Stock'),
-        ('rented', 'En Location'), # Pour plus tard
+        ('rented', 'En Location'),
     ], string="Statut Stock", default='client', tracking=True)
 
     @api.depends("device_id.display_name", "variant_id.name")

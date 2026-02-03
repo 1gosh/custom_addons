@@ -1194,10 +1194,10 @@
             sequence="10"/>
 
     <!-- Commerce: Ventes Équipement & Locations -->
-    <menuitem id="repair_menu_commerce" sequence="25" name="Commerce" parent="menu_repair_order" groups="repair_custom.group_repair_manager"/>
+    <menuitem id="repair_menu_commerce" sequence="35" name="Commerce" parent="menu_repair_order" groups="repair_custom.group_repair_manager"/>
 
     <record id="action_equipment_sales" model="ir.actions.act_window">
-        <field name="name">Ventes Équipement</field>
+        <field name="name">Vente</field>
         <field name="res_model">sale.order</field>
         <field name="view_mode">tree,form</field>
         <field name="domain">[('order_type', '=', 'equipment_sale')]</field>
@@ -1210,7 +1210,7 @@
     </record>
 
     <record id="action_rentals" model="ir.actions.act_window">
-        <field name="name">Locations</field>
+        <field name="name">Location</field>
         <field name="res_model">sale.order</field>
         <field name="view_mode">tree,form</field>
         <field name="domain">[('order_type', '=', 'rental')]</field>

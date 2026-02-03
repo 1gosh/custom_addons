@@ -130,25 +130,75 @@ class SaleOrder(models.Model):
                 units.write({'stock_state': 'rented'})
                 order.rental_state = 'active'
 
-                # Convert outgoing delivery to internal transfer (Stock → Rented location)
+                # Create internal transfer (Stock → Rented location)
+                # Note: No outgoing delivery created due to _action_launch_stock_rule override
                 rented_location = self.env.ref('repair_custom.stock_location_rented', raise_if_not_found=False)
-                if rented_location:
-                    pickings = order.picking_ids.filtered(
-                        lambda p: p.state not in ['done', 'cancel'] and p.picking_type_code == 'outgoing'
-                    )
-                    for picking in pickings:
-                        # Get internal picking type
-                        warehouse = picking.picking_type_id.warehouse_id
-                        internal_type = warehouse.int_type_id if warehouse else None
+                if not rented_location:
+                    raise UserError(_(
+                        "Configuration manquante: la location 'Appareils en Location' n'existe pas.\n"
+                        "Veuillez réinstaller le module repair_custom."
+                    ))
 
-                        if internal_type:
-                            # Change to internal transfer
-                            picking.write({'picking_type_id': internal_type.id})
+                warehouse = order.warehouse_id or self.env['stock.warehouse'].search([
+                    ('company_id', '=', order.company_id.id)
+                ], limit=1)
+                if not warehouse:
+                    raise UserError(_(
+                        "Aucun entrepôt trouvé pour cette société.\n"
+                        "Veuillez configurer un entrepôt avant de confirmer des locations."
+                    ))
 
-                            # Update destination location to Rented
-                            picking.location_dest_id = rented_location
-                            for move in picking.move_ids:
-                                move.location_dest_id = rented_location
+                stock_location = warehouse.lot_stock_id
+                internal_type = warehouse.int_type_id
+
+                # Create picking for rental (Stock → Rented)
+                picking_vals = {
+                    'picking_type_id': internal_type.id,
+                    'location_id': stock_location.id,
+                    'location_dest_id': rented_location.id,
+                    'origin': order.name,
+                    'partner_id': order.partner_id.id,
+                    'sale_id': order.id,
+                }
+                picking = self.env['stock.picking'].create(picking_vals)
+
+                # Create moves for each rented device
+                for line in order.order_line.filtered(lambda l: l.device_unit_id):
+                    move_vals = {
+                        'name': line.name,
+                        'product_id': line.product_id.id,
+                        'product_uom': line.product_uom.id,
+                        'product_uom_qty': 1.0,
+                        'location_id': stock_location.id,
+                        'location_dest_id': rented_location.id,
+                        'picking_id': picking.id,
+                    }
+
+                    # Link to stock.lot (serial number) if available
+                    if line.lot_id:
+                        move_vals['lot_ids'] = [(4, line.lot_id.id)]
+
+                    move = self.env['stock.move'].create(move_vals)
+                    move._action_confirm()
+
+                    # Assign stock (reserve quantities)
+                    move._action_assign()
+
+                    # Check if stock is available
+                    if move.state != 'assigned':
+                        raise UserError(_(
+                            "Stock insuffisant pour la location.\n"
+                            "Appareil: %s\n"
+                            "L'appareil doit être disponible en stock avant de confirmer la location."
+                        ) % line.device_unit_id.display_name)
+
+                    # Set lot on move lines (for serial tracking)
+                    if line.lot_id and move.move_line_ids:
+                        move.move_line_ids.write({'lot_id': line.lot_id.id})
+
+                # Auto-validate the rental picking
+                if all(move.state == 'assigned' for move in picking.move_ids):
+                    picking.button_validate()
 
             elif order.order_type == 'equipment_sale':
                 # Mark as sold immediately
@@ -279,18 +329,34 @@ class SaleOrderLine(models.Model):
         return values
 
     def _action_launch_stock_rule(self, previous_product_uom_qty=False):
-        """Override to set lot_id on move lines after procurement."""
-        res = super()._action_launch_stock_rule(previous_product_uom_qty=previous_product_uom_qty)
+        """Override to skip standard procurement for rental orders.
 
-        # Link the lot to the stock move lines
-        for line in self:
-            if line.lot_id and line.move_ids:
-                for move in line.move_ids:
-                    # Set lot on move lines
-                    for move_line in move.move_line_ids:
-                        if not move_line.lot_id:
-                            move_line.lot_id = line.lot_id
+        Rental orders will have internal transfers created manually in
+        SaleOrder.action_confirm() instead of standard outgoing deliveries.
+        """
+        # Filter out rental lines - they will be handled separately
+        rental_lines = self.filtered(lambda l: l.order_id.order_type == 'rental')
+        non_rental_lines = self - rental_lines
 
+        # Process non-rental lines normally (equipment_sale, standard, repair_quote)
+        if non_rental_lines:
+            res = super(SaleOrderLine, non_rental_lines)._action_launch_stock_rule(
+                previous_product_uom_qty=previous_product_uom_qty
+            )
+
+            # Link the lot to the stock move lines for non-rental orders
+            for line in non_rental_lines:
+                if line.lot_id and line.move_ids:
+                    for move in line.move_ids:
+                        # Set lot on move lines
+                        for move_line in move.move_line_ids:
+                            if not move_line.lot_id:
+                                move_line.lot_id = line.lot_id
+        else:
+            res = True
+
+        # Rental lines: no standard procurement
+        # Internal transfers will be created in SaleOrder.action_confirm()
         return res
 
 
