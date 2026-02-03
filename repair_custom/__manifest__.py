@@ -46,6 +46,8 @@ The following topics are covered by this module:
         'data/mail_activity_data.xml',
         'data/stock_data.xml',
         'data/cron_data.xml',
+        'data/account_tax_data.xml',
+        'data/account_fiscal_position_data.xml',
     ],
     'assets': {
         'web.assets_backend': [

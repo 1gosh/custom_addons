@@ -81,6 +81,45 @@ class SaleOrder(models.Model):
             else:
                 order.computed_order_type = 'standard'
 
+    fiscal_position_id = fields.Many2one(
+        'account.fiscal.position',
+        string="Position Fiscale",
+        compute='_compute_fiscal_position_from_template',
+        store=True,
+        readonly=False,
+        check_company=True,
+        help="Position fiscale appliquée automatiquement selon le type de commande"
+    )
+
+    @api.depends('computed_order_type')
+    def _compute_fiscal_position_from_template(self):
+        """Auto-set fiscal position based on order type."""
+        for order in self:
+            # Prevent changes on confirmed orders (data integrity)
+            if order.state not in ['draft', 'sent']:
+                continue
+
+            if order.computed_order_type == 'repair_quote':
+                order.fiscal_position_id = self.env.ref(
+                    'repair_custom.fiscal_position_repair',
+                    raise_if_not_found=False
+                )
+            elif order.computed_order_type == 'equipment_sale':
+                order.fiscal_position_id = self.env.ref(
+                    'repair_custom.fiscal_position_equipment_sale',
+                    raise_if_not_found=False
+                )
+            elif order.computed_order_type == 'rental':
+                order.fiscal_position_id = self.env.ref(
+                    'repair_custom.fiscal_position_rental',
+                    raise_if_not_found=False
+                )
+            else:
+                # Standard orders: keep existing fiscal position (if any)
+                # Don't override if manually set
+                if not order.fiscal_position_id:
+                    order.fiscal_position_id = False
+
     def _is_rental(self):
         self.ensure_one()
         return self.computed_order_type == 'rental'

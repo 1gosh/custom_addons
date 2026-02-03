@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Fiscal Position: Repair Quote (20% VAT) -->
+        <record id="fiscal_position_repair" model="account.fiscal.position">
+            <field name="name">Position Fiscale - Réparation</field>
+            <field name="active">True</field>
+            <field name="auto_apply">False</field>
+            <field name="sequence">10</field>
+            <field name="note">Applique automatiquement la TVA 20% pour les devis de réparation</field>
+        </record>
+
+        <!-- Tax mapping: ANY tax → 20% VAT -->
+        <record id="fiscal_position_repair_tax_mapping" model="account.fiscal.position.tax">
+            <field name="position_id" ref="fiscal_position_repair"/>
+            <field name="tax_src_id" eval="False"/>
+            <field name="tax_dest_id" ref="account_tax_20_vat"/>
+        </record>
+
+        <!-- Fiscal Position: Equipment Sale (0% Margin Regime) -->
+        <record id="fiscal_position_equipment_sale" model="account.fiscal.position">
+            <field name="name">Position Fiscale - Vente Équipement</field>
+            <field name="active">True</field>
+            <field name="auto_apply">False</field>
+            <field name="sequence">20</field>
+            <field name="note">Applique le régime de la marge (0% TVA) pour les ventes d'équipement d'occasion</field>
+        </record>
+
+        <!-- Tax mapping: ANY tax → 0% Margin -->
+        <record id="fiscal_position_equipment_sale_tax_mapping" model="account.fiscal.position.tax">
+            <field name="position_id" ref="fiscal_position_equipment_sale"/>
+            <field name="tax_src_id" eval="False"/>
+            <field name="tax_dest_id" ref="account_tax_0_margin"/>
+        </record>
+
+        <!-- Fiscal Position: Rental (20% VAT) -->
+        <record id="fiscal_position_rental" model="account.fiscal.position">
+            <field name="name">Position Fiscale - Location</field>
+            <field name="active">True</field>
+            <field name="auto_apply">False</field>
+            <field name="sequence">30</field>
+            <field name="note">Applique automatiquement la TVA 20% pour les locations d'équipement</field>
+        </record>
+
+        <!-- Tax mapping: ANY tax → 20% VAT -->
+        <record id="fiscal_position_rental_tax_mapping" model="account.fiscal.position.tax">
+            <field name="position_id" ref="fiscal_position_rental"/>
+            <field name="tax_src_id" eval="False"/>
+            <field name="tax_dest_id" ref="account_tax_20_vat"/>
+        </record>
+    </data>
+</odoo>

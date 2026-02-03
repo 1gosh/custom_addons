@@ -166,7 +166,13 @@ class RepairDevice(models.Model):
         return defaults
 
     def _sync_product_template(self):
-        """Create or update the linked product.template."""
+        """Create or update the linked product.template with default 20% VAT."""
+        # Get default tax reference
+        default_vat_20 = self.env.ref(
+            'repair_custom.account_tax_20_vat',
+            raise_if_not_found=False
+        )
+
         for rec in self:
             # Ensure display_name is computed
             rec._compute_display_name()
@@ -178,7 +184,19 @@ class RepairDevice(models.Model):
                 'purchase_ok': False,
                 'tracking': 'serial',
             }
+
+            # Set default sales tax (20% VAT)
+            # This will be mapped by fiscal position for equipment sales (→ 0%)
+            if default_vat_20:
+                vals['taxes_id'] = [(6, 0, [default_vat_20.id])]
+
             if rec.product_tmpl_id:
+                # Only update taxes if not already set (preserve manual changes)
+                if not rec.product_tmpl_id.taxes_id and default_vat_20:
+                    vals['taxes_id'] = [(6, 0, [default_vat_20.id])]
+                else:
+                    # Remove taxes_id from vals to avoid overwriting
+                    vals.pop('taxes_id', None)
                 rec.product_tmpl_id.write(vals)
             else:
                 product = self.env['product.template'].create(vals)
