@@ -49,7 +49,34 @@ class RepairOrderMassUpdate(models.TransientModel):
 
     def action_apply(self):
         self.ensure_one()
-        
+
+        # Access control validation
+        is_manager = self.env.user.has_group('repair_custom.group_repair_manager')
+        is_admin = self.env.user.has_group('repair_custom.group_repair_admin')
+
+        if not (is_manager or is_admin):
+            raise UserError(_("Vous n'avez pas les permissions nécessaires pour effectuer cette opération."))
+
+        # Validate that repairs are in modifiable state
+        non_modifiable = self.repair_ids.filtered(lambda r: r.state in ('cancel', 'delivered'))
+        if non_modifiable:
+            raise UserError(_(
+                "Certaines réparations ne peuvent pas être modifiées (annulées ou livrées): %s"
+            ) % ', '.join(non_modifiable.mapped('name')))
+
+        # Validate user can modify selected repairs
+        # Technicians can only modify repairs assigned to them or unassigned
+        if not is_manager and not is_admin:
+            current_employee = self.env.user.employee_id
+            unauthorized = self.repair_ids.filtered(
+                lambda r: r.technician_employee_id and r.technician_employee_id != current_employee
+            )
+            if unauthorized:
+                raise UserError(_(
+                    "Vous ne pouvez modifier que vos propres réparations ou les réparations non assignées. "
+                    "Réparations non autorisées: %s"
+                ) % ', '.join(unauthorized.mapped('name')))
+
         # Dictionnaire pour les champs simples (write direct)
         vals = {}
         
@@ -81,15 +108,54 @@ class RepairOrderMassUpdate(models.TransientModel):
             
             # Cas B : AJOUTER (Sans toucher aux existants)
             elif self.tag_action == 'add':
-                for repair in self.repair_ids:
-                    # (4, id) = Link
-                    repair.write({'tag_ids': [(4, tag.id) for tag in self.new_tag_ids]})
+                # Batch operation: Use SQL for better performance with many records
+                repair_ids = self.repair_ids.ids
+                tag_ids = self.new_tag_ids.ids
+
+                # Insert tag relationships in bulk (avoid duplicates with ON CONFLICT)
+                query = """
+                    INSERT INTO repair_order_repair_tags_rel (repair_order_id, repair_tags_id)
+                    SELECT repair_id, tag_id
+                    FROM unnest(%s::int[]) AS repair_id
+                    CROSS JOIN unnest(%s::int[]) AS tag_id
+                    ON CONFLICT DO NOTHING
+                """
+                self.env.cr.execute(query, (repair_ids, tag_ids))
 
             # Cas C : RETIRER (Enlever spécifiquement ces tags)
             elif self.tag_action == 'remove':
-                for repair in self.repair_ids:
-                    # (3, id) = Unlink
-                    repair.write({'tag_ids': [(3, tag.id) for tag in self.new_tag_ids]})
+                # Batch operation: Delete tag relationships in bulk
+                repair_ids = self.repair_ids.ids
+                tag_ids = self.new_tag_ids.ids
+
+                query = """
+                    DELETE FROM repair_order_repair_tags_rel
+                    WHERE repair_order_id IN %s AND repair_tags_id IN %s
+                """
+                self.env.cr.execute(query, (tuple(repair_ids), tuple(tag_ids)))
+
+        # Audit logging: track mass changes
+        changes_made = []
+        if self.update_technician:
+            changes_made.append(f"Technicien → {self.new_technician_id.name}")
+        if self.update_priority:
+            priority_label = dict(self._fields['new_priority'].selection).get(self.new_priority)
+            changes_made.append(f"Priorité → {priority_label}")
+        if self.update_warranty:
+            warranty_label = dict(self._fields['new_warranty'].selection).get(self.new_warranty)
+            changes_made.append(f"Garantie → {warranty_label}")
+        if self.update_tags:
+            tag_names = ', '.join(self.new_tag_ids.mapped('name'))
+            changes_made.append(f"Tags ({self.tag_action}) → {tag_names}")
+
+        # Post message to each repair for audit trail
+        if changes_made:
+            message = "Mise à jour en masse par %s:\n%s" % (
+                self.env.user.name,
+                '\n'.join(f"• {change}" for change in changes_made)
+            )
+            for repair in self.repair_ids:
+                repair.message_post(body=message, subtype_xmlid='mail.mt_note')
 
         # --- NOTIFICATION DE SUCCÈS ---
         return {

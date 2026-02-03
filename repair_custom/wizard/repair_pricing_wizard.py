@@ -205,15 +205,25 @@ class RepairPricingWizard(models.TransientModel):
     def action_confirm(self):
         """ Modifiée pour gérer le Batch final """
         self.ensure_one()
-        
+
         current_lines = self._get_invoice_lines_formatted()
         final_lines_list = json.loads(self.accumulated_lines_json)
         final_lines_list.extend(current_lines)
 
-        if self.generation_type == 'invoice':
-            return self._create_global_invoice(final_lines_list)
-        else:
-            return self._create_global_sale_order(final_lines_list)
+        # Transaction management: use savepoint to ensure atomicity
+        # If invoice/quote creation fails, all changes will be rolled back
+        try:
+            with self.env.cr.savepoint():
+                if self.generation_type == 'invoice':
+                    return self._create_global_invoice(final_lines_list)
+                else:
+                    return self._create_global_sale_order(final_lines_list)
+        except Exception as e:
+            # Log the error for debugging
+            import logging
+            _logger = logging.getLogger(__name__)
+            _logger.error("Failed to create invoice/quote: %s", str(e))
+            raise UserError(_("Erreur lors de la création de la facture/devis: %s") % str(e))
 
     def _prepare_lines_data(self):
         """ Logique de calcul en HORS TAXE """

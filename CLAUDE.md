@@ -55,13 +55,13 @@ custom_addons/
 **Install/Update modules:**
 ```bash
 # From Odoo root directory
-./odoo-bin -c ./config.conf -u repair_custom,repair_devices
+./odoo-bin -c ../odoo.conf -u repair_custom,repair_devices
 
 # Development mode (auto-reload)
-./odoo-bin -c ./config.conf --dev=reload,xml
+./odoo-bin -c ../odoo.conf --dev=reload,xml
 
 # Debug logging
-./odoo-bin -c ./config.conf --log-level=debug
+./odoo-bin -c ../odoo.conf --log-level=debug
 ```
 
 **Installation order:** Install `repair_devices` first (base dependency), then `repair_custom`.
@@ -142,3 +142,8 @@ Field-level permissions: `repair_custom/security/ir.model.access.csv:1`
 - New wizard views and data files
 
 **Language:** All UI, labels, and data fixtures in French.
+
+## Adding New Features or Fixing Bugs
+
+**important**: When you work on a new feature or bug, create a git branch first.
+Then work on changes in that branch for the remaineder of the session.

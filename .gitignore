@@ -1,3 +1,31 @@
+# macOS
 .DS_Store
-__pycache__
-ir.model.access.csv
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+
+# Backup files
+* copy.*
+*~
+
+# Odoo specific
+ir.model.access.csv.backup
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-*
+
+# Logs
+*.log
+
+# Distribution
+build/
+dist/
+*.egg-info/

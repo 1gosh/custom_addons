@@ -378,10 +378,10 @@ class RepairDeviceUnit(models.Model):
         for rec in self:
             rec.is_admin = user.has_group('repair_custom.group_repair_admin')
 
-    # _sql_constraints = [
-    #     (
-    #         'unique_device_serial', 
-    #         'unique(device_id, serial_number)', 
-    #         "Ce numéro de série est déjà enregistré pour ce modèle. Veuillez utiliser l'unité existante."
-    #     )
-    # ]
+    _sql_constraints = [
+        (
+            'unique_device_serial',
+            'unique(device_id, serial_number)',
+            "Ce numéro de série est déjà enregistré pour ce modèle. Veuillez utiliser l'unité existante."
+        )
+    ]
