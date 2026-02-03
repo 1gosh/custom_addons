@@ -10,9 +10,10 @@
             <field name="note">Applique automatiquement la TVA 20% pour les devis de réparation</field>
         </record>
 
-        <!-- Tax mapping: ANY tax → 20% VAT -->
+        <!-- Tax mapping: 20% VAT → 20% VAT (identity, ensures 20% is always applied) -->
         <record id="fiscal_position_repair_tax_mapping" model="account.fiscal.position.tax">
             <field name="position_id" ref="fiscal_position_repair"/>
+            <field name="tax_src_id" ref="account_tax_20_vat"/>
             <field name="tax_dest_id" ref="account_tax_20_vat"/>
         </record>
 
@@ -25,9 +26,10 @@
             <field name="note">Applique le régime de la marge (0% TVA) pour les ventes d'équipement d'occasion</field>
         </record>
 
-        <!-- Tax mapping: ANY tax → 0% Margin -->
+        <!-- Tax mapping: 20% VAT → 0% Margin -->
         <record id="fiscal_position_equipment_sale_tax_mapping" model="account.fiscal.position.tax">
             <field name="position_id" ref="fiscal_position_equipment_sale"/>
+            <field name="tax_src_id" ref="account_tax_20_vat"/>
             <field name="tax_dest_id" ref="account_tax_0_margin"/>
         </record>
 
@@ -40,9 +42,10 @@
             <field name="note">Applique automatiquement la TVA 20% pour les locations d'équipement</field>
         </record>
 
-        <!-- Tax mapping: ANY tax → 20% VAT -->
+        <!-- Tax mapping: 20% VAT → 20% VAT (identity, ensures 20% is always applied) -->
         <record id="fiscal_position_rental_tax_mapping" model="account.fiscal.position.tax">
             <field name="position_id" ref="fiscal_position_rental"/>
+            <field name="tax_src_id" ref="account_tax_20_vat"/>
             <field name="tax_dest_id" ref="account_tax_20_vat"/>
         </record>
     </data>
