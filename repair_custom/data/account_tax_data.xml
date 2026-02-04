@@ -10,20 +10,20 @@
             <field name="amount">20.00</field>
             <field name="price_include">False</field>
             <field name="include_base_amount">False</field>
-            <field name="sequence">10</field>
+            <field name="sequence">1</field>
             <field name="active">True</field>
         </record>
 
         <!-- 0% Régime de la Marge (Second-hand goods) -->
         <record id="account_tax_0_margin" model="account.tax">
             <field name="name">Régime de la Marge (0%)</field>
-            <field name="description">MARGIN</field>
+            <field name="description">Marge</field>
             <field name="type_tax_use">sale</field>
             <field name="amount_type">percent</field>
             <field name="amount">0.00</field>
             <field name="price_include">False</field>
             <field name="include_base_amount">False</field>
-            <field name="sequence">20</field>
+            <field name="sequence">2</field>
             <field name="active">True</field>
         </record>
     </data>

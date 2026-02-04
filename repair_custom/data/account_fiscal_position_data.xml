@@ -7,7 +7,7 @@
             <field name="active">True</field>
             <field name="auto_apply">False</field>
             <field name="sequence">10</field>
-            <field name="note">Applique automatiquement la TVA 20% pour les devis de réparation</field>
+            <field name="note">TVA au taux normal de 20 % – Article 278 du CGI.</field>
         </record>
 
         <!-- Tax mapping: 20% VAT → 20% VAT (identity, ensures 20% is always applied) -->
@@ -23,7 +23,7 @@
             <field name="active">True</field>
             <field name="auto_apply">False</field>
             <field name="sequence">20</field>
-            <field name="note">Applique le régime de la marge (0% TVA) pour les ventes d'équipement d'occasion</field>
+            <field name="note">TVA sur la marge – Biens d’occasion – Article 297 A du CGI. TVA non récupérable par l’acheteur.</field>
         </record>
 
         <!-- Tax mapping: 20% VAT → 0% Margin -->
@@ -39,7 +39,7 @@
             <field name="active">True</field>
             <field name="auto_apply">False</field>
             <field name="sequence">30</field>
-            <field name="note">Applique automatiquement la TVA 20% pour les locations d'équipement</field>
+            <field name="note">TVA au taux normal de 20 % – Article 278 du CGI.</field>
         </record>
 
         <!-- Tax mapping: 20% VAT → 20% VAT (identity, ensures 20% is always applied) -->

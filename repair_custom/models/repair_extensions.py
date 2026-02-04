@@ -56,6 +56,33 @@ class AccountMove(models.Model):
     repair_id = fields.Many2one('repair.order', string="Réparation d'origine", readonly=True)
     repair_notes = fields.Text(related='repair_id.internal_notes', string="Notes de l'atelier", readonly=True)
 
+    def _is_equipment_sale_invoice(self):
+        """Check if invoice is for equipment sale (should hide tax columns).
+
+        Returns True if:
+        1. Invoice fiscal position is fiscal_position_equipment_sale, OR
+        2. Invoice is linked to a sale order with equipment_sale type
+
+        Returns:
+            bool: True if equipment sale invoice, False otherwise
+        """
+        self.ensure_one()
+
+        # Primary check: fiscal position
+        equipment_fp = self.env.ref(
+            'repair_custom.fiscal_position_equipment_sale',
+            raise_if_not_found=False
+        )
+        if equipment_fp and self.fiscal_position_id == equipment_fp:
+            return True
+
+        # Secondary check: linked sale orders
+        sale_orders = self.invoice_line_ids.mapped('sale_line_ids.order_id')
+        if sale_orders:
+            return any(order._is_equipment_sale() for order in sale_orders)
+
+        return False
+
 
 class SaleOrder(models.Model):
     _inherit = 'sale.order'
@@ -137,8 +164,8 @@ class SaleOrder(models.Model):
         return self.computed_order_type in ('rental', 'equipment_sale')
 
     # --- Rental fields ---
-    rental_start_date = fields.Date("Date début location")
-    rental_end_date = fields.Date("Date fin location")
+    rental_start_date = fields.Datetime("Date début location")
+    rental_end_date = fields.Datetime("Date fin location")
     rental_return_date = fields.Date("Date retour effectif")
     rental_state = fields.Selection([
         ('draft', 'Brouillon'),
@@ -147,7 +174,7 @@ class SaleOrder(models.Model):
         ('overdue', 'En retard'),
     ], string="État location", default='draft', tracking=True)
     rental_notes = fields.Text("Notes location")
-
+    
     @api.depends('repair_order_ids')
     def _compute_repair_count(self):
         for order in self:

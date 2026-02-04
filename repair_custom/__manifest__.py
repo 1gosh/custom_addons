@@ -39,6 +39,7 @@ The following topics are covered by this module:
         "report/repair_ticket.xml",
         "report/repair_label.xml",
         "report/custom_invoice.xml",
+        "report/custom_sale_order.xml",
         'data/repair_order_sequence.xml',
         'data/sale_order_template_data.xml',
         'data/repair_data.xml',
