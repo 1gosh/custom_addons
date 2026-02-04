@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="view_sale_unit_wizard_form" model="ir.ui.view">
+            <field name="name">sale.unit.wizard.form</field>
+            <field name="model">sale.unit.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Ajouter un appareil">
+                    <field name="sale_order_id" invisible="1"/>
+                    <group>
+                        <field name="category_id"/>
+                        <field name="device_id"
+                            domain="category_id and [('category_id', 'child_of', category_id)] or []"
+                            options="{'no_quick_create': True}"/>
+                        <field name="create_new_unit" widget="boolean_toggle"/>
+                        <field name="unit_id"
+                            invisible="create_new_unit"
+                            required="not create_new_unit and device_id"/>
+                        <field name="variant_id"
+                            invisible="not create_new_unit"
+                            domain="[('id', 'in', device_id.variant_ids)]"/>
+                        <field name="serial_number"
+                            invisible="not create_new_unit"
+                            required="create_new_unit"
+                            placeholder="Numéro de série (obligatoire)"/>
+                    </group>
+                    <group>
+                        <group>
+                            <field name="price_unit" widget="monetary"/>
+                        </group>
+                    </group>
+                    <footer>
+                        <button name="action_add_to_order"
+                            string="Ajouter à la commande"
+                            type="object"
+                            class="btn-primary"/>
+                        <button string="Annuler" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+    </data>
+</odoo>

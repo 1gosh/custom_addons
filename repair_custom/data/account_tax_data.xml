@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- TVA 20% Standard (France) -->
+        <record id="account_tax_20_vat" model="account.tax">
+            <field name="name">TVA 20%</field>
+            <field name="description">VAT 20</field>
+            <field name="type_tax_use">sale</field>
+            <field name="amount_type">percent</field>
+            <field name="amount">20.00</field>
+            <field name="price_include">False</field>
+            <field name="include_base_amount">False</field>
+            <field name="sequence">10</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- 0% Régime de la Marge (Second-hand goods) -->
+        <record id="account_tax_0_margin" model="account.tax">
+            <field name="name">Régime de la Marge (0%)</field>
+            <field name="description">MARGIN</field>
+            <field name="type_tax_use">sale</field>
+            <field name="amount_type">percent</field>
+            <field name="amount">0.00</field>
+            <field name="price_include">False</field>
+            <field name="include_base_amount">False</field>
+            <field name="sequence">20</field>
+            <field name="active">True</field>
+        </record>
+    </data>
+</odoo>

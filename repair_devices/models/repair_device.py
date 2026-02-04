@@ -30,6 +30,12 @@ class RepairDevice(models.Model):
         string="Variantes"
     )
     unit_count = fields.Integer("# Appareils physiques", compute="_compute_unit_count")
+    product_tmpl_id = fields.Many2one(
+        'product.template',
+        string="Produit lié",
+        ondelete='set null',
+        copy=False,
+    )
 
     def _compute_unit_count(self):
         for rec in self:
@@ -56,6 +62,19 @@ class RepairDevice(models.Model):
             'view_mode': 'tree,form',
             'domain': [('device_id', '=', self.id)],
             'context': {'default_device_id': self.id},
+        }
+
+    def action_sync_products(self):
+        """Manual action to sync products for selected devices."""
+        self._sync_product_template()
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _("Synchronisation terminée"),
+                'message': _("%s produit(s) synchronisé(s)") % len(self),
+                'type': 'success',
+            }
         }
 
     @api.model
@@ -145,6 +164,55 @@ class RepairDevice(models.Model):
                     break # On arrête à la première marque trouvée
 
         return defaults
+
+    def _sync_product_template(self):
+        """Create or update the linked product.template with default 20% VAT."""
+        # Get default tax reference
+        default_vat_20 = self.env.ref(
+            'repair_custom.account_tax_20_vat',
+            raise_if_not_found=False
+        )
+
+        for rec in self:
+            # Ensure display_name is computed
+            rec._compute_display_name()
+
+            vals = {
+                'name': rec.display_name or f"{rec.brand_id.name} {rec.name}",
+                'type': 'product',
+                'sale_ok': True,
+                'purchase_ok': False,
+                'tracking': 'serial',
+            }
+
+            # Set default sales tax (20% VAT)
+            # This will be mapped by fiscal position for equipment sales (→ 0%)
+            if default_vat_20:
+                vals['taxes_id'] = [(6, 0, [default_vat_20.id])]
+
+            if rec.product_tmpl_id:
+                # Only update taxes if not already set (preserve manual changes)
+                if not rec.product_tmpl_id.taxes_id and default_vat_20:
+                    vals['taxes_id'] = [(6, 0, [default_vat_20.id])]
+                else:
+                    # Remove taxes_id from vals to avoid overwriting
+                    vals.pop('taxes_id', None)
+                rec.product_tmpl_id.write(vals)
+            else:
+                product = self.env['product.template'].create(vals)
+                rec.write({'product_tmpl_id': product.id})
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        records._sync_product_template()
+        return records
+
+    def write(self, vals):
+        res = super().write(vals)
+        if 'name' in vals or 'brand_id' in vals:
+            self._sync_product_template()
+        return res
 
     _sql_constraints = [
         ("unique_brand_model", "unique(brand_id, name)", "Ce modèle existe déjà pour cette marque."),
@@ -321,7 +389,7 @@ class RepairDeviceUnit(models.Model):
     stock_state = fields.Selection([
         ('client', 'Propriété Client'),
         ('stock', 'En Stock'),
-        ('rented', 'En Location'), # Pour plus tard
+        ('rented', 'En Location'),
     ], string="Statut Stock", default='client', tracking=True)
 
     @api.depends("device_id.display_name", "variant_id.name")

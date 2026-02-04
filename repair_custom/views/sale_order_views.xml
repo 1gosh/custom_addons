@@ -6,6 +6,7 @@
             <field name="model">sale.order</field>
             <field name="inherit_id" ref="sale.view_order_form"/>
             <field name="arch" type="xml">
+                <!-- Stat buttons -->
                 <xpath expr="//button[@name='action_view_invoice']" position="after">
                     <button
                         name="action_show_repair"
@@ -16,6 +17,47 @@
                         groups="stock.group_stock_user">
                         <field name="repair_count" widget="statinfo" string="Repairs"/>
                     </button>
+                </xpath>
+
+                <!-- Wizard button in header -->
+                <xpath expr="//header" position="inside">
+                    <field name="computed_order_type" invisible="1"/>
+                    <button name="action_open_sale_unit_wizard"
+                        string="Ajouter Appareil"
+                        type="object"
+                        class="btn-secondary"
+                        icon="fa-plus-square"
+                        invisible="computed_order_type not in ('equipment_sale', 'rental') or state != 'draft'"/>
+                    <button name="action_return_rental"
+                        string="Marquer Retourné"
+                        type="object"
+                        class="btn-success"
+                        icon="fa-undo"
+                        invisible="computed_order_type != 'rental' or rental_state not in ('active', 'overdue')"/>
+                </xpath>
+
+                <!-- Rental fields group before order lines -->
+                <xpath expr="//notebook" position="before">
+                    <group invisible="computed_order_type != 'rental'">
+                        <group>
+                            <field name="rental_start_date" required="computed_order_type == 'rental'" readonly="state != 'draft'"/>
+                            <field name="rental_end_date" required="computed_order_type == 'rental'" readonly="state != 'draft'"/>
+                        </group>
+                        <group>
+                            <field name="rental_state" widget="badge"
+                            decoration-info="rental_state == 'draft'"
+                            decoration-success="rental_state in ('active', 'returned')"
+                            decoration-danger="rental_state == 'overdue'"/>
+                            <field name="rental_return_date" invisible="rental_state not in ('returned',)"/>
+                            <field name="rental_notes" placeholder="Notes sur la location..."/>
+                        </group>
+                    </group>
+                </xpath>
+
+                <!-- Device unit on order lines -->
+                <xpath expr="//field[@name='order_line']/tree/field[@name='product_id']" position="after">
+                    <field name="device_unit_id" optional="hide" string="Appareil"/>
+                    <field name="lot_id" optional="hide" string="N° Série (Stock)"/>
                 </xpath>
            </field>
         </record>

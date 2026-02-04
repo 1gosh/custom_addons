@@ -1189,8 +1189,41 @@
     <menuitem id="repair_atelier_menu_config" sequence="50" name="Configuration" parent="menu_repair_atelier" groups="repair_custom.group_repair_manager"/>
     <menuitem id="menu_atelier_config_tiles"
             name="Tuiles"
-            parent="repair_atelier_menu_config" 
+            parent="repair_atelier_menu_config"
             action="action_atelier_dashboard_config"
             sequence="10"/>
+
+    <!-- Commerce: Ventes Équipement & Locations -->
+    <menuitem id="repair_menu_commerce" sequence="35" name="Commerce" parent="menu_repair_order" groups="repair_custom.group_repair_manager"/>
+
+    <record id="action_equipment_sales" model="ir.actions.act_window">
+        <field name="name">Ventes Équipement</field>
+        <field name="res_model">sale.order</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('computed_order_type', '=', 'equipment_sale')]</field>
+        <field name="context" eval="{'default_sale_order_template_id': ref('repair_custom.sale_order_template_equipment_sale')}"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Créez une vente d'équipement Hi-Fi.
+            </p>
+        </field>
+    </record>
+
+    <record id="action_rentals" model="ir.actions.act_window">
+        <field name="name">Locations</field>
+        <field name="res_model">sale.order</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('computed_order_type', '=', 'rental')]</field>
+        <field name="context" eval="{'default_sale_order_template_id': ref('repair_custom.sale_order_template_rental')}"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Créez une location d'équipement Hi-Fi.
+            </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_equipment_sales" name="Ventes Équipement" parent="repair_menu_commerce" action="action_equipment_sales" sequence="10"/>
+    <menuitem id="menu_rentals" name="Locations" parent="repair_menu_commerce" action="action_rentals" sequence="20"/>
+
     </data>
 </odoo>
