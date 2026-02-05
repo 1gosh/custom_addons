@@ -156,23 +156,38 @@ class Repair(models.Model):
             'repair_custom.sar_warranty_months', default='3'
         ))
 
+    def _get_sav_warranty_months(self):
+        """Get SAV warranty period in months from config or default to 12."""
+        return int(self.env['ir.config_parameter'].sudo().get_param(
+            'repair_custom.sav_warranty_months', default='12'
+        ))
+
+    # --- Unit warranty related fields (for views) ---
+    unit_warranty_type = fields.Selection(related='unit_id.warranty_type', store=False)
+    unit_warranty_expiry = fields.Date(related='unit_id.warranty_expiry', store=False)
+    unit_sale_date = fields.Datetime(related='unit_id.sale_date', store=False)
+
     def _compute_suggested_warranty(self):
-        """Calculate suggested warranty based on previous repair history."""
+        """Calculate suggested warranty: unit-based first, then legacy SAR fallback."""
         sar_months = self._get_sar_warranty_months()
 
         for rec in self:
-            is_sar = False
-            if rec.previous_repair_id:
+            suggested = 'aucune'
+
+            # Primary: check unit's computed warranty (covers both SAV and SAR)
+            if rec.unit_id and rec.unit_id.warranty_state == 'active':
+                suggested = rec.unit_id.warranty_type  # 'sav' or 'sar'
+            elif rec.previous_repair_id:
+                # Fallback: legacy SAR check for units without stored warranty data
                 prev_repair = rec.previous_repair_id
                 ref_date = prev_repair.end_date or prev_repair.write_date
-
                 if ref_date:
                     limit_date = ref_date.date() + relativedelta(months=sar_months)
                     current_date = rec.entry_date.date() if rec.entry_date else fields.Date.today()
                     if current_date <= limit_date:
-                        is_sar = True
+                        suggested = 'sar'
 
-            rec.suggested_warranty = 'sar' if is_sar else 'aucune'
+            rec.suggested_warranty = suggested
 
     suggested_warranty = fields.Selection([
         ('aucune', 'Aucune'),
@@ -193,36 +208,42 @@ class Repair(models.Model):
         if unit_changed or self.repair_warranty != 'sav':
             self.repair_warranty = self.suggested_warranty
 
-        # Show history popup if unit changed
-        if unit_changed and self.previous_repair_id:
+        if not unit_changed:
+            return
+
+        # Show popup based on unit warranty state
+        unit = self.unit_id
+        if unit.warranty_state == 'active' and unit.warranty_type == 'sav':
+            sale_date_str = unit.sale_date.strftime('%d/%m/%Y') if unit.sale_date else '?'
+            expiry_str = unit.warranty_expiry.strftime('%d/%m/%Y') if unit.warranty_expiry else '?'
+            return {'warning': {
+                'title': _("Garantie SAV"),
+                'message': _("ℹ INFO : Garantie SAV jusqu'au %s.\n(Vendu le %s)") % (
+                    expiry_str, sale_date_str
+                )
+            }}
+        elif unit.warranty_state == 'active' and unit.warranty_type == 'sar':
+            prev_repair = unit.last_delivered_repair_id or self.previous_repair_id
+            tech_name = prev_repair.technician_employee_id.name if prev_repair and prev_repair.technician_employee_id else 'Inconnu'
+            expiry_str = unit.warranty_expiry.strftime('%d/%m/%Y') if unit.warranty_expiry else '?'
+            prev_date_str = (prev_repair.end_date or prev_repair.write_date).strftime('%d/%m/%Y')
+            return {'warning': {
+                'title': _("Retour Garantie (SAR)"),
+                'message': _("ℹ INFO : Appareil sous garantie jusqu'au %s.\n(Réparé par %s, le %s)") % (
+                    expiry_str, tech_name, prev_date_str
+                )
+            }}
+        elif self.previous_repair_id:
+            # No active warranty but has history — show info
             prev_repair = self.previous_repair_id
             tech_name = prev_repair.technician_employee_id.name or 'Inconnu'
             prev_date_str = (prev_repair.end_date or prev_repair.write_date).strftime('%d/%m/%Y')
-
-            # Check if SAR
-            sar_months = self._get_sar_warranty_months()
-            ref_date = prev_repair.end_date or prev_repair.write_date
-            is_sar = False
-            if ref_date:
-                limit_date = ref_date.date() + relativedelta(months=sar_months)
-                current_date = self.entry_date.date() if self.entry_date else fields.Date.today()
-                if current_date <= limit_date:
-                    is_sar = True
-
-            if is_sar:
-                return {'warning': {
-                    'title': _("Retour Garantie (SAR)"),
-                    'message': _("ℹ INFO : Appareil sous garantie jusqu'au %s.\n(Réparé le %s par %s)") % (
-                        limit_date.strftime('%d/%m/%Y'), prev_date_str, tech_name
-                    )
-                }}
-            else:
-                return {'warning': {
-                    'title': _("Hors Garantie"),
-                    'message': _("ℹ INFO : Cet appareil a déjà été réparé par %s le %s.\n(Garantie expirée)") % (
-                        tech_name, prev_date_str
-                    )
-                }}
+            return {'warning': {
+                'title': _("Hors Garantie"),
+                'message': _("ℹ INFO : Cet appareil a déjà été réparé par %s le %s.\n(Garantie expirée)") % (
+                    tech_name, prev_date_str
+                )
+            }}
 
     previous_technician_id = fields.Many2one(
         'hr.employee',
@@ -396,6 +417,8 @@ class Repair(models.Model):
 
     # --- STATE TRANSITIONS ---
     def action_repair_cancel(self):
+        if self.delivery_state == 'abandoned':
+            raise UserError(_("Impossible de modifier l'état d'une réparation abandonnée."))
         admin = self.env.user.has_group('repair_custom.group_repair_admin')
         if not admin and any(repair.state == 'done' for repair in self):
             raise UserError(_("Impossible d'annuler une réparation terminée."))
@@ -406,12 +429,16 @@ class Repair(models.Model):
         return self.write({'state': 'cancel'})
 
     def action_repair_cancel_draft(self):
+        if self.delivery_state == 'abandoned':
+            raise UserError(_("Impossible de modifier l'état d'une réparation abandonnée."))
         if self.filtered(lambda repair: repair.state != 'cancel'):
             self.action_repair_cancel()
         return self.write({'state': 'draft', 'end_date': False})
 
     def action_repair_done(self):
         """Mark repair as done with proper validation and notifications."""
+        if self.delivery_state == 'abandoned':
+            raise UserError(_("Impossible de modifier l'état d'une réparation abandonnée."))
         # Row-level locking
         for rec in self:
             try:
@@ -474,6 +501,8 @@ class Repair(models.Model):
         return res
 
     def action_repair_end(self):
+        if self.delivery_state == 'abandoned':
+            raise UserError(_("Impossible de modifier l'état d'une réparation abandonnée."))
         if self.filtered(lambda repair: repair.state != 'under_repair'):
             raise UserError(_("La réparation doit être en cours pour être terminée."))
         return self.action_repair_done()
@@ -483,6 +512,10 @@ class Repair(models.Model):
 
     def action_repair_delivered(self):
         """Mark repair as delivered with atomic validation."""
+        # Check for abandoned repairs first
+        if self.delivery_state == 'abandoned':
+            raise UserError(_("Impossible de livrer une réparation abandonnée. L'appareil est désormais propriété de l'atelier."))
+
         # Row-level locking
         for rec in self:
             try:
@@ -495,7 +528,9 @@ class Repair(models.Model):
         # Batch validation
         errors = []
         for rec in self:
-            if rec.state != 'done':
+            if rec.delivery_state == 'abandoned':
+                errors.append(_("La réparation %s est abandonnée et ne peut pas être livrée.") % rec.name)
+            elif rec.state != 'done':
                 errors.append(_("La réparation %s doit être 'Terminée' avant d'être livrée.") % rec.name)
             elif rec.delivery_state != 'none':
                 errors.append(_("La réparation %s est déjà sortie de l'atelier.") % rec.name)
@@ -514,6 +549,16 @@ class Repair(models.Model):
         if units:
             units.write({'stock_state': 'client'})
 
+        # Set SAR warranty on delivered units
+        sar_months = self._get_sar_warranty_months()
+        for rec in self:
+            if rec.unit_id:
+                sar_expiry = fields.Date.today() + relativedelta(months=sar_months)
+                rec.unit_id.write({
+                    'last_delivered_repair_id': rec.id,
+                    'sar_expiry': sar_expiry,
+                })
+
         # Cleanup activities
         pickup_type_id = self.env.ref('repair_custom.mail_act_repair_done').id
         for rec in self:
@@ -525,14 +570,20 @@ class Repair(models.Model):
 
     def action_repair_start(self):
         self.ensure_one()
+        if self.delivery_state == 'abandoned':
+            raise UserError(_("Impossible de modifier l'état d'une réparation abandonnée."))
         return self.write({'state': 'under_repair'})
 
     def _action_repair_confirm(self):
+        if self.delivery_state == 'abandoned':
+            raise UserError(_("Impossible de modifier l'état d'une réparation abandonnée."))
         return self.write({'state': 'confirmed'})
 
     def action_validate(self):
         """Confirm repair and create device unit if needed."""
         self.ensure_one()
+        if self.delivery_state == 'abandoned':
+            raise UserError(_("Impossible de modifier l'état d'une réparation abandonnée."))
         if self.variant_id and self.variant_id not in self.device_id.variant_ids:
             self.device_id.write({'variant_ids': [(4, self.variant_id.id)]})
         if self.unit_id:
@@ -595,6 +646,27 @@ class Repair(models.Model):
             'context': {'default_repair_id': self.id},
         }
 
+    def action_open_abandon_wizard(self):
+        """Open the device stock wizard in abandon mode."""
+        self.ensure_one()
+        if self.state == 'draft':
+            raise UserError(_("Impossible d'abandonner un appareil en brouillon."))
+        if self.delivery_state != 'none':
+            raise UserError(_("L'appareil est déjà sorti de l'atelier."))
+        if not self.unit_id:
+            raise UserError(_("Aucun appareil associé à cette réparation."))
+        return {
+            'name': _("Abandon & Entrée en Stock"),
+            'type': 'ir.actions.act_window',
+            'res_model': 'device.stock.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_unit_id': self.unit_id.id,
+                'default_repair_id': self.id,
+            },
+        }
+
     def action_open_pricing_wizard(self):
         self.ensure_one()
         device_categ_id = self.device_id.category_id.id if self.device_id else False
@@ -653,6 +725,9 @@ class Repair(models.Model):
     def action_atelier_start(self):
         """Workflow: Take and start repair."""
         self.ensure_one()
+
+        if self.delivery_state == 'abandoned':
+            raise UserError(_("Impossible de modifier l'état d'une réparation abandonnée."))
 
         # Row-level locking
         try:
@@ -753,6 +828,9 @@ class Repair(models.Model):
     def action_atelier_abort(self):
         """Abort repair and return to queue."""
         self.ensure_one()
+
+        if self.delivery_state == 'abandoned':
+            raise UserError(_("Impossible de modifier l'état d'une réparation abandonnée."))
 
         tech_name = self.technician_employee_id.name or self.env.user.name
         self.message_post(body=f"❌ {tech_name} a abandonné l'intervention (Retour file d'attente).")

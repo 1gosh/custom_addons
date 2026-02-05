@@ -6,9 +6,14 @@
         <field name="arch" type="xml">
             
             <xpath expr="//sheet" position="before">
-                <div class="alert alert-info text-center" role="alert" invisible="not repair_id">
+                <div class="alert alert-info text-center" invisible="not repair_id and not batch_id" role="alert">
                     <div class="d-flex justify-content-center align-items-center">
-                        <a><strong><i class="fa fa-wrench"/> Réparation liée :</strong> <field name="repair_id" readonly="1" class="fw-bold"/></a>
+                        <a invisible="batch_id"><strong><i class="fa fa-wrench"/> Réparation liée : </strong> 
+                           <field name="repair_id" readonly="1" class="fw-bold"/>
+                        </a>
+                        <a invisible="not batch_id"><strong><i class="fa fa-wrench"/> Dossier lié : </strong> 
+                           <field name="batch_id" readonly="1" class="fw-bold"/>
+                        </a>
                     </div>
                     <!-- <hr style="margin: 5px 0; border-top: 1px solid #badbcc;"/>
                     <strong>Notes Atelier :</strong><br/>
@@ -17,6 +22,7 @@
             </xpath>
 
             <xpath expr="//field[@name='partner_id']" position="after">
+                <field name="batch_id" invisible="1"/>
                 <field name="repair_id" invisible="1"/>
             </xpath>
 

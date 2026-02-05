@@ -1,22 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <data noupdate="1">
+    <data noupdate="0">
         <record id="sale_order_template_repair_quote" model="sale.order.template">
             <field name="name">Devis de Réparation</field>
             <field name="template_type">repair_quote</field>
             <field name="active">True</field>
+            <field name="note">&lt;p&gt;&lt;strong&gt;Le matériel réparé est garanti 3 mois sur l’intervention et pièces remplacées, exclut toute intervention par un tiers.&amp;nbsp;&lt;br&gt;&lt;/strong&gt;&lt;em&gt;TVA au taux normal de 20 % – Article 278 du CGI.&lt;/em&gt;&lt;/p&gt;</field>
         </record>
 
         <record id="sale_order_template_equipment_sale" model="sale.order.template">
             <field name="name">Vente d'Équipement</field>
             <field name="template_type">equipment_sale</field>
             <field name="active">True</field>
+            <field name="note">&lt;p&gt;&lt;strong&gt;Matériel révisé, contrôlé et testé, garanti 12 mois, hors mauvaise utilisation et toute intervention par un tiers, en complément des garanties légales.&amp;nbsp;&lt;br&gt;&lt;/strong&gt;&lt;em&gt;TVA au taux normal de 20 % – Article 278 du CGI.&lt;/em&gt;&lt;/p&gt;</field>
         </record>
 
         <record id="sale_order_template_rental" model="sale.order.template">
             <field name="name">Location d'Équipement</field>
             <field name="template_type">rental</field>
             <field name="active">True</field>
+            <field name="note">&lt;p&gt;&lt;strong&gt;Le locataire est responsable de toute perte ou dégradation pendant la durée de la location.&amp;nbsp;&lt;br&gt;&lt;/strong&gt;&lt;em&gt;TVA au taux normal de 20 % – Article 278 du CGI.&lt;/em&gt;&lt;/p&gt;</field>
         </record>
     </data>
 </odoo>

@@ -8,11 +8,15 @@
         <field name="inherit_id" ref="repair_devices.view_repair_device_unit_tree"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='partner_id']" position="after">
-                <field name="functional_state" widget="badge" 
+                <field name="functional_state" widget="badge"
                     decoration-danger="functional_state == 'broken'"
                     decoration-info="functional_state == 'fixing'"
                     decoration-success="functional_state == 'working'"/>
                 <field name="repair_order_count"/>
+                <field name="warranty_state" column_invisible="1"/>
+                <field name="warranty_type" optional="show" widget="badge"
+                    decoration-success="warranty_state == 'active'"
+                    decoration-muted="warranty_state != 'active'"/>
             </xpath>
         </field>
     </record>
@@ -23,13 +27,37 @@
         <field name="inherit_id" ref="repair_devices.view_repair_device_unit_form"/>
         <field name="arch" type="xml">
             <xpath expr="//header" position="inside">
+                <button name="action_open_stock_wizard"
+                        string="Gérer Stock"
+                        type="object"
+                        class="btn-secondary"
+                        icon="fa-archive"
+                        invisible="stock_state == 'in_repair'"
+                        groups="repair_custom.group_repair_manager"/>
                 <field name="stock_state" widget="statusbar" statusbar_visible="client,stock,rented"/>
             </xpath>
             <xpath expr="//div[@class='oe_title']" position="before">
                 <field name="functional_state" invisible="1"/>
+                <field name="warranty_state" invisible="1"/>
+                <field name="warranty_type" invisible="1"/>
                 <!-- <widget name="web_ribbon" title="En Atelier" bg_color="bg-warning" invisible="functional_state != 'fixing'"/> -->
                 <widget name="web_ribbon" title="En Panne" bg_color="bg-danger" invisible="functional_state != 'broken'"/>
                 <widget name="web_ribbon" title="Fonctionnel" bg_color="bg-success" invisible="functional_state != 'working'"/>
+                <div class="alert alert-success text-center" role="alert" invisible="warranty_state != 'active'">
+                    <div class="d-flex align-items-center justify-content-center">
+                        <i class="fa fa-shield me-1"/>
+                        <strong>Garantie <field name="warranty_type" readonly="1" class="d-inline"/> active</strong> — Expire le <field name="warranty_expiry" readonly="1" class="d-inline"/>
+                    </div> 
+                </div>
+                <div class="alert alert-secondary text-center" role="alert" invisible="warranty_state != 'expired'">
+                    <div class="d-flex align-items-center justify-content-center">
+                        <i class="fa fa-shield me-1"/>
+                        Garantie expirée (dernière expiration : <field name="warranty_expiry" readonly="1" class="d-inline"/>)
+                    </div>
+                </div>
+            </xpath>
+            <xpath expr="//field[@name='notes']" position="before">
+                <field name="lot_id" invisible="not lot_id" readonly="1"/>
             </xpath>
             <sheet position="inside">
                 <div name="button_box" class="oe_button_box" position="inside">
@@ -40,7 +68,7 @@
                         <field name="repair_order_count" widget="statinfo" string="Réparations"/>
                     </button>
                 </div>
-                 <notebook>
+                <notebook>
                     <page string="Réparations associées" invisible="not repair_order_ids">
                         <field name="repair_order_ids" readonly="1">
                             <tree string="Repairs order" multi_edit="1" sample="1" decoration-info="state == 'draft'">
@@ -56,6 +84,26 @@
                                 <field name="technician_employee_id" optional="show"/>
                             </tree>
                         </field>
+                    </page>
+                    <page string="Garantie" invisible="warranty_state == 'none'">
+                        <group>
+                            <group>
+                                <field name="warranty_type" widget="badge"
+                                    decoration-success="warranty_state == 'active'"
+                                    decoration-muted="warranty_state != 'active'"/>
+                                <field name="warranty_expiry"/>
+                                <field name="warranty_state" widget="badge"
+                                    decoration-success="warranty_state == 'active'"
+                                    decoration-danger="warranty_state == 'expired'"/>
+                            </group>
+                            <group>
+                                <field name="sale_date" invisible="not sale_date"/>
+                                <field name="sav_expiry" invisible="not sav_expiry"/>
+                                <field name="sale_order_id" invisible="not sale_order_id"/>
+                                <field name="last_delivered_repair_id" invisible="not last_delivered_repair_id"/>
+                                <field name="sar_expiry" invisible="not sar_expiry"/>
+                            </group>
+                        </group>
                     </page>
                 </notebook>
             </sheet>

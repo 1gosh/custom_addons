@@ -21,4 +21,9 @@
     <record id='stock.warehouse0' model='stock.warehouse'>
         <field name='repair_type_id' ref='repair_custom.picking_type_warehouse0_repair'/>
     </record>
+
+    <record id="config_sav_warranty_months" model="ir.config_parameter" forcecreate="0">
+        <field name="key">repair_custom.sav_warranty_months</field>
+        <field name="value">12</field>
+    </record>
 </odoo>

@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <data noupdate="1">
+    <data noupdate="0">
         <!-- Fiscal Position: Repair Quote (20% VAT) -->
         <record id="fiscal_position_repair" model="account.fiscal.position">
-            <field name="name">Position Fiscale - Réparation</field>
+            <field name="name">Réparations</field>
             <field name="active">True</field>
             <field name="auto_apply">False</field>
             <field name="sequence">10</field>
-            <field name="note">TVA au taux normal de 20 % – Article 278 du CGI.</field>
+            <!-- <field name="note">TVA au taux normal de 20 % – Article 278 du CGI.</field> -->
         </record>
 
         <!-- Tax mapping: 20% VAT → 20% VAT (identity, ensures 20% is always applied) -->
@@ -19,11 +19,11 @@
 
         <!-- Fiscal Position: Equipment Sale (0% Margin Regime) -->
         <record id="fiscal_position_equipment_sale" model="account.fiscal.position">
-            <field name="name">Position Fiscale - Vente Équipement</field>
+            <field name="name">Ventes Équipement</field>
             <field name="active">True</field>
             <field name="auto_apply">False</field>
             <field name="sequence">20</field>
-            <field name="note">TVA sur la marge – Biens d’occasion – Article 297 A du CGI. TVA non récupérable par l’acheteur.</field>
+            <!-- <field name="note">TVA sur la marge – Biens d’occasion – Article 297 A du CGI. TVA non récupérable par l’acheteur.</field> -->
         </record>
 
         <!-- Tax mapping: 20% VAT → 0% Margin -->
@@ -35,11 +35,11 @@
 
         <!-- Fiscal Position: Rental (20% VAT) -->
         <record id="fiscal_position_rental" model="account.fiscal.position">
-            <field name="name">Position Fiscale - Location</field>
+            <field name="name">Locations</field>
             <field name="active">True</field>
             <field name="auto_apply">False</field>
             <field name="sequence">30</field>
-            <field name="note">TVA au taux normal de 20 % – Article 278 du CGI.</field>
+            <!-- <field name="note">TVA au taux normal de 20 % – Article 278 du CGI.</field> -->
         </record>
 
         <!-- Tax mapping: 20% VAT → 20% VAT (identity, ensures 20% is always applied) -->

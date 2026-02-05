@@ -1,5 +1,6 @@
 from odoo import api, Command, fields, models, _
 from odoo.exceptions import UserError
+from dateutil.relativedelta import relativedelta
 
 class RepairDeviceUnit(models.Model):
     _inherit = 'repair.device.unit'
@@ -15,12 +16,71 @@ class RepairDeviceUnit(models.Model):
         ondelete={'in_repair': 'set default', 'sold': 'set default'},
     )
 
+    lot_id = fields.Many2one('stock.lot', string="Lot/Série Stock", readonly=True, copy=False)
+
+    # --- SAV warranty data (set by equipment sale confirmation) ---
+    sale_date = fields.Datetime("Date de vente", readonly=True, copy=False)
+    sav_expiry = fields.Date("Expiration SAV", readonly=True, copy=False)
+    sale_order_id = fields.Many2one('sale.order', "Commande de vente", readonly=True, copy=False)
+
+    # --- SAR warranty data (set by repair delivery) ---
+    last_delivered_repair_id = fields.Many2one('repair.order', "Dernière réparation livrée", readonly=True, copy=False)
+    sar_expiry = fields.Date("Expiration SAR", readonly=True, copy=False)
+
+    # --- Computed warranty info (SAV priority over SAR) ---
+    warranty_type = fields.Selection([
+        ('none', 'Aucune'),
+        ('sar', 'SAR'),
+        ('sav', 'SAV'),
+    ], string="Type de garantie", compute='_compute_warranty_info', store=False)
+    warranty_expiry = fields.Date("Expiration garantie", compute='_compute_warranty_info', store=False)
+    warranty_state = fields.Selection([
+        ('none', 'Aucune'),
+        ('active', 'Active'),
+        ('expired', 'Expirée'),
+    ], string="État garantie", compute='_compute_warranty_info', store=False)
+
+    def _compute_warranty_info(self):
+        today = fields.Date.today()
+        for unit in self:
+            w_type = 'none'
+            w_expiry = False
+            w_state = 'none'
+
+            if unit.sav_expiry and unit.sav_expiry >= today:
+                w_type = 'sav'
+                w_expiry = unit.sav_expiry
+                w_state = 'active'
+            elif unit.sar_expiry and unit.sar_expiry >= today:
+                w_type = 'sar'
+                w_expiry = unit.sar_expiry
+                w_state = 'active'
+            elif unit.sav_expiry or unit.sar_expiry:
+                # Has warranty history but all expired
+                w_state = 'expired'
+                w_expiry = max(filter(None, [unit.sav_expiry, unit.sar_expiry]))
+
+            unit.warranty_type = w_type
+            unit.warranty_expiry = w_expiry
+            unit.warranty_state = w_state
+
     def _compute_repair_order_count(self):
         for rec in self:
             rec.repair_order_count = self.env['repair.order'].search_count([('unit_id', '=', rec.id)])
     def action_view_repairs(self):
         self.ensure_one()
         return {'type': 'ir.actions.act_window', 'name': 'Réparations', 'res_model': 'repair.order', 'view_mode': 'tree,form', 'domain': [('unit_id', '=', self.id)], 'context': {'default_unit_id': self.id}}
+
+    def action_open_stock_wizard(self):
+        self.ensure_one()
+        return {
+            'name': _("Entrée en Stock"),
+            'type': 'ir.actions.act_window',
+            'res_model': 'device.stock.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_unit_id': self.id},
+        }
 
     functional_state = fields.Selection([
         ('broken', 'En panne'),
@@ -54,6 +114,7 @@ class AccountMove(models.Model):
     _inherit = 'account.move'
 
     repair_id = fields.Many2one('repair.order', string="Réparation d'origine", readonly=True)
+    batch_id = fields.Many2one(r'repair.batch', string="Dossier de réparation d'origine", readonly=True)
     repair_notes = fields.Text(related='repair_id.internal_notes', string="Notes de l'atelier", readonly=True)
 
     def _is_equipment_sale_invoice(self):
@@ -296,6 +357,17 @@ class SaleOrder(models.Model):
                     'stock_state': 'sold',
                     'partner_id': order.partner_id.id,
                 })
+
+                # Set SAV warranty on sold units
+                sav_months = int(self.env['ir.config_parameter'].sudo().get_param(
+                    'repair_custom.sav_warranty_months', default='12'))
+                sav_expiry = fields.Date.today() + relativedelta(months=sav_months)
+                for unit in units:
+                    unit.write({
+                        'sale_date': fields.Datetime.now(),
+                        'sav_expiry': sav_expiry,
+                        'sale_order_id': order.id,
+                    })
 
             # Auto-validate pickings for both types
             if order._requires_special_stock_handling():

@@ -30,9 +30,13 @@ class RepairBatch(models.Model):
                 batch.state = 'draft'
                 continue
             states = set(batch.repair_ids.mapped('state'))
-            if states.issubset({'done', 'cancel'}): batch.state = 'processed'
+            # Processed: all repairs are done, cancelled, or irreparable
+            if states.issubset({'done', 'cancel', 'irreparable'}): batch.state = 'processed'
+            # Under repair: any repair is under_repair
             elif 'under_repair' in states: batch.state = 'under_repair'
+            # Confirmed: all non-cancelled repairs are confirmed
             elif all(r.state == 'confirmed' for r in batch.repair_ids if r.state != 'cancel'): batch.state = 'confirmed'
+            # Draft: fallback for mixed states or all draft
             else: batch.state = 'draft'
 
     @api.model_create_multi

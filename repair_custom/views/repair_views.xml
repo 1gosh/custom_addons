@@ -165,7 +165,7 @@
                     <button name="action_repair_end" invisible="state not in 'under_repair'" type="object" string="Terminer la réparation" class="btn-success" data-hotkey="x"/>
                     <button name="action_set_irreparable" string="Non Réparable" type="object" class="btn-danger" invisible="state not in ['under_repair']"/>
                     <button name="action_repair_delivered" string="Livrer" type="object" class="btn-secondary" invisible="delivery_state != 'none' or state not in ['done', 'irreparable']"/>
-                    <!-- <button name="action_open_abandon_wizard" string="Abandon" type="object" class="btn-warning" invisible="delivery_state != 'none' or state == 'draft'"/> -->
+                    <button name="action_open_abandon_wizard" string="Abandon" type="object" class="btn-warning" invisible="delivery_state != 'none' or state == 'draft'" groups="repair_custom.group_repair_manager"/>
                     <button name="action_repair_cancel_draft" groups="repair_custom.group_repair_manager" invisible="state in 'draft'" string="Marquer comme brouillon" type="object" data-hotkey="z"/>
                     <button name="action_repair_cancel" groups="repair_custom.group_repair_manager" string="Annuler" type="object" invisible="state in ('done', 'cancel')" data-hotkey="l" class="btn-danger"/>
                     <button name="action_print_repair_order" string="Bon" type="object" icon="fa-regular fa-print" invisible="state in 'draft, done, delivered'" class="btn-info"/>
@@ -173,11 +173,11 @@
                     <button name="action_open_pricing_wizard" icon="fa-file" invisible="state in 'draft'" string="Devis/Facture" type="object"/>
                     <button name="action_add_device_to_batch" string="Ajouter appareil" type="object" class="btn-secondary" icon="fa-plus-square" invisible="state not in 'confirmed'"/>
 
-                    <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,under_repair,done" onchange="1"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,under_repair,done" readonly="delivery_state == 'abandoned'" onchange="1"/>
                 </header>
                 <sheet>
                     <widget name="web_ribbon" title="Livré" bg_color="bg-success" invisible="delivery_state != 'delivered'"/>
-                    <widget name="web_ribbon" title="Abandonné" bg_color="bg-warning" invisible="delivery_state != 'abandoned'"/>
+                    <widget name="web_ribbon" title="Abandonné" bg_color="bg-danger" invisible="delivery_state != 'abandoned'"/>
                     <div class="alert alert-warning mb-3 shadow-sm" 
                         role="alert" 
                         invisible="quote_state != 'pending'"
@@ -891,6 +891,9 @@
                     <field name="company_id" invisible="1"/>
                     <field name="has_history" invisible="1"/>
                     <field name="repair_warranty" invisible="1"/>
+                    <field name="unit_warranty_type" invisible="1"/>
+                    <field name="unit_warranty_expiry" invisible="1"/>
+                    <field name="unit_sale_date" invisible="1"/>
                 </header>
                 <div role="status" class="alert alert-danger text-center" 
                     invisible="not quote_required or quote_threshold == 0 or quote_state == 'approved'">
@@ -910,12 +913,14 @@
                         <i class="fa fa-info-circle me-1"/>
                         <a>
                             RETOUR GARANTIE (SAR) - Précédent tech : <field name="previous_technician_id" readonly="1"/> (<field name="previous_end_date" widget="datetime" options="{'show_time':false}" readonly="1"/>)
+                            — Garantie jusqu'au <field name="unit_warranty_expiry" readonly="1" class="d-inline" invisible="not unit_warranty_expiry"/>
                         </a>
                     </div>
                     <div class="d-flex align-items-center justify-content-center" invisible="repair_warranty != 'sav'">
                         <i class="fa fa-info-circle fa-1x me-1"/>
                         <a>
-                            <strong>RETOUR GARANTIE (SAV)</strong> - Vendu le <!---->
+                            <strong>RETOUR GARANTIE (SAV)</strong> - Vendu le <field name="unit_sale_date" widget="datetime" options="{'show_time':false}" readonly="1" class="d-inline" invisible="not unit_sale_date"/>
+                            — Garantie jusqu'au <field name="unit_warranty_expiry" readonly="1" class="d-inline" invisible="not unit_warranty_expiry"/>
                         </a>
                     </div>
                 </div>

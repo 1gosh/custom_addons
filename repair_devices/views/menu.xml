@@ -7,6 +7,7 @@
         <field name="name">Marques</field>
         <field name="res_model">repair.device.brand</field>
         <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_repair_device_brand_search"/>
     </record>
 
     <!-- Catégories-->
@@ -23,6 +24,7 @@
         <field name="name">Catalogue d'appareils</field>
         <field name="res_model">repair.device</field>
         <field name="view_mode">tree,kanban,form</field>
+        <field name="search_view_id" ref="view_repair_device_search"/>
     </record>
 
     <!-- Variantes -->
@@ -31,6 +33,7 @@
         <field name="name">Variantes</field>
         <field name="res_model">repair.device.variant</field>
         <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_repair_device_variant_search"/>
         <field name="help" type="html">
             <p>Gérez les variantes des appareils.</p>
         </field>
@@ -41,6 +44,7 @@
         <field name="name">Appareils physiques</field>
         <field name="res_model">repair.device.unit</field>
         <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_repair_device_unit_search"/>
         <field name="help" type="html">
             <p>Gérez les unités physiques des appareils (numéros de série).</p>
         </field>

@@ -334,6 +334,8 @@ class RepairPricingWizard(models.TransientModel):
         # Link to repair order for traceability
         if not self.batch_id and self.repair_id:
             move_vals['repair_id'] = self.repair_id.id
+        elif self.batch_id:
+            move_vals['batch_id'] = self.batch_id.id
 
         move = self.env['account.move'].create(move_vals)
 

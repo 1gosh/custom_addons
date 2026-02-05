@@ -19,19 +19,32 @@
     </record>
 
     <record id="view_repair_device_search" model="ir.ui.view">
-        <field name="name">repair.device.search.panel</field>
+        <field name="name">repair.device.search</field>
         <field name="model">repair.device</field>
         <field name="arch" type="xml">
-            <search string="Test">
+            <search string="Catalogue d'appareils">
+                <!-- Utilise la logique _name_search pour la recherche Google-like (Marque ET Modèle) -->
+                <field name="name" string="Recherche" filter_domain="[
+                    '|', '|', ('brand_id.name', 'ilike', self), ('name', 'ilike', self), ('display_name', 'ilike', self)
+                ]"/>
+                <field name="brand_id"/>
+                <field name="category_id"/>
+                <field name="production_year"/>
+                <field name="variant_ids"/>
+                <group expand="0" string="Filtres">
+                    <filter name="filter_brand" string="Marque" context="{'group_by': 'brand_id'}"/>
+                    <filter name="filter_category" string="Catégorie" context="{'group_by': 'category_id'}"/>
+                    <filter name="filter_year" string="Année de sortie" context="{'group_by': 'production_year'}"/>
+                </group>
                 <searchpanel>
-                    <field name="category_id" 
-                            enable_counters="1" 
+                    <field name="category_id"
+                            enable_counters="1"
                             icon="fa-folder"
                             string="Catégories"/>
                     
-                    <field name="brand_id" 
-                            enable_counters="1" 
-                            icon="fa-tag" 
+                    <field name="brand_id"
+                            enable_counters="1"
+                            icon="fa-tag"
                             select="multi"
                             string="Marques"/>
                 </searchpanel>
@@ -116,6 +129,17 @@
         </field>
     </record>
 
+    <!-- VUE : Variantes - Recherche -->
+    <record id="view_repair_device_variant_search" model="ir.ui.view">
+        <field name="name">repair.device.variant.search</field>
+        <field name="model">repair.device.variant</field>
+        <field name="arch" type="xml">
+            <search string="Variantes">
+                <field name="name"/>
+            </search>
+        </field>
+    </record>
+
     <!-- VUE : Unité -->
 
     <record id="view_repair_device_unit_tree" model="ir.ui.view">
@@ -163,13 +187,41 @@
                             <field name="partner_id" readonly="not context.get('edit_admin')"/>
                             <field name="variant_id" readonly="not context.get('edit_admin')" placeholder="Pas de variante"/>
                         </group>
-                        <!-- <group>
-                            <field name="stock_lot_id" invisible="not stock_lot_id" readonly="1"/>
+                        <group>
                             <field name="notes" placeholder="Notes techniques, observations..."/>
-                        </group> -->
+                        </group>
                     </group>
                 </sheet>
             </form>
+        </field>
+    </record>
+
+    <!-- VUE : Unité - Recherche -->
+    <record id="view_repair_device_unit_search" model="ir.ui.view">
+        <field name="name">repair.device.unit.search</field>
+        <field name="model">repair.device.unit</field>
+        <field name="arch" type="xml">
+            <search string="Appareils physiques">
+                <!-- Recherche sur display_name inclut: appareil, variante et numéro de série -->
+                <field name="display_name" string="Recherche"/>
+                <field name="serial_number"/>
+                <field name="device_id"/>
+                <field name="device_name"/>
+                <field name="variant_id"/>
+                <field name="partner_id"/>
+                <field name="stock_state"/>
+                <filter name="filter_stock_client" string="Propriété Client" domain="[('stock_state', '=', 'client')]"/>
+                <filter name="filter_stock_stock" string="En Stock" domain="[('stock_state', '=', 'stock')]"/>
+                <filter name="filter_stock_rented" string="En Location" domain="[('stock_state', '=', 'rented')]"/>
+                <separator/>
+                <filter name="filter_no_serial" string="Sans numéro de série" domain="[('serial_number', '=', False)]"/>
+                <filter name="filter_with_serial" string="Avec numéro de série" domain="[('serial_number', '!=', False)]"/>
+                <group expand="0" string="Grouper par">
+                    <filter name="group_stock_state" string="Statut Stock" context="{'group_by': 'stock_state'}"/>
+                    <filter name="group_device" string="Appareil" context="{'group_by': 'device_id'}"/>
+                    <filter name="group_partner" string="Propriétaire" context="{'group_by': 'partner_id'}"/>
+                </group>
+            </search>
         </field>
     </record>
 
@@ -206,6 +258,22 @@
                     </group>
                 </sheet>
             </form>
+        </field>
+    </record>
+
+    <!-- VUE : Marques - Recherche -->
+    <record id="view_repair_device_brand_search" model="ir.ui.view">
+        <field name="name">repair.device.brand.search</field>
+        <field name="model">repair.device.brand</field>
+        <field name="arch" type="xml">
+            <search string="Marques">
+                <field name="name"/>
+                <field name="country"/>
+                <field name="founded_year"/>
+                <group expand="0" string="Grouper par">
+                    <filter name="group_country" string="Pays" context="{'group_by': 'country'}"/>
+                </group>
+            </search>
         </field>
     </record>
 
@@ -249,9 +317,11 @@
         <field name="name">repair.device.category.search</field>
         <field name="model">repair.device.category</field>
         <field name="arch" type="xml">
-            <search string="Product Categories">
-                <field name="name" string="Product Categories"/>
+            <search string="Catégories d'appareils">
+                <!-- Utilise la logique _name_search pour la recherche hiérarchique sur complete_name -->
+                <field name="name" string="Recherche" filter_domain="[('complete_name', 'ilike', self)]"/>
                 <field name="parent_id"/>
+                <field name="internal_code"/>
             </search>
         </field>
     </record>
@@ -264,7 +334,7 @@
         <field name="binding_view_types">list</field>
         <field name="state">code</field>
         <field name="code">
-action = records.action_sync_products()
+            action = records.action_sync_products()
         </field>
     </record>
 

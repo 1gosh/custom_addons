@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_device_stock_wizard_form" model="ir.ui.view">
+        <field name="name">device.stock.wizard.form</field>
+        <field name="model">device.stock.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Entrée en Stock">
+                <field name="is_abandon" invisible="1"/>
+                <field name="repair_id" invisible="1"/>
+                <field name="unit_id" invisible="1"/>
+                <div class="alert alert-warning" role="alert" invisible="not is_abandon">
+                    <i class="fa fa-exclamation-triangle me-1"/>
+                    L'appareil va devenir la propriété de l'atelier et l'état de la réparation vérouillée.
+                    Veuillez choisir où le stocker.
+                </div>
+                <group string="Informations">
+                    <group>
+                        <field name="previous_owner_id"/>
+                        <field name="current_stock_state"/>
+                    </group>
+                </group>
+                <group string="Destination">
+                    <group>
+                        <field name="location_dest_id" options="{'no_create': True}"/>
+                        <field name="note" placeholder="Raison, état de l'appareil..."/>
+                    </group>
+                </group>
+                <footer>
+                    <button name="action_confirm" string="Valider l'Entrée en Stock" type="object" class="btn-primary"/>
+                    <button string="Annuler" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>
