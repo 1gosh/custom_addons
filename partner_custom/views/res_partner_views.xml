@@ -6,7 +6,9 @@
             <field name="model">res.partner</field>
             <field name="inherit_id" ref="base.view_partner_form"/>
             <field name="arch" type="xml">
-                <field name="mobile" position="replace"/>
+                <field name="mobile" position="attributes">
+                    <attribute name="invisible">company_type != 'company'</attribute>
+                </field>
            </field>
         </record>
     </data>
