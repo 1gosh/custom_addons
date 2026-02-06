@@ -122,47 +122,27 @@ class ResPartner(models.Model):
 
             # Format phone field
             if partner.phone:
-                # First sanitize to E164 to ensure we have a clean number
-                e164 = phone_validation.phone_format(
+                formatted = phone_validation.phone_format(
                     partner.phone,
                     country_code,
                     country_phone_code,
-                    force_format='E164',
+                    force_format='NATIONAL',
                     raise_exception=False,
                 )
-                # Then format to NATIONAL
-                if e164:
-                    formatted = phone_validation.phone_format(
-                        e164,
-                        country_code,
-                        country_phone_code,
-                        force_format='NATIONAL',
-                        raise_exception=False,
-                    )
-                    if formatted and formatted != partner.phone:
-                        vals['phone'] = formatted
+                if formatted and formatted != partner.phone:
+                    vals['phone'] = formatted
 
             # Format mobile field
             if partner.mobile:
-                # First sanitize to E164 to ensure we have a clean number
-                e164 = phone_validation.phone_format(
+                formatted = phone_validation.phone_format(
                     partner.mobile,
                     country_code,
                     country_phone_code,
-                    force_format='E164',
+                    force_format='NATIONAL',
                     raise_exception=False,
                 )
-                # Then format to NATIONAL
-                if e164:
-                    formatted = phone_validation.phone_format(
-                        e164,
-                        country_code,
-                        country_phone_code,
-                        force_format='NATIONAL',
-                        raise_exception=False,
-                    )
-                    if formatted and formatted != partner.mobile:
-                        vals['mobile'] = formatted
+                if formatted and formatted != partner.mobile:
+                    vals['mobile'] = formatted
 
             # Update partner if any field was formatted
             if vals:
