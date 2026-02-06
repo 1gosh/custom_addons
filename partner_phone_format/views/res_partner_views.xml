@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="view_sale_order_form_inherit_repair" model="ir.ui.view">
+            <field name="name">partner.form.inherit.custom</field>
+            <field name="model">res.partner</field>
+            <field name="inherit_id" ref="base.view_partner_form"/>
+            <field name="arch" type="xml">
+                <field name="mobile" position="replace"/>
+           </field>
+        </record>
+    </data>
+</odoo>

@@ -6,7 +6,7 @@
     'author': 'martinl',
     'depends': ['phone_validation'],
     'data': [
-        'data/server_action.xml',
+        "views/res_partner_views.xml"
     ],
     'installable': True,
     'auto_install': False,

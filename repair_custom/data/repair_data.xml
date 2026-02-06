@@ -6,14 +6,14 @@
     when the initialization of data triggers the default method of the required field 'picking_type_id'.
     -->
 
+    <!-- Picking type record commented out - requires model extensions for 'repair_operation' code -->
+    <!--
     <record id="picking_type_warehouse0_repair" model="stock.picking.type" forcecreate="0">
         <field name="name">Repairs</field>
         <field name="code">repair_operation</field>
         <field name="company_id" ref="base.main_company"/>
         <field name="default_location_src_id" ref="stock.stock_location_stock"/>
         <field name="default_location_dest_id" model="stock.location" search="[('usage', '=', 'production'), ('company_id', '=', obj().env.ref('base.main_company').id)]"/>
-        <field name="default_remove_location_dest_id" model="stock.location" search="[('scrap_location', '=', True), ('company_id', '=', obj().env.ref('base.main_company').id)]"/>
-        <field name="default_recycle_location_dest_id" ref="stock.stock_location_stock"/>
         <field name="sequence_code">RO</field>
         <field name="warehouse_id" ref="stock.warehouse0"/>
     </record>
@@ -21,6 +21,7 @@
     <record id='stock.warehouse0' model='stock.warehouse'>
         <field name='repair_type_id' ref='repair_custom.picking_type_warehouse0_repair'/>
     </record>
+    -->
 
     <record id="config_sav_warranty_months" model="ir.config_parameter" forcecreate="0">
         <field name="key">repair_custom.sav_warranty_months</field>

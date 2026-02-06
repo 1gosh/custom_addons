@@ -29,3 +29,6 @@ ir.model.access.csv.backup
 build/
 dist/
 *.egg-info/
+
+CLAUDE.md
+AGENTS.md

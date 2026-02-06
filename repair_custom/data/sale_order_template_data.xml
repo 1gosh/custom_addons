@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <data noupdate="0">
+    <data noupdate="1">
         <record id="sale_order_template_repair_quote" model="sale.order.template">
             <field name="name">Devis de Réparation</field>
             <field name="template_type">repair_quote</field>
