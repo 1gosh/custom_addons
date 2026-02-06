@@ -5,7 +5,9 @@
     'summary': 'Auto-format phone numbers to national format',
     'author': 'martinl',
     'depends': ['phone_validation'],
-    'data': [],
+    'data': [
+        'data/server_action.xml',
+    ],
     'installable': True,
     'auto_install': False,
 }
