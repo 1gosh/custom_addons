@@ -50,6 +50,8 @@ class ResPartner(models.Model):
 
     def write(self, vals):
         """Auto-format phone numbers on write."""
+        if self.env.context.get('skip_phone_format'):
+            return super().write(vals)
         if not vals.get('phone') and not vals.get('mobile'):
             return super().write(vals)
 
@@ -97,3 +99,47 @@ class ResPartner(models.Model):
                 )
                 if formatted:
                     vals[field] = formatted
+
+    def action_format_phone_numbers(self):
+        """Server action: format phone numbers for selected partners."""
+        count = 0
+        for partner in self:
+            vals = {}
+            country_code = partner.country_id.code or self.env.company.country_id.code or 'FR'
+            for field in ('phone', 'mobile'):
+                value = getattr(partner, field)
+                if value:
+                    formatted = phone_validation.phone_format(
+                        value,
+                        country_code,
+                        None,
+                        force_format='NATIONAL',
+                        raise_exception=False,
+                    )
+                    if formatted and formatted != value:
+                        vals[field] = formatted
+            if vals:
+                partner.with_context(skip_phone_format=True).write(vals)
+                count += 1
+
+        if count:
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': 'Formatage terminé',
+                    'message': f'{count} contact(s) mis à jour.',
+                    'type': 'success',
+                    'sticky': False,
+                }
+            }
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'Formatage terminé',
+                'message': 'Aucun numéro à formater.',
+                'type': 'info',
+                'sticky': False,
+            }
+        }
