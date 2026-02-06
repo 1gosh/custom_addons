@@ -116,7 +116,9 @@ class ResPartner(models.Model):
 
         for partner in self:
             vals = {}
-            country_code = partner.country_id.code or self.env.company.country_id.code or 'FR'
+            country = partner.country_id or self.env.company.country_id
+            country_code = country.code or 'FR'
+            country_phone_code = country.phone_code if country else None
 
             # Format phone field
             if partner.phone:
@@ -124,7 +126,7 @@ class ResPartner(models.Model):
                 e164 = phone_validation.phone_format(
                     partner.phone,
                     country_code,
-                    None,
+                    country_phone_code,
                     force_format='E164',
                     raise_exception=False,
                 )
@@ -133,7 +135,7 @@ class ResPartner(models.Model):
                     formatted = phone_validation.phone_format(
                         e164,
                         country_code,
-                        None,
+                        country_phone_code,
                         force_format='NATIONAL',
                         raise_exception=False,
                     )
@@ -146,7 +148,7 @@ class ResPartner(models.Model):
                 e164 = phone_validation.phone_format(
                     partner.mobile,
                     country_code,
-                    None,
+                    country_phone_code,
                     force_format='E164',
                     raise_exception=False,
                 )
@@ -155,7 +157,7 @@ class ResPartner(models.Model):
                     formatted = phone_validation.phone_format(
                         e164,
                         country_code,
-                        None,
+                        country_phone_code,
                         force_format='NATIONAL',
                         raise_exception=False,
                     )
