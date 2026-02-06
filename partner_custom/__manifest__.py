@@ -1,12 +1,13 @@
 {
-    'name': 'Partner Phone Auto-Format',
+    'name': 'Partner Phone National Format',
     'version': '17.0.1.0.0',
     'category': 'Hidden/Tools',
-    'summary': 'Auto-format phone numbers to national format',
+    'summary': 'Auto-format phone numbers to NATIONAL format',
     'author': 'martinl',
     'depends': ['phone_validation'],
     'data': [
-        "views/res_partner_views.xml"
+        'data/server_action.xml',
+        'views/res_partner_views.xml',
     ],
     'installable': True,
     'auto_install': False,
