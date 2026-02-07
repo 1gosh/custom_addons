@@ -52,9 +52,15 @@ custom_addons/
 
 ## How to Use (Odoo Commands)
 
+**Python Environment:**
+This project uses pyenv virtualenvwrapper. Activate the environment before running Odoo:
+```bash
+workon odoo_dev
+```
+
 **Install/Update modules:**
 ```bash
-# From Odoo root directory
+# From Odoo root directory (/Users/martin/Documents/odoo_dev/odoo)
 ./odoo-bin -c ../odoo.conf -u repair_custom,repair_devices
 
 # Development mode (auto-reload)
