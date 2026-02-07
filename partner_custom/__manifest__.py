@@ -22,6 +22,7 @@ This module customizes the partner (res.partner) model:
     'author': 'Custom',
     'depends': ['base', 'account'],
     'data': [
+        'data/server_action.xml',
         'views/res_partner_views.xml',
     ],
     'installable': True,
