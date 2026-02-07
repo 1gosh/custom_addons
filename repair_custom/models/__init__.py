@@ -10,3 +10,4 @@ from . import repair_dashboard
 from . import repair_extensions
 from . import repair_invoice_template
 from . import sale_order_template_extension
+from . import mail_compose_message

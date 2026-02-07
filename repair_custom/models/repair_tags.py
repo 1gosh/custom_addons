@@ -1,3 +1,4 @@
+from random import randint
 from odoo import api, Command, fields, models, _
 
 class RepairTags(models.Model):
