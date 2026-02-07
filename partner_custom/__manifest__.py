@@ -20,7 +20,7 @@ This module customizes the partner (res.partner) model:
   - Function field only visible when partner is associated with a company
     """,
     'author': 'Custom',
-    'depends': ['base'],
+    'depends': ['base', 'account'],
     'data': [
         'views/res_partner_views.xml',
     ],

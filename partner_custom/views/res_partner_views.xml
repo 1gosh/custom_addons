@@ -11,6 +11,7 @@
 
             <!-- Replace the two-column group structure -->
             <xpath expr="//group[group[span[@name='address_name']]]" position="replace">
+                <field name="use_partner_credit_limit" invisible="1"/>
                 <group>
                     <!-- Left column: Contact information -->
                     <group>
