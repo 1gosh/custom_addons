@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="0">
+    <!-- Pickup Location: Boutique -->
+    <record id="location_boutique" model="repair.pickup.location">
+        <field name="name">Boutique</field>
+        <field name="country_id" ref="base.fr"/>
+        <field name="company_id" ref="base.main_company"/>
+    </record>
+
+    <!-- Pickup Location: Atelier -->
+    <record id="location_atelier" model="repair.pickup.location">
+        <field name="name">Atelier</field>
+        <field name="country_id" ref="base.fr"/>
+        <field name="company_id" ref="base.main_company"/>
+    </record>
+</odoo>

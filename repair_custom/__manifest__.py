@@ -32,6 +32,7 @@ The following topics are covered by this module:
         'data/cron_data.xml',
         'data/account_tax_data.xml',
         'data/account_fiscal_position_data.xml',
+        'data/repair_location_data.xml',
         'views/repair_views.xml',
         'views/sale_order_views.xml',
         'views/sale_unit_wizard_views.xml',
@@ -54,6 +55,7 @@ The following topics are covered by this module:
     'assets': {
         'web.assets_backend': [
             'repair_custom/static/src/css/views.css',
+            'repair_custom/static/src/js/repair_workstation.js',
         ],
     },
     'installable': True,

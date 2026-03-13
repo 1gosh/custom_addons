@@ -38,7 +38,13 @@ class Repair(models.Model):
 
     @api.model
     def _default_location(self):
-        return self.env['repair.pickup.location'].search([('name', '=', 'Boutique')], limit=1).id
+        """Default pickup location. JS overrides per-browser via localStorage."""
+        location = self.env['repair.pickup.location'].search(
+            [('name', '=', 'Boutique')], limit=1
+        )
+        if not location:
+            location = self.env['repair.pickup.location'].search([], limit=1, order='name')
+        return location.id if location else False
 
     pickup_location_id = fields.Many2one(
         'repair.pickup.location',
@@ -781,7 +787,7 @@ class Repair(models.Model):
                 activity_type_id=activity_type_id,
                 user_id=manager_user.id,
                 summary="Devis",
-                note=f"Demande par {self.env.user.name} pour {self.device_id_name}",
+                note=f"Demande par {self.env.user.technician_employee_id} pour {self.device_id_name}",
                 date_deadline=fields.Date.today(),
             )
 
