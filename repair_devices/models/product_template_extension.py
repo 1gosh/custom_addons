@@ -146,7 +146,6 @@ class ProductTemplate(models.Model):
             'domain': [('product_id', '=', product.id), ('is_hifi_unit', '=', True)],
             'context': {
                 'default_product_id': product.id,
-                'default_is_hifi_unit': True,
             },
         }
 

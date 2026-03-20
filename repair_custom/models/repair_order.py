@@ -436,6 +436,68 @@ class Repair(models.Model):
         repairs_to_cancel = self.filtered(lambda ro: ro.state not in ('draft', 'cancel'))
         repairs_to_cancel.action_repair_cancel()
 
+    # --- STOCK MOVE HELPER ---
+    def _create_repair_picking(self, src_location, dest_location, origin=None):
+        """Create, confirm, and validate a stock picking for this repair's lot."""
+        self.ensure_one()
+        if not self.lot_id or not self.lot_id.product_id:
+            raise UserError(_("Impossible de créer un mouvement de stock : pas d'appareil associé."))
+
+        product = self.lot_id.product_id
+        if product.tracking != 'serial':
+            product.tracking = 'serial'
+
+        warehouse = self.env['stock.warehouse'].search([
+            ('company_id', '=', self.company_id.id)], limit=1)
+        if not warehouse:
+            raise UserError(_("Aucun entrepôt trouvé pour cette société."))
+
+        # Select picking type based on location usage
+        if src_location.usage == 'customer':
+            picking_type = warehouse.in_type_id
+        elif dest_location.usage == 'customer':
+            picking_type = warehouse.out_type_id
+        else:
+            picking_type = warehouse.int_type_id
+
+        picking = self.env['stock.picking'].create({
+            'picking_type_id': picking_type.id,
+            'location_id': src_location.id,
+            'location_dest_id': dest_location.id,
+            'origin': origin or self.name,
+            'partner_id': self.partner_id.id if self.partner_id else False,
+        })
+
+        move = self.env['stock.move'].create({
+            'name': self.lot_id.display_name,
+            'product_id': product.id,
+            'product_uom': product.uom_id.id,
+            'product_uom_qty': 1.0,
+            'location_id': src_location.id,
+            'location_dest_id': dest_location.id,
+            'picking_id': picking.id,
+        })
+
+        move._action_confirm()
+        move._action_assign()
+
+        if move.move_line_ids:
+            move.move_line_ids.write({'lot_id': self.lot_id.id, 'quantity': 1.0})
+        else:
+            self.env['stock.move.line'].create({
+                'move_id': move.id,
+                'picking_id': picking.id,
+                'product_id': product.id,
+                'product_uom_id': product.uom_id.id,
+                'location_id': src_location.id,
+                'location_dest_id': dest_location.id,
+                'lot_id': self.lot_id.id,
+                'quantity': 1.0,
+            })
+
+        picking.with_context(skip_backorder=True).button_validate()
+        return picking
+
     # --- STATE TRANSITIONS ---
     def action_repair_cancel(self):
         if self.delivery_state == 'abandoned':
@@ -443,9 +505,14 @@ class Repair(models.Model):
         admin = self.env.user.has_group('repair_custom.group_repair_admin')
         if not admin and any(repair.state == 'done' for repair in self):
             raise UserError(_("Impossible d'annuler une réparation terminée."))
-        lots = self.mapped('lot_id').filtered(lambda l: l and l.stock_state == 'in_repair')
-        if lots:
-            lots.write({'stock_state': 'client'})
+        customer_location = self.env.ref('stock.stock_location_customers')
+        for rec in self:
+            if rec.state in ('confirmed', 'under_repair') and rec.lot_id:
+                workshop = rec.pickup_location_id.stock_location_id
+                if workshop and rec.lot_id.location_id == workshop:
+                    rec._create_repair_picking(
+                        workshop, customer_location,
+                        origin=_("Annulation %s") % rec.name)
         return self.write({'state': 'cancel'})
 
     def action_repair_cancel_draft(self):
@@ -551,9 +618,14 @@ class Repair(models.Model):
             'end_date': fields.Datetime.now()
         })
 
-        lots = self.mapped('lot_id').filtered(lambda l: l and l.stock_state == 'in_repair')
-        if lots:
-            lots.write({'stock_state': 'client'})
+        customer_location = self.env.ref('stock.stock_location_customers')
+        for rec in self:
+            if rec.lot_id:
+                workshop = rec.pickup_location_id.stock_location_id
+                if workshop and rec.lot_id.location_id == workshop:
+                    rec._create_repair_picking(
+                        workshop, customer_location,
+                        origin=_("Livraison %s") % rec.name)
 
         sar_months = self._get_sar_warranty_months()
         for rec in self:
@@ -584,15 +656,31 @@ class Repair(models.Model):
         return self.write({'state': 'confirmed'})
 
     def action_validate(self):
-        """Confirm repair and create stock.lot if needed."""
+        """Confirm repair, create stock.lot if needed, and create intake stock move."""
         self.ensure_one()
         if self.delivery_state == 'abandoned':
             raise UserError(_("Impossible de modifier l'état d'une réparation abandonnée."))
         if self.variant_id and self.variant_id not in self.product_tmpl_id.hifi_variant_ids:
             self.product_tmpl_id.write({'hifi_variant_ids': [(4, self.variant_id.id)]})
+
+        workshop_location = self.pickup_location_id.stock_location_id
+        if not workshop_location:
+            raise UserError(_("Le lieu de prise en charge '%s' n'a pas d'emplacement de stock configuré.") % self.pickup_location_id.name)
+        customer_location = self.env.ref('stock.stock_location_customers')
+        Quant = self.env['stock.quant']
+
         if self.lot_id:
-            self.lot_id.write({'stock_state': 'in_repair'})
+            # Existing lot — move to workshop if not already there
+            if self.lot_id.location_id != workshop_location:
+                product = self.lot_id.product_id
+                # Seed quant at customer location if lot has no positive quant
+                if not Quant.search([('lot_id', '=', self.lot_id.id), ('quantity', '>', 0)], limit=1):
+                    Quant._update_available_quantity(product, customer_location, 1.0, lot_id=self.lot_id)
+                self._create_repair_picking(customer_location, workshop_location)
+            else:
+                self.message_post(body=_("Appareil déjà présent à l'atelier, pas de mouvement de stock créé."))
             return self._action_repair_confirm()
+
         if self.product_tmpl_id and self.partner_id:
             # Create stock.lot for the device
             product = self.product_tmpl_id.product_variant_id
@@ -603,14 +691,15 @@ class Repair(models.Model):
                 'name': sn or f"REP-{self.name}",
                 'product_id': product.id,
                 'company_id': self.company_id.id,
-                'is_hifi_unit': True,
                 'hifi_partner_id': self.partner_id.id,
             }
             if self.variant_id:
                 lot_vals['hifi_variant_id'] = self.variant_id.id
             new_lot = self.env['stock.lot'].create(lot_vals)
             self.write({'lot_id': new_lot.id, 'serial_number': new_lot.name})
-            new_lot.write({'stock_state': 'in_repair'})
+            # Seed quant at customer location and move to workshop
+            Quant._update_available_quantity(product, customer_location, 1.0, lot_id=new_lot)
+            self._create_repair_picking(customer_location, workshop_location)
         return self._action_repair_confirm()
 
     # --- INVOICING ---

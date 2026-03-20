@@ -58,32 +58,22 @@ class DeviceStockWizard(models.TransientModel):
                 repair = self.env['repair.order'].browse(repair_id)
                 if repair.exists() and lot_id:
                     lot = self.env['stock.lot'].browse(lot_id)
-
                     if repair.state == 'done' and lot.functional_state == 'working':
-                        if warehouse:
+                        pickup_loc = repair.pickup_location_id.stock_location_id
+                        if pickup_loc:
+                            res['location_dest_id'] = pickup_loc.id
+                        elif warehouse:
                             res['location_dest_id'] = warehouse.lot_stock_id.id
-                    elif repair.state == 'irreparable':
-                        if collection:
-                            res['location_dest_id'] = collection.id
-                    elif repair.state == 'under_repair' and lot.functional_state == 'working':
-                        if warehouse:
-                            res['location_dest_id'] = warehouse.lot_stock_id.id
-                    elif repair.state in ('draft', 'confirmed'):
-                        if collection:
-                            res['location_dest_id'] = collection.id
-                    else:
-                        if collection:
-                            res['location_dest_id'] = collection.id
+                    elif collection:
+                        res['location_dest_id'] = collection.id
 
             elif lot_id:
                 lot = self.env['stock.lot'].browse(lot_id)
                 if lot.exists():
-                    if lot.functional_state == 'working':
-                        if warehouse:
-                            res['location_dest_id'] = warehouse.lot_stock_id.id
-                    else:
-                        if collection:
-                            res['location_dest_id'] = collection.id
+                    if lot.functional_state == 'working' and warehouse:
+                        res['location_dest_id'] = warehouse.lot_stock_id.id
+                    elif collection:
+                        res['location_dest_id'] = collection.id
 
         return res
 
@@ -108,9 +98,17 @@ class DeviceStockWizard(models.TransientModel):
         if not warehouse:
             raise UserError(_("Aucun entrepôt trouvé pour cette société."))
 
-        source_location = self.env.ref('stock.stock_location_customers')
+        if self.repair_id and self.repair_id.pickup_location_id.stock_location_id:
+            source_location = self.repair_id.pickup_location_id.stock_location_id
+        else:
+            source_location = self.env.ref('stock.stock_location_customers')
         dest_location = self.location_dest_id
-        picking_type = warehouse.in_type_id
+        if source_location.usage == 'customer':
+            picking_type = warehouse.in_type_id
+        elif dest_location.usage == 'customer':
+            picking_type = warehouse.out_type_id
+        else:
+            picking_type = warehouse.int_type_id
 
         picking = self.env['stock.picking'].create({
             'picking_type_id': picking_type.id,
@@ -152,12 +150,8 @@ class DeviceStockWizard(models.TransientModel):
         picking.button_validate()
 
         # Update lot
-        lot_vals = {
-            'stock_state': 'stock',
-        }
         if self.is_abandon:
-            lot_vals['hifi_partner_id'] = self.env.company.partner_id.id
-        lot.write(lot_vals)
+            lot.write({'hifi_partner_id': self.env.company.partner_id.id})
 
         # Build and append tracking note
         self._append_tracking_note()

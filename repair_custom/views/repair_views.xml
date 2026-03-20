@@ -666,6 +666,7 @@
                         </group>
 
                         <group string="Informations supplémentaires">
+                            <field name="stock_location_id"/>
                             <field name="contact_id"/>
                             <field name="company_id"/>
                         </group>

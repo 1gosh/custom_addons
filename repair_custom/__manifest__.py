@@ -2,7 +2,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 {
     'name': 'repair_custom',
-    'version': '17.0.1.1.0',
+    'version': '17.0.1.2.0',
     'category': 'Inventory/Inventory',
     'summary': 'Custom repair management for workshop',
     "author": "martinl",
@@ -35,7 +35,6 @@ The following topics are covered by this module:
         'data/repair_location_data.xml',
         'views/repair_views.xml',
         'views/sale_order_views.xml',
-        'views/sale_unit_wizard_views.xml',
         'views/tracking_views.xml',
         'views/repair_device_views.xml',
         'views/account_move_views.xml',
@@ -44,6 +43,7 @@ The following topics are covered by this module:
         'views/repair_notes_template_views.xml',
         'views/repair_manager_wizard_views.xml',
         'views/device_stock_wizard_views.xml',
+        'views/hifi_inventory_wizard_views.xml',
         'report/repair_reports.xml',
         'report/repairorder_final.xml',
         "report/paper_formats.xml",

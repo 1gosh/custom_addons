@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_hifi_inventory_wizard_tree" model="ir.ui.view">
+        <field name="name">hifi.inventory.wizard.tree</field>
+        <field name="model">hifi.inventory.wizard</field>
+        <field name="arch" type="xml">
+            <tree editable="bottom" create="1" decoration-success="state == 'done'">
+                <header>
+                    <button name="action_apply_all" string="Appliquer" type="object" class="btn-primary"/>
+                    <button name="action_clear_all" string="Effacer" type="object"/>
+                </header>
+                <field name="state" column_invisible="True"/>
+                <field name="product_tmpl_id"
+                    string="Appareil"
+                    domain="[('is_hifi_device','=',True)]"
+                    context="{'default_categ_id': %(repair_devices.product_category_hifi)d, 'default_is_hifi_device': True}"
+                    readonly="state == 'done'"/>
+                <field name="serial_number" readonly="state == 'done'"/>
+                <field name="location_id" readonly="state == 'done'" options="{'no_create': True}"/>
+                <button name="action_apply" string="Appliquer" type="object"
+                    icon="fa-check" class="btn btn-link"
+                    invisible="state == 'done'"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_hifi_inventory_wizard" model="ir.actions.act_window">
+        <field name="name">Inventaire HiFi</field>
+        <field name="res_model">hifi.inventory.wizard</field>
+        <field name="view_mode">tree</field>
+        <field name="target">current</field>
+    </record>
+
+    <menuitem id="menu_hifi_inventory"
+        name="Inventaire HiFi"
+        parent="repair_custom.repair_menu_commerce"
+        action="action_hifi_inventory_wizard"
+        sequence="30"/>
+</odoo>

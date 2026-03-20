@@ -13,5 +13,26 @@
             <field name="location_id" ref="stock.stock_location_locations"/>
             <field name="company_id" ref="base.main_company"/>
         </record>
+
+        <record id="stock_location_boutique" model="stock.location">
+            <field name="name">Boutique</field>
+            <field name="usage">internal</field>
+            <field name="location_id" ref="stock.stock_location_locations"/>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
+
+        <record id="stock_location_ateliers" model="stock.location">
+            <field name="name">Ateliers</field>
+            <field name="usage">internal</field>
+            <field name="location_id" ref="stock.stock_location_locations"/>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
+
+        <record id="stock_location_hangar" model="stock.location">
+            <field name="name">Hangar Forges</field>
+            <field name="usage">internal</field>
+            <field name="location_id" ref="stock.stock_location_locations"/>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
     </data>
 </odoo>

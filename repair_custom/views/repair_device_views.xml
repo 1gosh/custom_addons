@@ -52,7 +52,7 @@
             <xpath expr="//group[@name='hifi_device_group']" position="after">
                 <group invisible="not is_hifi_unit">
                     <group>
-                        <field name="stock_state" widget="radio"/>
+                        <field name="stock_state" widget="badge"/>
                     </group>
                 </group>
                 <notebook invisible="not is_hifi_unit">

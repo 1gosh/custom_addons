@@ -17,14 +17,47 @@ class StockLot(models.Model):
         ('working', 'Réparé'),
     ], string="État physique", compute='_compute_functional_state', store=True)
 
-    # Stock state — TEMPORARY in Phase 1, replaced by location queries in Phase 2
+    # Stock state — computed from stock.lot.location_id (Phase 2)
     stock_state = fields.Selection([
         ('client', 'Propriété Client'),
         ('stock', 'En Stock'),
         ('in_repair', 'En Réparation'),
         ('sold', 'Vendu'),
         ('rented', 'En Location'),
-    ], string="Statut Stock", default='client', tracking=True)
+    ], string="Statut Stock", compute='_compute_stock_state', store=True, tracking=True)
+
+    @api.depends('location_id', 'functional_state', 'sale_order_id')
+    def _compute_stock_state(self):
+        customer_loc = self.env.ref('stock.stock_location_customers', raise_if_not_found=False)
+        rented_loc = self.env.ref('repair_custom.stock_location_rented', raise_if_not_found=False)
+        # Build set of all internal location IDs (Boutique, Ateliers, Hangar, Collection, WH/Stock)
+        internal_loc_ids = set()
+        for xmlid in ['stock_location_boutique', 'stock_location_ateliers',
+                       'stock_location_hangar', 'stock_location_collection']:
+            loc = self.env.ref(f'repair_custom.{xmlid}', raise_if_not_found=False)
+            if loc:
+                internal_loc_ids.add(loc.id)
+        wh = self.env['stock.warehouse'].search([('company_id', '=', self.env.company.id)], limit=1)
+        if wh:
+            internal_loc_ids.add(wh.lot_stock_id.id)
+
+        for lot in self:
+            if not lot.is_hifi_unit:
+                lot.stock_state = False
+                continue
+            loc = lot.location_id
+            if not loc:
+                lot.stock_state = 'client'
+            elif rented_loc and loc.id == rented_loc.id:
+                lot.stock_state = 'rented'
+            elif customer_loc and loc.id == customer_loc.id:
+                lot.stock_state = 'sold' if lot.sale_order_id else 'client'
+            elif loc.id in internal_loc_ids:
+                lot.stock_state = 'in_repair' if lot.functional_state == 'fixing' else 'stock'
+            elif loc.usage == 'internal':
+                lot.stock_state = 'stock'
+            else:
+                lot.stock_state = 'client'
 
     # SAV warranty (equipment sale)
     sale_date = fields.Datetime("Date de vente", readonly=True, copy=False)
@@ -103,6 +136,20 @@ class StockLot(models.Model):
         user = self.env.user
         for rec in self:
             rec.is_admin = user.has_group('repair_custom.group_repair_admin')
+
+    @api.model
+    def name_create(self, name):
+        product_id = self.env.context.get('default_product_id')
+        if product_id:
+            product = self.env['product.product'].browse(product_id)
+            if product.product_tmpl_id.is_hifi_device:
+                lot = self.create({
+                    'name': name,
+                    'product_id': product_id,
+                    'company_id': self.env.company.id,
+                })
+                return lot.id, lot.display_name
+        return super().name_create(name)
 
     def action_view_repairs(self):
         self.ensure_one()
@@ -257,6 +304,29 @@ class SaleOrder(models.Model):
             lambda l: l and l.is_hifi_unit
         )
 
+    def _seed_hifi_quants(self):
+        """Seed stock.quant at WH/Stock for HiFi lots without available quantity."""
+        for order in self:
+            if not order._requires_special_stock_handling():
+                continue
+            warehouse = order.warehouse_id or self.env['stock.warehouse'].search([
+                ('company_id', '=', order.company_id.id)
+            ], limit=1)
+            if not warehouse:
+                continue
+            stock_location = warehouse.lot_stock_id
+            for line in order.order_line.filtered(lambda l: l.lot_id and l.lot_id.is_hifi_unit):
+                existing = self.env['stock.quant'].search([
+                    ('lot_id', '=', line.lot_id.id),
+                    ('location_id', '=', stock_location.id),
+                    ('quantity', '>', 0),
+                ], limit=1)
+                if not existing:
+                    self.env['stock.quant']._update_available_quantity(
+                        line.product_id, stock_location,
+                        quantity=1.0, lot_id=line.lot_id,
+                    )
+
     def action_confirm(self):
         """Override to handle equipment sales and rentals."""
         for order in self:
@@ -266,13 +336,15 @@ class SaleOrder(models.Model):
                 if order.rental_end_date < order.rental_start_date:
                     raise UserError(_("La date de fin doit être postérieure à la date de début."))
 
+        # Seed quants for newly-created lots before stock rules run
+        self._seed_hifi_quants()
+
         res = super().action_confirm()
 
         for order in self:
             lots = order._get_hifi_lots_from_lines()
 
             if order._is_rental():
-                lots.write({'stock_state': 'rented'})
                 order.rental_state = 'active'
 
                 rented_location = self.env.ref('repair_custom.stock_location_rented', raise_if_not_found=False)
@@ -337,7 +409,6 @@ class SaleOrder(models.Model):
 
             elif order._is_equipment_sale():
                 lots.write({
-                    'stock_state': 'sold',
                     'hifi_partner_id': order.partner_id.id,
                 })
 
@@ -351,13 +422,17 @@ class SaleOrder(models.Model):
                         'sale_order_id': order.id,
                     })
 
-            if order._requires_special_stock_handling():
-                pickings = order.picking_ids.filtered(
-                    lambda p: p.state not in ['done', 'cancel']
+            if order._is_equipment_sale():
+                auto_validate = self.env['ir.config_parameter'].sudo().get_param(
+                    'repair_custom.auto_validate_equipment_sale', default='True'
                 )
-                for picking in pickings:
-                    if all(move.state == 'assigned' for move in picking.move_ids):
-                        picking.button_validate()
+                if auto_validate == 'True':
+                    pickings = order.picking_ids.filtered(
+                        lambda p: p.state not in ['done', 'cancel']
+                    )
+                    for picking in pickings:
+                        if all(move.state == 'assigned' for move in picking.move_ids):
+                            picking.button_validate()
 
         return res
 
@@ -368,7 +443,6 @@ class SaleOrder(models.Model):
                 continue
 
             lots = order._get_hifi_lots_from_lines()
-            lots.write({'stock_state': 'stock'})
 
             rented_location = self.env.ref('repair_custom.stock_location_rented', raise_if_not_found=False)
             warehouse = order.warehouse_id or self.env['stock.warehouse'].search([
@@ -428,17 +502,6 @@ class SaleOrder(models.Model):
         ])
         overdue.write({'rental_state': 'overdue'})
 
-    def action_open_sale_unit_wizard(self):
-        self.ensure_one()
-        return {
-            'name': _("Ajouter un appareil"),
-            'type': 'ir.actions.act_window',
-            'res_model': 'sale.unit.wizard',
-            'view_mode': 'form',
-            'target': 'new',
-            'context': {'default_sale_order_id': self.id},
-        }
-
 
 class SaleOrderLine(models.Model):
     _inherit = 'sale.order.line'
@@ -450,38 +513,56 @@ class SaleOrderLine(models.Model):
         copy=False,
     )
 
+    @api.onchange('lot_id')
+    def _onchange_lot_id(self):
+        if self.lot_id:
+            self.product_uom_qty = 1
+
     def _prepare_procurement_values(self, group_id=False):
         values = super()._prepare_procurement_values(group_id=group_id)
         if self.lot_id:
-            values['lot_id'] = self.lot_id.id
+            values['restrict_lot_id'] = self.lot_id.id
         return values
 
     def _action_launch_stock_rule(self, previous_product_uom_qty=False):
         rental_lines = self.filtered(lambda l: l.order_id._is_rental())
         non_rental_lines = self - rental_lines
-
         if non_rental_lines:
             res = super(SaleOrderLine, non_rental_lines)._action_launch_stock_rule(
                 previous_product_uom_qty=previous_product_uom_qty
             )
-            for line in non_rental_lines:
-                if line.lot_id and line.move_ids:
-                    for move in line.move_ids:
-                        for move_line in move.move_line_ids:
-                            if not move_line.lot_id:
-                                move_line.lot_id = line.lot_id
         else:
             res = True
-
         return res
 
 
-class StockPicking(models.Model):
-    _inherit = 'stock.picking'
+class StockRule(models.Model):
+    _inherit = 'stock.rule'
 
-    def button_validate(self):
-        res = super().button_validate()
-        return res
+    def _get_custom_move_fields(self):
+        fields = super()._get_custom_move_fields()
+        fields.append('restrict_lot_id')
+        return fields
+
+
+class StockMove(models.Model):
+    _inherit = 'stock.move'
+
+    restrict_lot_id = fields.Many2one('stock.lot', string="Restrict Lot", copy=False)
+
+    def _update_reserved_quantity(self, need, location_id, quant_ids=None, lot_id=None, package_id=None, owner_id=None, strict=True):
+        if not lot_id and self.restrict_lot_id:
+            lot_id = self.restrict_lot_id
+        return super()._update_reserved_quantity(
+            need, location_id, quant_ids=quant_ids, lot_id=lot_id,
+            package_id=package_id, owner_id=owner_id, strict=strict,
+        )
+
+    def _prepare_move_line_vals(self, quantity=None, reserved_quant=None):
+        vals = super()._prepare_move_line_vals(quantity=quantity, reserved_quant=reserved_quant)
+        if self.restrict_lot_id:
+            vals['lot_id'] = self.restrict_lot_id.id
+        return vals
 
 
 class HrEmployee(models.Model):

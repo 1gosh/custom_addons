@@ -4,7 +4,12 @@ from odoo import models, fields, api, _
 class StockLot(models.Model):
     _inherit = 'stock.lot'
 
-    is_hifi_unit = fields.Boolean("Appareil physique HiFi", default=False, index=True)
+    is_hifi_unit = fields.Boolean(
+        "Appareil physique HiFi",
+        compute="_compute_is_hifi_unit",
+        store=True,
+        index=True,
+    )
     hifi_partner_id = fields.Many2one(
         'res.partner',
         string="Propriétaire",
@@ -33,8 +38,9 @@ class StockLot(models.Model):
                 device_name += f" – SN: {rec.name}"
             rec.display_name = device_name
 
-    @api.onchange('product_id')
-    def _onchange_product_hifi(self):
-        """Auto-set is_hifi_unit when product is a HiFi device."""
-        if self.product_id and self.product_id.product_tmpl_id.is_hifi_device:
-            self.is_hifi_unit = True
+    @api.depends('product_id.product_tmpl_id.is_hifi_device')
+    def _compute_is_hifi_unit(self):
+        for rec in self:
+            rec.is_hifi_unit = bool(
+                rec.product_id and rec.product_id.product_tmpl_id.is_hifi_device
+            )

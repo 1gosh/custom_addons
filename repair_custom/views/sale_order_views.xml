@@ -23,12 +23,6 @@
                 <xpath expr="//header" position="inside">
                     <field name="computed_order_type" invisible="1"/>
                     <field name="rental_end_date" invisible="1"/>
-                    <button name="action_open_sale_unit_wizard"
-                        string="Ajouter Appareil"
-                        type="object"
-                        class="btn-primary"
-                        icon="fa-plus-square"
-                        invisible="computed_order_type not in ('equipment_sale', 'rental') or state != 'draft'"/>
                     <button name="action_return_rental"
                         string="Marquer Retourné"
                         type="object"
@@ -63,8 +57,11 @@
                 </xpath>
 
                 <!-- Lot on order lines -->
-                <xpath expr="//field[@name='order_line']/tree/field[@name='product_id']" position="after">
-                    <field name="lot_id" optional="hide" string="N° Série (Stock)"/>
+                <xpath expr="//field[@name='order_line']/tree/field[@name='product_template_id']" position="after">
+                    <field name="lot_id" optional="show" string="N° Série (Stock)"
+                        column_invisible="parent.computed_order_type in ('standard', 'repair_quote')"
+                        domain="[('product_id.product_tmpl_id', '=', product_template_id), ('quant_ids.quantity', '>', 0), ('quant_ids.location_id.usage', '=', 'internal')]"
+                        context="{'default_product_id': product_id}"/>
                 </xpath>
 
                 <!-- Hide "Delivered" column for rental orders -->

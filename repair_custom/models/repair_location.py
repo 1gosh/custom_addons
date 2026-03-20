@@ -11,6 +11,9 @@ class RepairPickupLocation(models.Model):
     country_id = fields.Many2one('res.country', string="Pays")
     contact_id = fields.Many2one('res.partner', string="Contact associé")
     company_id = fields.Many2one('res.company', string="Société", default=lambda self: self.env.company)
+    stock_location_id = fields.Many2one(
+        'stock.location', string="Emplacement stock",
+        help="Emplacement de stock lié à ce lieu de prise en charge")
     def _compute_display_name(self):
         for location in self:
             location.display_name = f"{location.name} – {location.city}" if location.city else location.name

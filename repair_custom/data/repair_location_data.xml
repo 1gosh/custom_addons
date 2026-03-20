@@ -5,6 +5,7 @@
         <field name="name">Boutique</field>
         <field name="country_id" ref="base.fr"/>
         <field name="company_id" ref="base.main_company"/>
+        <field name="stock_location_id" ref="stock_location_boutique"/>
     </record>
 
     <!-- Pickup Location: Atelier -->
@@ -12,5 +13,6 @@
         <field name="name">Atelier</field>
         <field name="country_id" ref="base.fr"/>
         <field name="company_id" ref="base.main_company"/>
+        <field name="stock_location_id" ref="stock_location_ateliers"/>
     </record>
 </odoo>
