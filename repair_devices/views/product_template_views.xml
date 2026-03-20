@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+    <!-- HiFi Device Catalog: Tree view -->
+    <record id="view_hifi_device_tree" model="ir.ui.view">
+        <field name="name">product.template.hifi.tree</field>
+        <field name="model">product.template</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="brand_id"/>
+                <field name="name"/>
+                <field name="hifi_variant_ids" widget="many2many_tags" options="{'color_field': 'color', 'no_create_edit': True}" string="Variantes"/>
+                <field name="hifi_category_id" string="Catégorie"/>
+                <field name="hifi_unit_count" string="Nb d'enregistrements"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- HiFi Device Catalog: Search view -->
+    <record id="view_hifi_device_search" model="ir.ui.view">
+        <field name="name">product.template.hifi.search</field>
+        <field name="model">product.template</field>
+        <field name="arch" type="xml">
+            <search string="Catalogue d'appareils">
+                <field name="name" string="Recherche" filter_domain="[
+                    '|', '|', ('brand_id.name', 'ilike', self), ('name', 'ilike', self), ('display_name', 'ilike', self)
+                ]"/>
+                <field name="brand_id"/>
+                <field name="hifi_category_id"/>
+                <field name="production_year"/>
+                <field name="hifi_variant_ids"/>
+                <group expand="0" string="Filtres">
+                    <filter name="filter_brand" string="Marque" context="{'group_by': 'brand_id'}"/>
+                    <filter name="filter_category" string="Catégorie" context="{'group_by': 'hifi_category_id'}"/>
+                    <filter name="filter_year" string="Année de sortie" context="{'group_by': 'production_year'}"/>
+                </group>
+                <searchpanel>
+                    <field name="hifi_category_id"
+                            enable_counters="1"
+                            icon="fa-folder"
+                            string="Catégories"/>
+                    <field name="brand_id"
+                            enable_counters="1"
+                            icon="fa-tag"
+                            select="multi"
+                            string="Marques"/>
+                </searchpanel>
+            </search>
+        </field>
+    </record>
+
+    <!-- HiFi Device Catalog: Form view (inherit product.template form) -->
+    <record id="view_hifi_device_form" model="ir.ui.view">
+        <field name="name">product.template.hifi.form.inherit</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_only_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="attributes">
+                <attribute name="placeholder">ex: BEOGRAM 3000</attribute>
+                <attibute name="string">Modèle</attibute>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_lots"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-cube"
+                        invisible="not is_hifi_device">
+                    <field name="hifi_unit_count" widget="statinfo" string="Appareils physiques"/>
+                </button>
+            </xpath>
+            <xpath expr="//field[@name='priority']" position="replace"/>
+            <xpath expr="//div[@name='options']" position="replace">
+                <field name="sale_ok" invisible="1"/>
+                <field name="purchase_ok" invisible="1"/>
+                    <group>
+                        <field name="is_hifi_device" invisible="1"/>
+                        <field name="brand_id"/>
+                        <field name="hifi_category_id"/>
+                        <field name="hifi_variant_ids"
+                            widget="many2many_tags"
+                            options="{'color_field': 'color', 'no_create_edit': True}"
+                            placeholder="Ajouter des variantes"
+                            string="Variantes"/>
+                        <field name="production_year"/>
+                    </group>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- HiFi Device Catalog: Kanban view -->
+    <record id="view_hifi_device_kanban" model="ir.ui.view">
+        <field name="name">product.template.hifi.kanban</field>
+        <field name="model">product.template</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" sample="1" quick_create="false">
+                <templates>
+                    <t t-name="kanban-box">
+                        <div t-attf-class="oe_kanban_card oe_kanban_global_click">
+                            <div class="row mb-0">
+                                <div class="col-6">
+                                    <strong><field name="brand_id"/></strong> <field name="name"/>
+                                </div>
+                                <div class="col-6 text-end">
+                                    <field name="hifi_category_id"/>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- Action: HiFi Device Catalog -->
+    <record id="action_hifi_device_catalog" model="ir.actions.act_window">
+        <field name="name">Catalogue d'appareils</field>
+        <field name="res_model">product.template</field>
+        <field name="view_mode">tree,kanban,form</field>
+        <field name="domain">[('is_hifi_device', '=', True)]</field>
+        <field name="context" eval="{'default_categ_id': ref('product_category_hifi'), 'default_is_hifi_device': True}"/>
+        <field name="search_view_id" ref="view_hifi_device_search"/>
+    </record>
+
+    </data>
+</odoo>

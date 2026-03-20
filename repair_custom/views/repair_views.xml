@@ -154,8 +154,8 @@
                 <field name="sale_order_id" invisible="1"/>
                 <field name="technician_user_id" force_save="1" readonly="1" invisible="1"/>
                 <field name="variant_ids_available" invisible="1"/>
-                <field name="show_unit_field" invisible="1"/>
-                <field name="device_id" invisible="1"/>
+                <field name="show_lot_field" invisible="1"/>
+                <field name="product_tmpl_id" invisible="1"/>
                 <field name="category_id" invisible="1"/>
                 <field name="quote_state" invisible="1"/>
                 <field name="delivery_state" invisible="1"/>
@@ -243,11 +243,11 @@
                         </div>
                     </div>
                     <div class="oe_button_box" name="button_box">
-                        <button name="action_open_unit" 
-                                string="Fiche Appareil" 
-                                type="object" 
-                                icon="fa-external-link" 
-                                invisible="not unit_id" />
+                        <button name="action_open_unit"
+                                string="Fiche Appareil"
+                                type="object"
+                                icon="fa-external-link"
+                                invisible="not lot_id" />
                         <button name="action_view_sale_order"
                                 type="object"
                                 class="oe_stat_button"
@@ -267,12 +267,12 @@
                         <h4 invisible="not batch_id" class="text-muted">
                             <i class="fa fa-folder-open"/> <span invisible="batch_count == 0"></span>(1/<span class="o_stat_value"><field name="batch_count"/></span>) Dossier : <field name="batch_id" readonly="1" class="oe_inline"/>
                         </h4>
-                        <label class="o_form_label" invisible="unit_id" for="entry_date"/>
-                        <field name="entry_date" invisible="not unit_id" class="o_form_label" string="Date d'entrée" widget="datetime" options="{'show_time':false}" readonly="state not in 'draft'" />
+                        <label class="o_form_label" invisible="lot_id" for="entry_date"/>
+                        <field name="entry_date" invisible="not lot_id" class="o_form_label" string="Date d'entrée" widget="datetime" options="{'show_time':false}" readonly="state not in 'draft'" />
                         <h1 class="d-flex">
                             <!-- <field name="priority" widget="priority" class="me-3"/> -->
-                            <field name="device_id_name" invisible="not unit_id" readonly="1"/>
-                            <field name="entry_date" invisible="unit_id" string="Date d'entrée" widget="datetime" options="{'show_time':false}" readonly="state not in 'draft'" />
+                            <field name="device_id_name" invisible="not lot_id" readonly="1"/>
+                            <field name="entry_date" invisible="lot_id" string="Date d'entrée" widget="datetime" options="{'show_time':false}" readonly="state not in 'draft'" />
                             <!-- <field name="device_picture" widget="image" class="ml-3 mb-5 h4"
                                 options="{'convert_to_webp':true,'zoom':true,'size':[0,90]}"
                                 invisible="not device_picture and state not in 'draft'" /> -->
@@ -314,36 +314,35 @@
                         <page string="Appareil" groups="repair_custom.group_repair_manager">
                             <group>
                                 <group>
-                                    <field name="unit_id"
-                                        domain="[('partner_id', '=', partner_id)]"
+                                    <field name="lot_id"
+                                        domain="[('hifi_partner_id', '=', partner_id), ('is_hifi_unit', '=', True)]"
                                         options="{'no_create': True, 'no_open': True}"
-                                        invisible="not show_unit_field"
+                                        invisible="not show_lot_field"
                                         readonly="state not in 'draft'"
                                         string="Appareil(s) existant(s)"/>
-                                    <field name="category_id" readonly="state not in 'draft' or unit_id" force_save="1"/>
-                                    <label for="device_id"/>
+                                    <field name="category_id" readonly="state not in 'draft' or lot_id" force_save="1"/>
+                                    <label for="product_tmpl_id"/>
                                     <div class="o_row">
-                                        <field name="device_id" 
+                                        <field name="product_tmpl_id"
                                             required="True"
                                             options="{'no_quick_create':True}"
-                                            readonly="state not in 'draft' or unit_id"
+                                            readonly="state not in 'draft' or lot_id"
                                             force_save="1"
-                                            domain="category_id and [('category_id', 'child_of', category_id)] or []"
-                                            context="{'default_category_id': category_id, 'default_brand_id': False}"/>
-                                        <!-- <button invisible="state not in 'draft'" name="action_create_device" icon="fa-plus-circle" class="oe_link pt-0" type="object" string="Créer un appareil"/> -->
+                                            domain="category_id and [('is_hifi_device', '=', True), ('hifi_category_id', 'child_of', category_id)] or [('is_hifi_device', '=', True)]"
+                                            context="{'default_hifi_category_id': category_id, 'default_is_hifi_device': True}"/>
                                     </div>
                                     <field name="variant_id"
                                         domain="[('id','in', variant_ids_available)]"
-                                        context="{'default_device_id': device_id}"
-                                        readonly="state not in 'draft' or unit_id"
+                                        context="{'default_product_tmpl_id': product_tmpl_id}"
+                                        readonly="state not in 'draft' or lot_id"
                                         force_save="1"
                                         placeholder="Sélectionner une variante (optionnel)"
-                                        invisible ="(not device_id) or (not variant_id and (state not in 'draft'))"/>
-                                    <field name="serial_number" 
-                                        placeholder="Numéro de série (ou laisser vide pour auto)" 
-                                        readonly="state not in 'draft' or unit_id" 
-                                        force_save="1" 
-                                        invisible ="not device_id"/>
+                                        invisible ="(not product_tmpl_id) or (not variant_id and (state not in 'draft'))"/>
+                                    <field name="serial_number"
+                                        placeholder="Numéro de série (ou laisser vide pour auto)"
+                                        readonly="state not in 'draft' or lot_id"
+                                        force_save="1"
+                                        invisible ="not product_tmpl_id"/>
                                 </group>
                                 <group>
                                     <field name="tag_ids"   
@@ -373,8 +372,8 @@
                                         style="background: #f0f0f0; font-family: monospace; padding: 10px; border: 1px solid #ccc; min-height: 150px;"/>
                                 </group>
                                 <group>
-                                    <field name="unit_id"
-                                            invisible="not unit_id"
+                                    <field name="lot_id"
+                                            invisible="not lot_id"
                                             readonly="1"
                                             string="Appareil"/>
                                     <field name="technician_employee_id" 
@@ -472,7 +471,7 @@
                        filter_domain="['|', '|', '|',
                             ('name', 'ilike', self), 
                             ('partner_id', 'ilike', self), 
-                            ('device_id', 'ilike', self), 
+                            ('product_tmpl_id', 'ilike', self),
                             ('serial_number', 'ilike', self)]"/>
                 <field name="serial_number"/>
                 <filter string="New" domain="[('state', '=', 'draft')]" name="filter_draft" />
@@ -834,7 +833,7 @@
                        filter_domain="['|', '|', '|',
                             ('name', 'ilike', self), 
                             ('partner_id', 'ilike', self), 
-                            ('device_id', 'ilike', self), 
+                            ('product_tmpl_id', 'ilike', self),
                             ('serial_number', 'ilike', self)]"/>
 
                 <filter string="Ma Session" name="my_session" domain="[('technician_employee_id', '=', context.get('atelier_employee_id'))]"/>
@@ -940,7 +939,7 @@
                         <field name="entry_date" class="o_form_label" string="Date d'entrée" widget="datetime" options="{'show_time':false}" readonly="state not in 'draft'" />
                         <h1 class="d-flex">
                             <field name="priority" widget="priority" class="me-2" readonly="1"/>
-                            <field name="unit_id" readonly="1"/>
+                            <field name="lot_id" readonly="1"/>
                         </h1>
                     </div>
 
@@ -1166,8 +1165,11 @@
     </record>
 
     <record id="action_repair_device_audit" model="ir.actions.act_window">
-        <field name="res_model">repair.device</field>
+        <field name="name">Catalogue d'appareils</field>
+        <field name="res_model">product.template</field>
         <field name="view_mode">tree,form</field>
+        <field name="domain">[('is_hifi_device', '=', True)]</field>
+        <field name="context">{'default_is_hifi_device': True}</field>
     </record>
 
     <menuitem id="menu_repair_order" groups="repair_custom.group_repair_manager" name="Repairs" sequence="28"

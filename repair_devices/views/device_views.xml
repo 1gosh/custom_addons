@@ -3,119 +3,6 @@
 
     <data>
 
-    <!-- VUE : Catalogue -->
-    <record id="view_repair_device_tree" model="ir.ui.view">
-        <field name="name">repair.device.tree</field>
-        <field name="model">repair.device</field>
-        <field name="arch" type="xml">
-            <tree>
-                <field name="brand_id"/>
-                <field name="name"/>
-                <field name="variant_ids" widget="many2many_tags" options="{'color_field': 'color', 'no_create_edit': True}" string="Variantes"/>
-                <field name="category_id"/>
-                <field name="unit_count" string="Nb d'enregistrements"/>
-            </tree>
-        </field>
-    </record>
-
-    <record id="view_repair_device_search" model="ir.ui.view">
-        <field name="name">repair.device.search</field>
-        <field name="model">repair.device</field>
-        <field name="arch" type="xml">
-            <search string="Catalogue d'appareils">
-                <!-- Utilise la logique _name_search pour la recherche Google-like (Marque ET Modèle) -->
-                <field name="name" string="Recherche" filter_domain="[
-                    '|', '|', ('brand_id.name', 'ilike', self), ('name', 'ilike', self), ('display_name', 'ilike', self)
-                ]"/>
-                <field name="brand_id"/>
-                <field name="category_id"/>
-                <field name="production_year"/>
-                <field name="variant_ids"/>
-                <group expand="0" string="Filtres">
-                    <filter name="filter_brand" string="Marque" context="{'group_by': 'brand_id'}"/>
-                    <filter name="filter_category" string="Catégorie" context="{'group_by': 'category_id'}"/>
-                    <filter name="filter_year" string="Année de sortie" context="{'group_by': 'production_year'}"/>
-                </group>
-                <searchpanel>
-                    <field name="category_id"
-                            enable_counters="1"
-                            icon="fa-folder"
-                            string="Catégories"/>
-                    
-                    <field name="brand_id"
-                            enable_counters="1"
-                            icon="fa-tag"
-                            select="multi"
-                            string="Marques"/>
-                </searchpanel>
-            </search>
-        </field>
-    </record>
-
-    <record id="view_repair_device_form" model="ir.ui.view">
-        <field name="name">repair.device.form</field>
-        <field name="model">repair.device</field>
-        <field name="arch" type="xml">
-            <form>
-                <!-- <field name="product_id" invisible="1"/> -->
-                <sheet>
-                    <div name="button_box" class="oe_button_box" position="inside">
-                        <button name="action_view_units"
-                                type="object"
-                                class="oe_stat_button"
-                                icon="fa-cube">
-                            <field name="unit_count" widget="statinfo" string="Appareils physiques"/>
-                        </button>
-                    </div>
-                    <div class="oe_title">
-                        <label for="display_name" string="Nom de l'appareil"/>
-                        <h1><field name="display_name"/></h1>
-                    </div>
-                    <group>
-                        <group>
-                            <field name="brand_id"/>
-                            <field name="name"/>
-                            <field name="variant_ids"
-                                widget="many2many_tags"
-                                options="{'color_field': 'color', 'no_create_edit': True}"
-                                placeholder="Ajouter des variantes (ex: MKII, Silver Edition, US)"
-                                string="Variantes"
-                                can_create="True"
-                                can_write="True"/>
-                            <field name="category_id"/>
-                        </group>
-                        <group>
-                            <field name="product_tmpl_id" readonly="1" groups="base.group_no_one" string="Produit lié"/>
-                        </group>
-                    </group>
-                </sheet>
-            </form>
-        </field>
-    </record>
-
-    <record id="view_repair_device_kanban" model="ir.ui.view">
-        <field name="name">repair.device.kanban</field>
-        <field name="model">repair.device</field>
-        <field name="arch" type="xml">
-            <kanban class="o_kanban_mobile" sample="1" quick_create="false">
-                <templates>
-                    <t t-name="kanban-box">
-                        <div t-attf-class="oe_kanban_card oe_kanban_global_click">
-                            <div class="row mb-0">
-                                <div class="col-6">
-                                    <strong><field name="brand_id"/></strong> <field name="name"/>
-                                </div>
-                                <div class="col-6 text-end">
-                                    <field name="category_id"/>
-                                </div>
-                            </div>
-                        </div>
-                    </t>
-                </templates>
-            </kanban>
-        </field>
-    </record>
-    
     <!-- VUE : Variantes -->
 
     <record id="view_repair_device_variant_tree" model="ir.ui.view">
@@ -136,91 +23,6 @@
         <field name="arch" type="xml">
             <search string="Variantes">
                 <field name="name"/>
-            </search>
-        </field>
-    </record>
-
-    <!-- VUE : Unité -->
-
-    <record id="view_repair_device_unit_tree" model="ir.ui.view">
-        <field name="name">repair.device.unit.tree</field>
-        <field name="model">repair.device.unit</field>
-        <field name="arch" type="xml">
-            <tree>
-                <field name="serial_number"/>
-                <field name="device_name"/>
-                <field name="partner_id"/>
-            </tree>
-        </field>
-    </record>
-
-    <record id="view_repair_device_unit_form" model="ir.ui.view">
-        <field name="name">repair.device.unit.form</field>
-        <field name="model">repair.device.unit</field>
-        <field name="arch" type="xml">
-            <form>
-                <field name="is_admin" invisible="1"/>
-                <!-- <field name="stock_lot_id" invisible="1"/> -->
-                <header>
-                    <button name="action_toggle_edit"
-                            type="object"
-                            string="Modifier"
-                            class="btn-primary"
-                            groups="repair_custom.group_repair_admin"
-                            invisible="context.get('edit_admin')"/>
-                    <button name="action_toggle_edit"
-                            type="object"
-                            string="Annuler"
-                            class="btn-secondary"
-                            groups="repair_custom.group_repair_admin"
-                            invisible="not context.get('edit_admin')"/>
-                </header>
-                <sheet>
-                    <div class="oe_title">
-                        <label for="serial_number" string="Numéro de série"/>
-                        <h1><field name="serial_number" readonly="not context.get('edit_admin')" placeholder="SN inconnu"/></h1>
-                    </div>
-
-                    <group>
-                        <group>
-                            <field name="device_id" readonly="not context.get('edit_admin')"/>
-                            <field name="partner_id" readonly="not context.get('edit_admin')"/>
-                            <field name="variant_id" readonly="not context.get('edit_admin')" placeholder="Pas de variante"/>
-                        </group>
-                        <group>
-                            <field name="notes" placeholder="Notes techniques, observations..."/>
-                        </group>
-                    </group>
-                </sheet>
-            </form>
-        </field>
-    </record>
-
-    <!-- VUE : Unité - Recherche -->
-    <record id="view_repair_device_unit_search" model="ir.ui.view">
-        <field name="name">repair.device.unit.search</field>
-        <field name="model">repair.device.unit</field>
-        <field name="arch" type="xml">
-            <search string="Appareils physiques">
-                <!-- Recherche sur display_name inclut: appareil, variante et numéro de série -->
-                <field name="display_name" string="Recherche"/>
-                <field name="serial_number"/>
-                <field name="device_id"/>
-                <field name="device_name"/>
-                <field name="variant_id"/>
-                <field name="partner_id"/>
-                <field name="stock_state"/>
-                <filter name="filter_stock_client" string="Propriété Client" domain="[('stock_state', '=', 'client')]"/>
-                <filter name="filter_stock_stock" string="En Stock" domain="[('stock_state', '=', 'stock')]"/>
-                <filter name="filter_stock_rented" string="En Location" domain="[('stock_state', '=', 'rented')]"/>
-                <separator/>
-                <filter name="filter_no_serial" string="Sans numéro de série" domain="[('serial_number', '=', False)]"/>
-                <filter name="filter_with_serial" string="Avec numéro de série" domain="[('serial_number', '!=', False)]"/>
-                <group expand="0" string="Grouper par">
-                    <filter name="group_stock_state" string="Statut Stock" context="{'group_by': 'stock_state'}"/>
-                    <filter name="group_device" string="Appareil" context="{'group_by': 'device_id'}"/>
-                    <filter name="group_partner" string="Propriétaire" context="{'group_by': 'partner_id'}"/>
-                </group>
             </search>
         </field>
     </record>
@@ -278,7 +80,7 @@
     </record>
 
     <!-- VUE : Catégories -->
-     
+
     <record id="view_repair_device_category_form" model="ir.ui.view">
         <field name="name">repair.device.category.form</field>
         <field name="model">repair.device.category</field>
@@ -318,23 +120,10 @@
         <field name="model">repair.device.category</field>
         <field name="arch" type="xml">
             <search string="Catégories d'appareils">
-                <!-- Utilise la logique _name_search pour la recherche hiérarchique sur complete_name -->
                 <field name="name" string="Recherche" filter_domain="[('complete_name', 'ilike', self)]"/>
                 <field name="parent_id"/>
                 <field name="internal_code"/>
             </search>
-        </field>
-    </record>
-
-    <!-- Server action to sync products -->
-    <record id="action_sync_device_products" model="ir.actions.server">
-        <field name="name">Synchroniser les produits</field>
-        <field name="model_id" ref="model_repair_device"/>
-        <field name="binding_model_id" ref="model_repair_device"/>
-        <field name="binding_view_types">list</field>
-        <field name="state">code</field>
-        <field name="code">
-            action = records.action_sync_products()
         </field>
     </record>
 

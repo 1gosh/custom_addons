@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+    <!-- HiFi Unit: Tree view -->
+    <record id="view_hifi_unit_tree" model="ir.ui.view">
+        <field name="name">stock.lot.hifi.tree</field>
+        <field name="model">stock.lot</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name" string="N° Série"/>
+                <field name="product_id" string="Appareil"/>
+                <field name="hifi_partner_id" string="Propriétaire"/>
+                <field name="hifi_variant_id" string="Variante" optional="show"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- HiFi Unit: Form view (inherit stock.lot form) -->
+    <record id="view_hifi_unit_form" model="ir.ui.view">
+        <field name="name">stock.lot.hifi.form.inherit</field>
+        <field name="model">stock.lot</field>
+        <field name="inherit_id" ref="stock.view_production_lot_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='main_group']" position="after">
+                <group name="hifi_device_group" string="Appareil Hi-Fi" invisible="not is_hifi_unit">
+                    <group>
+                        <field name="is_hifi_unit" invisible="1"/>
+                        <field name="hifi_partner_id"/>
+                        <field name="hifi_variant_id"/>
+                    </group>
+                    <group>
+                        <field name="hifi_notes" placeholder="Notes techniques, observations..."/>
+                    </group>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- HiFi Unit: Search view -->
+    <record id="view_hifi_unit_search" model="ir.ui.view">
+        <field name="name">stock.lot.hifi.search</field>
+        <field name="model">stock.lot</field>
+        <field name="arch" type="xml">
+            <search string="Appareils physiques">
+                <field name="name" string="N° Série"/>
+                <field name="product_id" string="Appareil"/>
+                <field name="hifi_partner_id" string="Propriétaire"/>
+                <field name="hifi_variant_id"/>
+                <group name="group_by" expand="0" string="Grouper par">
+                    <filter name="group_device" string="Appareil" context="{'group_by': 'product_id'}"/>
+                    <filter name="group_partner" string="Propriétaire" context="{'group_by': 'hifi_partner_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action: HiFi Physical Units -->
+    <record id="action_hifi_unit" model="ir.actions.act_window">
+        <field name="name">Appareils physiques</field>
+        <field name="res_model">stock.lot</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('is_hifi_unit', '=', True)]</field>
+        <field name="context">{'default_is_hifi_unit': True}</field>
+        <field name="search_view_id" ref="view_hifi_unit_search"/>
+    </record>
+
+    </data>
+</odoo>

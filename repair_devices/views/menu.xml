@@ -11,24 +11,14 @@
     </record>
 
     <!-- Catégories-->
-
     <record id="action_repair_device_category" model="ir.actions.act_window">
         <field name="name">Catégories</field>
         <field name="res_model">repair.device.category</field>
         <field name="search_view_id" ref="view_repair_device_category_search"/>
         <field name="view_id" ref="view_repair_device_category_tree"/>
     </record>
-    
-    <!-- Catalogue -->
-    <record id="action_repair_device" model="ir.actions.act_window">
-        <field name="name">Catalogue d'appareils</field>
-        <field name="res_model">repair.device</field>
-        <field name="view_mode">tree,kanban,form</field>
-        <field name="search_view_id" ref="view_repair_device_search"/>
-    </record>
 
     <!-- Variantes -->
-
     <record id="action_repair_device_variant" model="ir.actions.act_window">
         <field name="name">Variantes</field>
         <field name="res_model">repair.device.variant</field>
@@ -39,34 +29,23 @@
         </field>
     </record>
 
-    <!-- Appareils physiques -->
-    <record id="action_repair_device_unit" model="ir.actions.act_window">
-        <field name="name">Appareils physiques</field>
-        <field name="res_model">repair.device.unit</field>
-        <field name="view_mode">tree,form</field>
-        <field name="search_view_id" ref="view_repair_device_unit_search"/>
-        <field name="help" type="html">
-            <p>Gérez les unités physiques des appareils (numéros de série).</p>
-        </field>
-    </record>
-
     <record id="action_repair_device_reclassify" model="ir.actions.act_window">
         <field name="name">Gérer</field>
         <field name="res_model">repair.device.reclassify</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>
-        <field name="binding_model_id" ref="model_repair_device"/>
+        <field name="binding_model_id" ref="product.model_product_template"/>
         <field name="binding_view_types">list</field>
     </record>
 
     <menuitem id="menu_repair_device" name="Appareils Hi-Fi" sequence="29"
             web_icon="repair_devices,static/description/icon.png" groups="repair_custom.group_repair_technician"/>
 
-    <menuitem id="repair_device_menu" name="Catalogue" parent="menu_repair_device" 
-            action="action_repair_device" groups="repair_custom.group_repair_technician"/>
+    <menuitem id="repair_device_menu" name="Catalogue" parent="menu_repair_device"
+            action="action_hifi_device_catalog" groups="repair_custom.group_repair_technician"/>
 
     <menuitem id="menu_repair_device_unit" name="Appareils physiques" parent="menu_repair_device"
-            action="action_repair_device_unit" groups="repair_custom.group_repair_technician"/>
+            action="action_hifi_unit" groups="repair_custom.group_repair_technician"/>
 
     <menuitem id="repair_menu_config" name="Configuration" parent="menu_repair_device" groups="repair_custom.group_repair_manager" sequence="30"/>
 

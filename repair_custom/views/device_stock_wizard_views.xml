@@ -7,7 +7,7 @@
             <form string="Entrée en Stock">
                 <field name="is_abandon" invisible="1"/>
                 <field name="repair_id" invisible="1"/>
-                <field name="unit_id" invisible="1"/>
+                <field name="lot_id" invisible="1"/>
                 <div class="alert alert-warning" role="alert" invisible="not is_abandon">
                     <i class="fa fa-exclamation-triangle me-1"/>
                     L'appareil va devenir la propriété de l'atelier et l'état de la réparation vérouillée.

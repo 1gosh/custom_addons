@@ -1,22 +1,23 @@
 from odoo import models, fields, api, _
 
+
 class RepairDeviceReclassify(models.TransientModel):
     _name = "repair.device.reclassify"
     _description = "Réassignation de masse des appareils"
 
     # Les appareils sélectionnés (rempli automatiquement par le contexte)
-    device_ids = fields.Many2many('repair.device', string="Appareils à déplacer")
-    
+    device_ids = fields.Many2many('product.template', string="Appareils à déplacer")
+
     # La cible
     new_category_id = fields.Many2one(
-        'repair.device.category', 
-        string="Nouvelle Catégorie", 
+        'repair.device.category',
+        string="Nouvelle Catégorie",
         required=True
     )
-    
+
     # Optionnel : changer aussi la marque en masse si besoin
     new_brand_id = fields.Many2one(
-        'repair.device.brand', 
+        'repair.device.brand',
         string="Nouvelle Marque",
         help="Laisser vide pour conserver la marque actuelle"
     )
@@ -25,20 +26,19 @@ class RepairDeviceReclassify(models.TransientModel):
     def default_get(self, fields):
         res = super(RepairDeviceReclassify, self).default_get(fields)
         active_ids = self.env.context.get('active_ids')
-        if active_ids and self.env.context.get('active_model') == 'repair.device':
+        if active_ids and self.env.context.get('active_model') == 'product.template':
             res['device_ids'] = [(6, 0, active_ids)]
         return res
 
     def action_apply(self):
         self.ensure_one()
-        vals = {'category_id': self.new_category_id.id}
-        
+        vals = {'hifi_category_id': self.new_category_id.id}
+
         if self.new_brand_id:
             vals['brand_id'] = self.new_brand_id.id
-            
-        # Écriture en masse (très performant)
+
         self.device_ids.write(vals)
-        
+
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',

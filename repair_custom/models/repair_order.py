@@ -119,72 +119,66 @@ class Repair(models.Model):
         copy=False
     )
 
-    @api.depends('unit_id')
+    @api.depends('lot_id')
     def _compute_history_data(self):
-        """Batch optimization: query all units at once."""
-        records_with_units = self.filtered('unit_id')
-        records_without_units = self - records_with_units
+        """Batch optimization: query all lots at once."""
+        records_with_lots = self.filtered('lot_id')
+        records_without_lots = self - records_with_lots
 
-        records_without_units.update({
+        records_without_lots.update({
             'history_repair_ids': False,
             'has_history': False,
             'previous_repair_id': False
         })
 
-        if not records_with_units:
+        if not records_with_lots:
             return
 
-        unit_ids = records_with_units.mapped('unit_id').ids
-        current_repair_ids = [r.id for r in records_with_units if isinstance(r.id, int)]
+        lot_ids = records_with_lots.mapped('lot_id').ids
+        current_repair_ids = [r.id for r in records_with_lots if isinstance(r.id, int)]
 
-        domain = [('unit_id', 'in', unit_ids), ('state', '=', 'done')]
+        domain = [('lot_id', 'in', lot_ids), ('state', '=', 'done')]
         if current_repair_ids:
             domain.append(('id', 'not in', current_repair_ids))
 
-        all_repairs = self.env['repair.order'].search(domain, order='unit_id, end_date desc, write_date desc')
+        all_repairs = self.env['repair.order'].search(domain, order='lot_id, end_date desc, write_date desc')
 
-        repairs_by_unit = {}
+        repairs_by_lot = {}
         for repair in all_repairs:
-            unit_id = repair.unit_id.id
-            if unit_id not in repairs_by_unit:
-                repairs_by_unit[unit_id] = []
-            repairs_by_unit[unit_id].append(repair.id)
+            lot_id = repair.lot_id.id
+            if lot_id not in repairs_by_lot:
+                repairs_by_lot[lot_id] = []
+            repairs_by_lot[lot_id].append(repair.id)
 
-        for rec in records_with_units:
-            repair_ids = repairs_by_unit.get(rec.unit_id.id, [])
+        for rec in records_with_lots:
+            repair_ids = repairs_by_lot.get(rec.lot_id.id, [])
             rec.history_repair_ids = [(6, 0, repair_ids)] if repair_ids else False
             rec.has_history = bool(repair_ids)
             rec.previous_repair_id = repair_ids[0] if repair_ids else False
 
     def _get_sar_warranty_months(self):
-        """Get SAR warranty period in months from config or default to 3."""
         return int(self.env['ir.config_parameter'].sudo().get_param(
             'repair_custom.sar_warranty_months', default='3'
         ))
 
     def _get_sav_warranty_months(self):
-        """Get SAV warranty period in months from config or default to 12."""
         return int(self.env['ir.config_parameter'].sudo().get_param(
             'repair_custom.sav_warranty_months', default='12'
         ))
 
     # --- Unit warranty related fields (for views) ---
-    unit_warranty_type = fields.Selection(related='unit_id.warranty_type', store=False)
-    unit_warranty_expiry = fields.Date(related='unit_id.warranty_expiry', store=False)
-    unit_sale_date = fields.Datetime(related='unit_id.sale_date', store=False)
+    unit_warranty_type = fields.Selection(related='lot_id.warranty_type', store=False)
+    unit_warranty_expiry = fields.Date(related='lot_id.warranty_expiry', store=False)
+    unit_sale_date = fields.Datetime(related='lot_id.sale_date', store=False)
 
     def _compute_suggested_warranty(self):
-        """Calculate suggested warranty: unit-based first, then legacy SAR fallback."""
         sar_months = self._get_sar_warranty_months()
 
         for rec in self:
             suggested = 'aucune'
-
-            # Primary: check unit's computed warranty (covers both SAV and SAR)
-            if rec.unit_id and rec.unit_id.warranty_state == 'active':
-                suggested = rec.unit_id.warranty_type  # 'sav' or 'sar'
+            if rec.lot_id and rec.lot_id.warranty_state == 'active':
+                suggested = rec.lot_id.warranty_type
             elif rec.previous_repair_id:
-                # Fallback: legacy SAR check for units without stored warranty data
                 prev_repair = rec.previous_repair_id
                 ref_date = prev_repair.end_date or prev_repair.write_date
                 if ref_date:
@@ -201,37 +195,36 @@ class Repair(models.Model):
         ('sav', 'SAV'),
     ], string="Garantie Suggérée", compute='_compute_suggested_warranty', store=False)
 
-    @api.onchange('unit_id', 'entry_date')
-    def _onchange_unit_workflow(self):
+    @api.onchange('lot_id', 'entry_date')
+    def _onchange_lot_workflow(self):
         """UI updates: Apply suggested warranty and show history popup."""
-        if not self.unit_id:
+        if not self.lot_id:
             return
 
         self._compute_history_data()
         self._compute_suggested_warranty()
 
-        unit_changed = (self.unit_id != self._origin.unit_id)
-        if unit_changed or self.repair_warranty != 'sav':
+        lot_changed = (self.lot_id != self._origin.lot_id)
+        if lot_changed or self.repair_warranty != 'sav':
             self.repair_warranty = self.suggested_warranty
 
-        if not unit_changed:
+        if not lot_changed:
             return
 
-        # Show popup based on unit warranty state
-        unit = self.unit_id
-        if unit.warranty_state == 'active' and unit.warranty_type == 'sav':
-            sale_date_str = unit.sale_date.strftime('%d/%m/%Y') if unit.sale_date else '?'
-            expiry_str = unit.warranty_expiry.strftime('%d/%m/%Y') if unit.warranty_expiry else '?'
+        lot = self.lot_id
+        if lot.warranty_state == 'active' and lot.warranty_type == 'sav':
+            sale_date_str = lot.sale_date.strftime('%d/%m/%Y') if lot.sale_date else '?'
+            expiry_str = lot.warranty_expiry.strftime('%d/%m/%Y') if lot.warranty_expiry else '?'
             return {'warning': {
                 'title': _("Garantie SAV"),
                 'message': _("ℹ INFO : Garantie SAV jusqu'au %s.\n(Vendu le %s)") % (
                     expiry_str, sale_date_str
                 )
             }}
-        elif unit.warranty_state == 'active' and unit.warranty_type == 'sar':
-            prev_repair = unit.last_delivered_repair_id or self.previous_repair_id
+        elif lot.warranty_state == 'active' and lot.warranty_type == 'sar':
+            prev_repair = lot.last_delivered_repair_id or self.previous_repair_id
             tech_name = prev_repair.technician_employee_id.name if prev_repair and prev_repair.technician_employee_id else 'Inconnu'
-            expiry_str = unit.warranty_expiry.strftime('%d/%m/%Y') if unit.warranty_expiry else '?'
+            expiry_str = lot.warranty_expiry.strftime('%d/%m/%Y') if lot.warranty_expiry else '?'
             prev_date_str = (prev_repair.end_date or prev_repair.write_date).strftime('%d/%m/%Y')
             return {'warning': {
                 'title': _("Retour Garantie (SAR)"),
@@ -240,7 +233,6 @@ class Repair(models.Model):
                 )
             }}
         elif self.previous_repair_id:
-            # No active warranty but has history — show info
             prev_repair = self.previous_repair_id
             tech_name = prev_repair.technician_employee_id.name or 'Inconnu'
             prev_date_str = (prev_repair.end_date or prev_repair.write_date).strftime('%d/%m/%Y')
@@ -268,44 +260,63 @@ class Repair(models.Model):
 
     # --- DEVICE FIELDS ---
     category_id = fields.Many2one('repair.device.category', string="Catégorie", check_company=True)
-    device_id = fields.Many2one('repair.device', string="Modèle")
+    product_tmpl_id = fields.Many2one('product.template', string="Modèle",
+                                       domain=[('is_hifi_device', '=', True)])
     variant_id = fields.Many2one('repair.device.variant', string="Variante")
     variant_ids_available = fields.Many2many('repair.device.variant', compute='_compute_variant_ids_available', store=False)
 
-    @api.depends('device_id', 'device_id.variant_ids')
+    @api.depends('product_tmpl_id', 'product_tmpl_id.hifi_variant_ids')
     def _compute_variant_ids_available(self):
         for rec in self:
-            rec.variant_ids_available = rec.device_id.variant_ids if rec.device_id else False
+            rec.variant_ids_available = rec.product_tmpl_id.hifi_variant_ids if rec.product_tmpl_id else False
 
-    @api.onchange('device_id')
-    def _onchange_device_id_set_category(self):
-        self._onchange_device_id_clear_variant()
-        if self.device_id and self.device_id.category_id:
-            self.category_id = self.device_id.category_id
+    @api.onchange('product_tmpl_id')
+    def _onchange_product_tmpl_id_set_category(self):
+        self._onchange_product_tmpl_id_clear_variant()
+        if self.product_tmpl_id and self.product_tmpl_id.hifi_category_id:
+            self.category_id = self.product_tmpl_id.hifi_category_id
 
     serial_number = fields.Char("N° de série")
-    unit_id = fields.Many2one('repair.device.unit', readonly=True, index=True)
-    device_id_name = fields.Char("Appareil", related="unit_id.device_name", store=True, readonly=True)
-    show_unit_field = fields.Boolean(string="Afficher champ unité", compute="_compute_show_unit_field")
+    lot_id = fields.Many2one('stock.lot', string="Appareil physique", readonly=True, index=True,
+                              domain=[('is_hifi_unit', '=', True)])
+    device_id_name = fields.Char("Appareil", compute="_compute_device_id_name", store=True, readonly=True)
+    show_lot_field = fields.Boolean(string="Afficher champ unité", compute="_compute_show_lot_field")
 
-    @api.onchange('device_id')
-    def _onchange_device_id_clear_variant(self):
-        if self.unit_id and self.device_id == self.unit_id.device_id:
+    @api.depends('lot_id', 'lot_id.product_id', 'lot_id.hifi_variant_id', 'product_tmpl_id', 'product_tmpl_id.display_name', 'variant_id')
+    def _compute_device_id_name(self):
+        for rec in self:
+            if rec.lot_id:
+                tmpl = rec.lot_id.product_id.product_tmpl_id
+                name = tmpl.display_name or rec.lot_id.product_id.name or ""
+                if rec.lot_id.hifi_variant_id:
+                    name += f" ({rec.lot_id.hifi_variant_id.name})"
+                rec.device_id_name = name
+            elif rec.product_tmpl_id:
+                name = rec.product_tmpl_id.display_name or ""
+                if rec.variant_id:
+                    name += f" ({rec.variant_id.name})"
+                rec.device_id_name = name
+            else:
+                rec.device_id_name = _("Aucun modèle")
+
+    @api.onchange('product_tmpl_id')
+    def _onchange_product_tmpl_id_clear_variant(self):
+        if self.lot_id and self.product_tmpl_id == self.lot_id.product_id.product_tmpl_id:
             return
-        if self.device_id:
+        if self.product_tmpl_id:
             self.variant_id = False
-            if self.unit_id:
-                self.unit_id = False
+            if self.lot_id:
+                self.lot_id = False
                 self.serial_number = False
 
     @api.onchange('category_id')
     def _onchange_category_id(self):
-        if self.device_id and self.category_id:
-            category_of_device = self.device_id.category_id
+        if self.product_tmpl_id and self.category_id:
+            category_of_device = self.product_tmpl_id.hifi_category_id
             selected_category = self.category_id
             allowed_categories = selected_category + selected_category.search([('id', 'child_of', selected_category.id)])
             if category_of_device.id not in allowed_categories.ids:
-                self.device_id = False
+                self.product_tmpl_id = False
                 self.variant_id = False
 
     tag_ids = fields.Many2many('repair.tags', string="Pannes")
@@ -323,42 +334,46 @@ class Repair(models.Model):
                 self.internal_notes = new_content
             self.notes_template_id = False
 
-    @api.onchange('unit_id')
-    def _onchange_unit_id(self):
+    @api.onchange('lot_id')
+    def _onchange_lot_id(self):
         for rec in self:
-            if rec.unit_id:
-                rec.serial_number = rec.unit_id.serial_number
-                rec.device_id = rec.unit_id.device_id
-                rec.variant_id = rec.unit_id.variant_id
+            if rec.lot_id:
+                rec.serial_number = rec.lot_id.name
+                rec.product_tmpl_id = rec.lot_id.product_id.product_tmpl_id
+                rec.variant_id = rec.lot_id.hifi_variant_id
 
     def action_open_unit(self):
         self.ensure_one()
-        if not self.unit_id:
+        if not self.lot_id:
             raise UserError(_("Aucun appareil n'est associé à cette réparation."))
-        action = self.env.ref('repair_devices.action_repair_device_unit').read()[0]
-        action.update({
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Fiche Appareil',
+            'res_model': 'stock.lot',
             'views': [(False, 'form')],
-            'res_id': self.unit_id.id,
+            'res_id': self.lot_id.id,
             'target': 'current',
-        })
-        return action
+        }
 
-    @api.depends('unit_id', 'partner_id', 'state')
-    def _compute_show_unit_field(self):
-        Unit = self.env['repair.device.unit']
+    @api.depends('lot_id', 'partner_id', 'state')
+    def _compute_show_lot_field(self):
+        Lot = self.env['stock.lot']
         for rec in self:
             show = False
             if rec.state == 'draft':
-                has_partner_units = False
+                has_partner_lots = False
                 if rec.partner_id:
-                    has_partner_units = bool(Unit.search([('partner_id', '=', rec.partner_id.id)], limit=1))
-                show = bool(rec.unit_id) or has_partner_units
-            rec.show_unit_field = show
+                    has_partner_lots = bool(Lot.search([
+                        ('hifi_partner_id', '=', rec.partner_id.id),
+                        ('is_hifi_unit', '=', True),
+                    ], limit=1))
+                show = bool(rec.lot_id) or has_partner_lots
+            rec.show_lot_field = show
 
     @api.onchange('partner_id')
     def _onchange_partner_clear_unit(self):
         if self.partner_id:
-            self.unit_id = False
+            self.lot_id = False
 
     # --- BATCH MANAGEMENT ---
     batch_id = fields.Many2one('repair.batch', string="Dossier de Dépôt", readonly=True, index=True, ondelete='restrict')
@@ -428,10 +443,9 @@ class Repair(models.Model):
         admin = self.env.user.has_group('repair_custom.group_repair_admin')
         if not admin and any(repair.state == 'done' for repair in self):
             raise UserError(_("Impossible d'annuler une réparation terminée."))
-        # Restore stock_state on cancellation
-        units = self.mapped('unit_id').filtered(lambda u: u and u.stock_state == 'in_repair')
-        if units:
-            units.write({'stock_state': 'client'})
+        lots = self.mapped('lot_id').filtered(lambda l: l and l.stock_state == 'in_repair')
+        if lots:
+            lots.write({'stock_state': 'client'})
         return self.write({'state': 'cancel'})
 
     def action_repair_cancel_draft(self):
@@ -442,10 +456,8 @@ class Repair(models.Model):
         return self.write({'state': 'draft', 'end_date': False})
 
     def action_repair_done(self):
-        """Mark repair as done with proper validation and notifications."""
         if self.delivery_state == 'abandoned':
             raise UserError(_("Impossible de modifier l'état d'une réparation abandonnée."))
-        # Row-level locking
         for rec in self:
             try:
                 self.env.cr.execute("SELECT id FROM repair_order WHERE id=%s FOR UPDATE NOWAIT", (rec.id,))
@@ -454,7 +466,6 @@ class Repair(models.Model):
 
         self.invalidate_recordset(['state', 'quote_state', 'quote_required'])
 
-        # Quote validation
         if self.quote_required and self.quote_state != 'approved' and not self.env.context.get('force_stop'):
             return {
                 'name': _("Alerte : Devis non validé"),
@@ -465,28 +476,23 @@ class Repair(models.Model):
                 'context': {'default_repair_id': self.id}
             }
 
-        # State change
         res = self.write({
             'state': 'done',
             'parts_waiting': False,
             'end_date': fields.Datetime.now()
         })
 
-        # Cleanup activities
         quote_act_type = self.env.ref('repair_custom.mail_act_repair_quote_validate', raise_if_not_found=False)
         if quote_act_type:
             activities_to_clean = self.activity_ids.filtered(lambda a: a.activity_type_id.id == quote_act_type.id)
             if activities_to_clean:
                 activities_to_clean.action_feedback(feedback="Clôture automatique : Réparation terminée.")
 
-        # Manager notifications (batch optimized)
         pickup_type = self.env.ref('repair_custom.mail_act_repair_done', raise_if_not_found=True)
         group_manager = self.env.ref('repair_custom.group_repair_manager', raise_if_not_found=True)
 
         if pickup_type and group_manager:
-            # Get the ir.model ID for repair.order
             repair_model = self.env['ir.model']._get('repair.order')
-
             activities_to_create = []
             for rec in self:
                 for manager_user in group_manager.users:
@@ -517,12 +523,9 @@ class Repair(models.Model):
         return self.write({'state': 'irreparable', 'end_date': fields.Datetime.now()})
 
     def action_repair_delivered(self):
-        """Mark repair as delivered with atomic validation."""
-        # Check for abandoned repairs first
         if self.delivery_state == 'abandoned':
             raise UserError(_("Impossible de livrer une réparation abandonnée. L'appareil est désormais propriété de l'atelier."))
 
-        # Row-level locking
         for rec in self:
             try:
                 self.env.cr.execute("SELECT id FROM repair_order WHERE id=%s FOR UPDATE NOWAIT", (rec.id,))
@@ -531,7 +534,6 @@ class Repair(models.Model):
 
         self.invalidate_recordset(['state', 'delivery_state'])
 
-        # Batch validation
         errors = []
         for rec in self:
             if rec.delivery_state == 'abandoned':
@@ -544,28 +546,24 @@ class Repair(models.Model):
         if errors:
             raise UserError("\n".join(errors))
 
-        # Batch write
         self.write({
             'delivery_state': 'delivered',
             'end_date': fields.Datetime.now()
         })
 
-        # Update stock_state on device units
-        units = self.mapped('unit_id').filtered(lambda u: u and u.stock_state == 'in_repair')
-        if units:
-            units.write({'stock_state': 'client'})
+        lots = self.mapped('lot_id').filtered(lambda l: l and l.stock_state == 'in_repair')
+        if lots:
+            lots.write({'stock_state': 'client'})
 
-        # Set SAR warranty on delivered units
         sar_months = self._get_sar_warranty_months()
         for rec in self:
-            if rec.unit_id:
+            if rec.lot_id:
                 sar_expiry = fields.Date.today() + relativedelta(months=sar_months)
-                rec.unit_id.write({
+                rec.lot_id.write({
                     'last_delivered_repair_id': rec.id,
                     'sar_expiry': sar_expiry,
                 })
 
-        # Cleanup activities
         pickup_type_id = self.env.ref('repair_custom.mail_act_repair_done').id
         for rec in self:
             activities = rec.activity_ids.filtered(lambda a: a.activity_type_id.id == pickup_type_id)
@@ -586,27 +584,33 @@ class Repair(models.Model):
         return self.write({'state': 'confirmed'})
 
     def action_validate(self):
-        """Confirm repair and create device unit if needed."""
+        """Confirm repair and create stock.lot if needed."""
         self.ensure_one()
         if self.delivery_state == 'abandoned':
             raise UserError(_("Impossible de modifier l'état d'une réparation abandonnée."))
-        if self.variant_id and self.variant_id not in self.device_id.variant_ids:
-            self.device_id.write({'variant_ids': [(4, self.variant_id.id)]})
-        if self.unit_id:
-            self.unit_id.write({'stock_state': 'in_repair'})
+        if self.variant_id and self.variant_id not in self.product_tmpl_id.hifi_variant_ids:
+            self.product_tmpl_id.write({'hifi_variant_ids': [(4, self.variant_id.id)]})
+        if self.lot_id:
+            self.lot_id.write({'stock_state': 'in_repair'})
             return self._action_repair_confirm()
-        if self.device_id and self.partner_id:
-            sn = self.serial_number
-            vals = {
-                'device_id': self.device_id.id,
-                'partner_id': self.partner_id.id,
-                'serial_number': sn,
+        if self.product_tmpl_id and self.partner_id:
+            # Create stock.lot for the device
+            product = self.product_tmpl_id.product_variant_id
+            if not product:
+                raise UserError(_("Aucun produit trouvé pour cet appareil."))
+            sn = self.serial_number or False
+            lot_vals = {
+                'name': sn or f"REP-{self.name}",
+                'product_id': product.id,
+                'company_id': self.company_id.id,
+                'is_hifi_unit': True,
+                'hifi_partner_id': self.partner_id.id,
             }
             if self.variant_id:
-                vals['variant_id'] = self.variant_id.id
-            new_unit = self.env['repair.device.unit'].create(vals)
-            self.write({'unit_id': new_unit.id, 'serial_number': new_unit.serial_number})
-            new_unit.write({'stock_state': 'in_repair'})
+                lot_vals['hifi_variant_id'] = self.variant_id.id
+            new_lot = self.env['stock.lot'].create(lot_vals)
+            self.write({'lot_id': new_lot.id, 'serial_number': new_lot.name})
+            new_lot.write({'stock_state': 'in_repair'})
         return self._action_repair_confirm()
 
     # --- INVOICING ---
@@ -653,13 +657,12 @@ class Repair(models.Model):
         }
 
     def action_open_abandon_wizard(self):
-        """Open the device stock wizard in abandon mode."""
         self.ensure_one()
         if self.state == 'draft':
             raise UserError(_("Impossible d'abandonner un appareil en brouillon."))
         if self.delivery_state != 'none':
             raise UserError(_("L'appareil est déjà sorti de l'atelier."))
-        if not self.unit_id:
+        if not self.lot_id:
             raise UserError(_("Aucun appareil associé à cette réparation."))
         return {
             'name': _("Abandon & Entrée en Stock"),
@@ -668,14 +671,14 @@ class Repair(models.Model):
             'view_mode': 'form',
             'target': 'new',
             'context': {
-                'default_unit_id': self.unit_id.id,
+                'default_lot_id': self.lot_id.id,
                 'default_repair_id': self.id,
             },
         }
 
     def action_open_pricing_wizard(self):
         self.ensure_one()
-        device_categ_id = self.device_id.category_id.id if self.device_id else False
+        device_categ_id = self.product_tmpl_id.hifi_category_id.id if self.product_tmpl_id else False
         return {
             'name': _("Facturation Atelier"),
             'type': 'ir.actions.act_window',
@@ -697,16 +700,15 @@ class Repair(models.Model):
         return super(Repair, self).create(vals_list)
 
     # --- CONSTRAINTS ---
-    @api.constrains('unit_id', 'device_id', 'variant_id', 'serial_number')
+    @api.constrains('lot_id', 'product_tmpl_id', 'variant_id', 'serial_number')
     def _check_unit_consistency(self):
         for rec in self:
-            if rec.unit_id:
-                if rec.device_id != rec.unit_id.device_id:
+            if rec.lot_id:
+                lot_tmpl = rec.lot_id.product_id.product_tmpl_id
+                if rec.product_tmpl_id and rec.product_tmpl_id != lot_tmpl:
                     raise ValidationError(_("Incohérence Modèle !"))
-                if rec.unit_id.variant_id and rec.variant_id != rec.unit_id.variant_id:
+                if rec.lot_id.hifi_variant_id and rec.variant_id and rec.variant_id != rec.lot_id.hifi_variant_id:
                     raise ValidationError(_("Incohérence Variante !"))
-                if rec.unit_id.serial_number and rec.serial_number != rec.unit_id.serial_number:
-                    raise ValidationError(_("Incohérence N° de série !"))
 
     # --- ACTIONS ---
     def action_print_repair_order(self):
@@ -719,7 +721,6 @@ class Repair(models.Model):
             return self.env.ref('repair_custom.action_report_repair_ticket').report_action(self)
 
     def _assign_technician_if_needed(self):
-        """Assign current technician if not already assigned."""
         if not self.technician_employee_id:
             if self.env.context.get('atelier_employee_id'):
                 self.technician_employee_id = self.env.context.get('atelier_employee_id')
@@ -729,13 +730,11 @@ class Repair(models.Model):
                     self.technician_employee_id = employee.id
 
     def action_atelier_start(self):
-        """Workflow: Take and start repair."""
         self.ensure_one()
 
         if self.delivery_state == 'abandoned':
             raise UserError(_("Impossible de modifier l'état d'une réparation abandonnée."))
 
-        # Row-level locking
         try:
             self.env.cr.execute("SELECT id FROM repair_order WHERE id=%s FOR UPDATE NOWAIT", (self.id,))
         except Exception:
@@ -772,7 +771,6 @@ class Repair(models.Model):
         return True
 
     def action_atelier_request_quote(self):
-        """Request quote from manager."""
         self.ensure_one()
         self._assign_technician_if_needed()
 
@@ -794,9 +792,8 @@ class Repair(models.Model):
         return self.write({'quote_state': 'pending'})
 
     def action_create_quotation_wizard(self):
-        """Manager: Generate quote from alert."""
         self.ensure_one()
-        device_categ_id = self.device_id.category_id.id if self.device_id else False
+        device_categ_id = self.product_tmpl_id.hifi_category_id.id if self.product_tmpl_id else False
 
         return {
             'name': _("Création du Devis"),
@@ -812,7 +809,6 @@ class Repair(models.Model):
         }
 
     def action_manager_validate_quote(self):
-        """Manager validates quote."""
         self.ensure_one()
 
         target_type_id = self.env.ref('repair_custom.mail_act_repair_quote_validate').id
@@ -824,7 +820,6 @@ class Repair(models.Model):
         return self.write({'quote_state': 'approved'})
 
     def action_atelier_parts_toggle(self):
-        """Toggle parts waiting status."""
         for rec in self:
             rec.parts_waiting = not rec.parts_waiting
             msg = "Pièces commandées / En attente." if rec.parts_waiting else "Pièces reçues."
@@ -832,7 +827,6 @@ class Repair(models.Model):
         return True
 
     def action_atelier_abort(self):
-        """Abort repair and return to queue."""
         self.ensure_one()
 
         if self.delivery_state == 'abandoned':
@@ -851,12 +845,10 @@ class Repair(models.Model):
         })
 
     def action_save_repair(self):
-        """Explicit save for mobile."""
         self.ensure_one()
         return True
 
     def action_open_template_selector(self):
-        """Open template selector wizard."""
         self.ensure_one()
         return {
             'name': _("Insérer un Gabarit"),
@@ -871,7 +863,6 @@ class Repair(models.Model):
         }
 
     def action_merge_into_batch(self):
-        """Merge selected repairs into a batch."""
         partners = self.mapped('partner_id')
         if len(partners) > 1:
             raise UserError(_("Impossible de grouper ! Les réparations sélectionnées appartiennent à des clients différents."))
