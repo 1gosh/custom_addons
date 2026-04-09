@@ -321,16 +321,13 @@
                                         readonly="state not in 'draft'"
                                         string="Appareil(s) existant(s)"/>
                                     <field name="category_id" readonly="state not in 'draft' or lot_id" force_save="1"/>
-                                    <label for="product_tmpl_id"/>
-                                    <div class="o_row">
-                                        <field name="product_tmpl_id"
-                                            required="True"
-                                            options="{'no_quick_create':True}"
-                                            readonly="state not in 'draft' or lot_id"
-                                            force_save="1"
-                                            domain="category_id and [('is_hifi_device', '=', True), ('hifi_category_id', 'child_of', category_id)] or [('is_hifi_device', '=', True)]"
-                                            context="{'default_hifi_category_id': category_id, 'default_is_hifi_device': True}"/>
-                                    </div>
+                                    <field name="product_tmpl_id"
+                                        required="True"
+                                        options="{'no_quick_create':True}"
+                                        readonly="state not in 'draft' or lot_id"
+                                        force_save="1"
+                                        domain="category_id and [('is_hifi_device', '=', True), ('categ_id', 'child_of', category_id)] or [('is_hifi_device', '=', True)]"
+                                        context="{'default_categ_id': category_id or %(repair_devices.product_category_hifi)d}"/>
                                     <field name="variant_id"
                                         domain="[('id','in', variant_ids_available)]"
                                         context="{'default_product_tmpl_id': product_tmpl_id}"
@@ -715,18 +712,21 @@
         <field name="name">repair.atelier.kanban</field>
         <field name="model">repair.order</field>
         <field name="arch" type="xml">
-            <kanban class="o_kanban_mobile" sample="1" quick_create="false">
-                
+            <kanban class="o_kanban_mobile" sample="1" quick_create="false"
+                    default_order="entry_date asc">
+
                 <field name="name"/>
                 <field name="priority"/>
                 <field name="device_id_name"/>
                 <field name="partner_id"/>
                 <field name="entry_date"/>
+                <field name="waiting_time"/>
                 <field name="parts_waiting"/>
                 <field name="quote_required"/>
                 <field name="quote_state"/>
                 <field name="repair_warranty"/>
-                <field name="state"/> <templates>
+                <field name="state"/>
+                <templates>
                     <t t-name="kanban-box">
                         <div t-attf-class="oe_kanban_card oe_kanban_global_click p-3">
                             
@@ -747,6 +747,9 @@
                                 </div>
                                 <div class="col-5 text-end">
                                     <field name="entry_date" widget="datetime" options="{'show_time':false}"/>
+                                    <span t-if="record.waiting_time.raw_value" class="text-muted small ms-1">
+                                        (<field name="waiting_time"/>)
+                                    </span>
                                 </div>
                             </div>
 
@@ -785,7 +788,8 @@
         <field name="model">repair.order</field>
         <field name="priority" eval="10"/>
         <field name="arch" type="xml">
-            <tree string="Atelier" 
+            <tree string="Atelier"
+                  default_order="entry_date asc"
                   decoration-danger="priority == '1'"
                   decoration-warning="quote_required == True"
                   decoration-info="parts_waiting == True"
@@ -796,12 +800,12 @@
                 <field name="priority" widget="priority" optional="hide"/>
                 <field name="entry_date" optional="show" string="Date d'entrée" readonly="True"
                     width="50" widget="datetime" options="{'show_time':false}" />
+                <field name="waiting_time" string="Attente" optional="show" readonly="True"/>
                 <field name="device_id_name" string="Appareil"/>
                 <field name="serial_number" optional="show"/>
                 <field name="partner_id" widget="many2one_avatar"/>
                 <field name="quote_required" optional="show"/>
                 <field name="parts_waiting" optional="hide"/>
-
                 <field name="name" string="Réf."/>
             </tree>
         </field>
@@ -1165,14 +1169,6 @@
         </field>
     </record>
 
-    <record id="action_repair_device_audit" model="ir.actions.act_window">
-        <field name="name">Catalogue d'appareils</field>
-        <field name="res_model">product.template</field>
-        <field name="view_mode">tree,form</field>
-        <field name="domain">[('is_hifi_device', '=', True)]</field>
-        <field name="context">{'default_is_hifi_device': True}</field>
-    </record>
-
     <menuitem id="menu_repair_order" groups="repair_custom.group_repair_manager" name="Repairs" sequence="28"
                 web_icon="repair_custom,static/description/icon.png"/>
 
@@ -1191,8 +1187,6 @@
     <menuitem id="menu_repair_pickup_location" name="Lieux" parent="repair_menu_config" action="action_repair_pickup_location"/>
 
     <menuitem id="repair_menu_tag" name="Pannes" parent="repair_menu_config" action="action_repair_order_tag"/>
-
-    <menuitem id="repair_menu_device_audit" name="Gestionnaire d'Appareils" parent="repair_menu_config" action="action_repair_device_audit" sequence="50"/>
 
     <menuitem id="repair_atelier_menu_config" sequence="50" name="Configuration" parent="menu_repair_atelier" groups="repair_custom.group_repair_manager"/>
     <menuitem id="menu_atelier_config_tiles"

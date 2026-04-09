@@ -8,7 +8,10 @@ class RepairInvoiceTemplate(models.Model):
     
     # Lien avec les catégories d'articles pour le filtrage intelligent
     device_category_ids = fields.Many2many(
-        'repair.device.category', 
+        'product.category',
+        relation='repair_invoice_template_product_category_rel',
+        column1='repair_invoice_template_id',
+        column2='product_category_id',
         string="Catégories compatibles",
         help="Laissez vide pour rendre ce modèle disponible pour tous les appareils."
     )

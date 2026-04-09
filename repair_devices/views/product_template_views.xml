@@ -11,7 +11,7 @@
                 <field name="brand_id"/>
                 <field name="name"/>
                 <field name="hifi_variant_ids" widget="many2many_tags" options="{'color_field': 'color', 'no_create_edit': True}" string="Variantes"/>
-                <field name="hifi_category_id" string="Catégorie"/>
+                <field name="categ_id" string="Catégorie"/>
                 <field name="hifi_unit_count" string="Nb d'enregistrements"/>
             </tree>
         </field>
@@ -27,16 +27,16 @@
                     '|', '|', ('brand_id.name', 'ilike', self), ('name', 'ilike', self), ('display_name', 'ilike', self)
                 ]"/>
                 <field name="brand_id"/>
-                <field name="hifi_category_id"/>
+                <field name="categ_id"/>
                 <field name="production_year"/>
                 <field name="hifi_variant_ids"/>
                 <group expand="0" string="Filtres">
                     <filter name="filter_brand" string="Marque" context="{'group_by': 'brand_id'}"/>
-                    <filter name="filter_category" string="Catégorie" context="{'group_by': 'hifi_category_id'}"/>
+                    <filter name="filter_category" string="Catégorie" context="{'group_by': 'categ_id'}"/>
                     <filter name="filter_year" string="Année de sortie" context="{'group_by': 'production_year'}"/>
                 </group>
                 <searchpanel>
-                    <field name="hifi_category_id"
+                    <field name="categ_id"
                             enable_counters="1"
                             icon="fa-folder"
                             string="Catégories"/>
@@ -75,8 +75,11 @@
                 <field name="purchase_ok" invisible="1"/>
                     <group>
                         <field name="is_hifi_device" invisible="1"/>
-                        <field name="brand_id"/>
-                        <field name="hifi_category_id"/>
+                        <field name="brand_id" required="is_hifi_device"/>
+                        <field name="categ_id"
+                               required="is_hifi_device"
+                               domain="[('id', 'child_of', %(repair_devices.product_category_hifi)d)]"
+                               string="Catégorie HiFi"/>
                         <field name="hifi_variant_ids"
                             widget="many2many_tags"
                             options="{'color_field': 'color', 'no_create_edit': True}"
@@ -102,7 +105,7 @@
                                     <strong><field name="brand_id"/></strong> <field name="name"/>
                                 </div>
                                 <div class="col-6 text-end">
-                                    <field name="hifi_category_id"/>
+                                    <field name="categ_id"/>
                                 </div>
                             </div>
                         </div>
@@ -118,7 +121,7 @@
         <field name="res_model">product.template</field>
         <field name="view_mode">tree,kanban,form</field>
         <field name="domain">[('is_hifi_device', '=', True)]</field>
-        <field name="context" eval="{'default_categ_id': ref('product_category_hifi'), 'default_is_hifi_device': True}"/>
+        <field name="context" eval="{'default_categ_id': ref('product_category_hifi')}"/>
         <field name="search_view_id" ref="view_hifi_device_search"/>
     </record>
 

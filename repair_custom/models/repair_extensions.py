@@ -178,7 +178,7 @@ class AccountMove(models.Model):
     _inherit = 'account.move'
 
     repair_id = fields.Many2one('repair.order', string="Réparation d'origine", readonly=True)
-    batch_id = fields.Many2one(r'repair.batch', string="Dossier de réparation d'origine", readonly=True)
+    batch_id = fields.Many2one('repair.batch', string="Dossier de réparation d'origine", readonly=True)
     repair_notes = fields.Text(related='repair_id.internal_notes', string="Notes de l'atelier", readonly=True)
 
     def _is_equipment_sale_invoice(self):

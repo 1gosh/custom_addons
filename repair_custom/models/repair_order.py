@@ -36,6 +36,30 @@ class Repair(models.Model):
             else:
                 rec.last_action_time = ""
 
+    waiting_time = fields.Char(
+        string="Attente",
+        compute='_compute_waiting_time',
+        store=False,
+    )
+
+    @api.depends('entry_date', 'state')
+    def _compute_waiting_time(self):
+        today = fields.Date.today()
+        for rec in self:
+            if not rec.entry_date or rec.state in ('cancel',):
+                rec.waiting_time = ''
+                continue
+            entry = rec.entry_date.date()
+            delta = (today - entry).days
+            if delta < 0:
+                rec.waiting_time = ''
+            elif delta < 7:
+                rec.waiting_time = f"{delta} j"
+            elif delta < 30:
+                rec.waiting_time = f"{round(delta / 7)} sem."
+            else:
+                rec.waiting_time = f"{round(delta / 30)} mois"
+
     @api.model
     def _default_location(self):
         """Default pickup location. JS overrides per-browser via localStorage."""
@@ -103,7 +127,6 @@ class Repair(models.Model):
     quote_required = fields.Boolean(string="Devis Exigé", default=False, tracking=True)
     quote_threshold = fields.Integer(string="Seuil du devis")
     parts_waiting = fields.Boolean(string="Attente de pièces", default=False, tracking=True)
-    diagnostic_notes = fields.Text(string="Diagnostic Technique")
 
     # --- HISTORY AND WARRANTY MANAGEMENT ---
     has_history = fields.Boolean(compute='_compute_history_data', string="A un historique", store=False)
@@ -159,11 +182,6 @@ class Repair(models.Model):
     def _get_sar_warranty_months(self):
         return int(self.env['ir.config_parameter'].sudo().get_param(
             'repair_custom.sar_warranty_months', default='3'
-        ))
-
-    def _get_sav_warranty_months(self):
-        return int(self.env['ir.config_parameter'].sudo().get_param(
-            'repair_custom.sav_warranty_months', default='12'
         ))
 
     # --- Unit warranty related fields (for views) ---
@@ -259,7 +277,7 @@ class Repair(models.Model):
     )
 
     # --- DEVICE FIELDS ---
-    category_id = fields.Many2one('repair.device.category', string="Catégorie", check_company=True)
+    category_id = fields.Many2one('product.category', string="Catégorie")
     product_tmpl_id = fields.Many2one('product.template', string="Modèle",
                                        domain=[('is_hifi_device', '=', True)])
     variant_id = fields.Many2one('repair.device.variant', string="Variante")
@@ -273,8 +291,8 @@ class Repair(models.Model):
     @api.onchange('product_tmpl_id')
     def _onchange_product_tmpl_id_set_category(self):
         self._onchange_product_tmpl_id_clear_variant()
-        if self.product_tmpl_id and self.product_tmpl_id.hifi_category_id:
-            self.category_id = self.product_tmpl_id.hifi_category_id
+        if self.product_tmpl_id and self.product_tmpl_id.categ_id:
+            self.category_id = self.product_tmpl_id.categ_id
 
     serial_number = fields.Char("N° de série")
     lot_id = fields.Many2one('stock.lot', string="Appareil physique", readonly=True, index=True,
@@ -312,10 +330,12 @@ class Repair(models.Model):
     @api.onchange('category_id')
     def _onchange_category_id(self):
         if self.product_tmpl_id and self.category_id:
-            category_of_device = self.product_tmpl_id.hifi_category_id
-            selected_category = self.category_id
-            allowed_categories = selected_category + selected_category.search([('id', 'child_of', selected_category.id)])
-            if category_of_device.id not in allowed_categories.ids:
+            product_cat = self.product_tmpl_id.categ_id
+            if not product_cat or not (
+                product_cat.parent_path
+                and self.category_id.parent_path
+                and product_cat.parent_path.startswith(self.category_id.parent_path)
+            ):
                 self.product_tmpl_id = False
                 self.variant_id = False
 
@@ -415,15 +435,16 @@ class Repair(models.Model):
         is_admin = self.env.user.has_group('repair_custom.group_repair_admin')
         is_manager = self.env.user.has_group('repair_custom.group_repair_manager')
 
-        if not is_admin:
+        if not is_admin and not is_manager:
             protected_fields = {
                 'tracking_token', 'invoice_ids', 'sale_order_id',
                 'company_id', 'currency_id'
             }
-
-            for field in protected_fields:
-                if field in vals and not is_manager:
-                    del vals[field]
+            attempted = protected_fields & set(vals.keys())
+            if attempted:
+                raise UserError(
+                    _("Vous n'avez pas les droits pour modifier ces champs : %s") % ', '.join(sorted(attempted))
+                )
 
         if vals.get('state') == 'draft':
             vals = dict(vals)
@@ -767,7 +788,7 @@ class Repair(models.Model):
 
     def action_open_pricing_wizard(self):
         self.ensure_one()
-        device_categ_id = self.product_tmpl_id.hifi_category_id.id if self.product_tmpl_id else False
+        device_categ_id = self.product_tmpl_id.categ_id.id if self.product_tmpl_id else False
         return {
             'name': _("Facturation Atelier"),
             'type': 'ir.actions.act_window',
@@ -874,15 +895,15 @@ class Repair(models.Model):
                 activity_type_id=activity_type_id,
                 user_id=manager_user.id,
                 summary="Devis",
-                note=f"Demande par {self.env.user.technician_employee_id} pour {self.device_id_name}",
-                date_deadline=fields.Date.today(),
+                note=f"Demande par {self.technician_employee_id.name} pour {self.device_id_name}",
+                date_deadline=fields.Date.today(),  
             )
 
         return self.write({'quote_state': 'pending'})
 
     def action_create_quotation_wizard(self):
         self.ensure_one()
-        device_categ_id = self.product_tmpl_id.hifi_category_id.id if self.product_tmpl_id else False
+        device_categ_id = self.product_tmpl_id.categ_id.id if self.product_tmpl_id else False
 
         return {
             'name': _("Création du Devis"),

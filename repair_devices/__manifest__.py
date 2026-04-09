@@ -1,6 +1,6 @@
 {
     "name": "Repair Devices",
-    "version": "2.6",
+    "version": "2.7",
     "summary": "Catalogue d'appareils Hi-Fi pour les ordres de réparation",
     "author": "martinl",
     "depends": [

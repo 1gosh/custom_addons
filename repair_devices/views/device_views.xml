@@ -79,53 +79,9 @@
         </field>
     </record>
 
-    <!-- VUE : Catégories -->
-
-    <record id="view_repair_device_category_form" model="ir.ui.view">
-        <field name="name">repair.device.category.form</field>
-        <field name="model">repair.device.category</field>
-        <field name="arch" type="xml">
-            <form string="Catégories d'appareils">
-                <sheet>
-                    <div class="oe_title">
-                        <label for="name" string="Catégorie"/>
-                        <h1><field name="name" placeholder="i.e. Ampli"/></h1>
-                    </div>
-                    <group name="first" col="2">
-                        <field name="parent_id" class="oe_inline"/>
-                    </group>
-                    <notebook>
-                        <page string="Appareils">
-                            <field name="device_model_ids"/>
-                        </page>
-                    </notebook>
-                </sheet>
-            </form>
-        </field>
-    </record>
-
-    <record id="view_repair_device_category_tree" model="ir.ui.view">
-        <field name="name">repair.device.category.tree</field>
-        <field name="model">repair.device.category</field>
-        <field name="priority">1</field>
-        <field name="arch" type="xml">
-            <tree string="Catégories d'appareils">
-                <field name="display_name" string="Product Category"/>
-            </tree>
-        </field>
-    </record>
-
-    <record id="view_repair_device_category_search" model="ir.ui.view">
-        <field name="name">repair.device.category.search</field>
-        <field name="model">repair.device.category</field>
-        <field name="arch" type="xml">
-            <search string="Catégories d'appareils">
-                <field name="name" string="Recherche" filter_domain="[('complete_name', 'ilike', self)]"/>
-                <field name="parent_id"/>
-                <field name="internal_code"/>
-            </search>
-        </field>
-    </record>
+    <!-- Clean up stale repair.device.category DB records -->
+    <delete model="ir.actions.act_window" search="[('res_model','=','repair.device.category')]"/>
+    <delete model="ir.ui.view" search="[('model','=','repair.device.category')]"/>
 
     </data>
 

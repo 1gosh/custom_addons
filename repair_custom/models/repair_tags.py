@@ -8,7 +8,13 @@ class RepairTags(models.Model):
     name = fields.Char('Nom de la panne', required=True)
     color = fields.Integer(string='Color Index', default=_get_default_color)
     is_global = fields.Boolean(string="Global", default=False)
-    category_ids = fields.Many2many('repair.device.category', string="Catégories spécifiques")
+    category_ids = fields.Many2many(
+        'product.category',
+        relation='repair_tags_product_category_rel',
+        column1='repair_tags_id',
+        column2='product_category_id',
+        string="Catégories spécifiques",
+    )
     _sql_constraints = [('name_uniq', 'unique (name)', "Ce nom de panne existe déjà !")]
     
     @api.onchange('is_global')

@@ -5,7 +5,9 @@
         <field name="arch" type="xml">
             <form string="Réassignation de Masse">
                 <group>
-                    <field name="new_category_id" options="{'no_create': True}"/>
+                    <field name="new_category_id"
+                           options="{'no_create': True}"
+                           domain="[('id', 'child_of', %(repair_devices.product_category_hifi)d)]"/>
                     <field name="new_brand_id" options="{'no_create': True}"/>
                 </group>
                 <group>

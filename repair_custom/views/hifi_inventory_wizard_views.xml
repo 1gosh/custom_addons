@@ -13,7 +13,7 @@
                 <field name="product_tmpl_id"
                     string="Appareil"
                     domain="[('is_hifi_device','=',True)]"
-                    context="{'default_categ_id': %(repair_devices.product_category_hifi)d, 'default_is_hifi_device': True}"
+                    context="{'default_categ_id': %(repair_devices.product_category_hifi)d}"
                     readonly="state == 'done'"/>
                 <field name="serial_number" readonly="state == 'done'"/>
                 <field name="location_id" readonly="state == 'done'" options="{'no_create': True}"/>

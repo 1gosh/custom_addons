@@ -29,7 +29,6 @@ def _post_init_migrate_devices(env):
         UPDATE product_template
         SET is_hifi_device = TRUE,
             brand_id = rd.brand_id,
-            hifi_category_id = rd.category_id,
             production_year = rd.production_year
         FROM repair_device rd
         WHERE product_template.id = rd.product_tmpl_id

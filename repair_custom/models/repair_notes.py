@@ -6,14 +6,20 @@ class RepairNotesTemplate(models.Model):
     _order = 'name'
     name = fields.Char("Nom du Gabarit", required=True)
     template_content = fields.Text("Contenu du Gabarit")
-    category_ids = fields.Many2many('repair.device.category', string="Catégories d'appareils")
+    category_ids = fields.Many2many(
+        'product.category',
+        relation='repair_notes_template_product_category_rel',
+        column1='repair_notes_template_id',
+        column2='product_category_id',
+        string="Catégories d'appareils",
+    )
 
 class RepairTemplateSelector(models.TransientModel):
     _name = 'repair.template.selector'
     _description = "Assistant d'import de gabarit"
 
     repair_id = fields.Many2one('repair.order', required=True)
-    category_id = fields.Many2one('repair.device.category', string="Catégorie Filtre")
+    category_id = fields.Many2one('product.category', string="Catégorie Filtre")
     
     # On choisit le gabarit ici
     template_id = fields.Many2one('repair.notes.template', string="Choisir un modèle")

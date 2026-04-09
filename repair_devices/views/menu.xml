@@ -10,15 +10,7 @@
         <field name="search_view_id" ref="view_repair_device_brand_search"/>
     </record>
 
-    <!-- Catégories-->
-    <record id="action_repair_device_category" model="ir.actions.act_window">
-        <field name="name">Catégories</field>
-        <field name="res_model">repair.device.category</field>
-        <field name="search_view_id" ref="view_repair_device_category_search"/>
-        <field name="view_id" ref="view_repair_device_category_tree"/>
-    </record>
-
-    <!-- Variantes -->
+<!-- Variantes -->
     <record id="action_repair_device_variant" model="ir.actions.act_window">
         <field name="name">Variantes</field>
         <field name="res_model">repair.device.variant</field>
@@ -49,9 +41,8 @@
 
     <menuitem id="repair_menu_config" name="Configuration" parent="menu_repair_device" groups="repair_custom.group_repair_manager" sequence="30"/>
 
-    <menuitem id="menu_repair_device_category" name="Catégories" parent="repair_menu_config"  action="action_repair_device_category"/>
 
-    <menuitem id="menu_repair_device_brand" name="Marques" parent="repair_menu_config" action="action_repair_device_brand"/>
+<menuitem id="menu_repair_device_brand" name="Marques" parent="repair_menu_config" action="action_repair_device_brand"/>
 
     <menuitem id="menu_repair_device_variant" name="Variantes" parent="repair_menu_config" action="action_repair_device_variant"/>
 

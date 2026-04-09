@@ -10,9 +10,9 @@ class RepairDeviceReclassify(models.TransientModel):
 
     # La cible
     new_category_id = fields.Many2one(
-        'repair.device.category',
+        'product.category',
         string="Nouvelle Catégorie",
-        required=True
+        required=True,
     )
 
     # Optionnel : changer aussi la marque en masse si besoin
@@ -32,7 +32,7 @@ class RepairDeviceReclassify(models.TransientModel):
 
     def action_apply(self):
         self.ensure_one()
-        vals = {'hifi_category_id': self.new_category_id.id}
+        vals = {'categ_id': self.new_category_id.id}
 
         if self.new_brand_id:
             vals['brand_id'] = self.new_brand_id.id
@@ -44,7 +44,7 @@ class RepairDeviceReclassify(models.TransientModel):
             'tag': 'display_notification',
             'params': {
                 'title': _("Succès"),
-                'message': _("%s appareils ont été déplacés vers %s") % (len(self.device_ids), self.new_category_id.complete_name),
+                'message': _("%s appareils ont été déplacés vers %s") % (len(self.device_ids), self.new_category_id.display_name),
                 'type': 'success',
                 'sticky': False,
             }

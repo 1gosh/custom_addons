@@ -2,7 +2,7 @@
 
 ## What This Is
 
-French-language Odoo ERP system for managing Hi-Fi equipment repairs. Two interdependent modules:
+French-language Odoo ERP system for managing Hi-Fi equipment repairs, sale and renting. Two interdependent modules:
 - `repair_devices` - Device catalog, brands, categories, inventory units
 - `repair_custom` - Repair orders, quotes, invoicing, batch processing, customer tracking
 

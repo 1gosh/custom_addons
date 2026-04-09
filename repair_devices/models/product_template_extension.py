@@ -17,11 +17,6 @@ class ProductTemplate(models.Model):
         string="Marque",
         ondelete="restrict",
     )
-    hifi_category_id = fields.Many2one(
-        'repair.device.category',
-        string="Catégorie HiFi",
-        ondelete="restrict",
-    )
     hifi_variant_ids = fields.Many2many(
         'repair.device.variant',
         relation="product_template_variant_rel",
@@ -94,15 +89,23 @@ class ProductTemplate(models.Model):
     def default_get(self, fields_list):
         defaults = super().default_get(fields_list)
 
-        is_hifi_context = self.env.context.get('default_is_hifi_device')
-        if not is_hifi_context:
-            default_categ = self.env.context.get('default_categ_id')
-            if default_categ:
-                hifi_cat = self.env.ref('repair_devices.product_category_hifi', raise_if_not_found=False)
-                if hifi_cat and default_categ == hifi_cat.id:
-                    is_hifi_context = True
-        if not is_hifi_context:
+        hifi_cat = self.env.ref('repair_devices.product_category_hifi', raise_if_not_found=False)
+        if not hifi_cat:
             return defaults
+        default_categ = self.env.context.get('default_categ_id')
+        if not default_categ:
+            return defaults
+        cat = self.env['product.category'].browse(default_categ)
+        if not (cat.parent_path and hifi_cat.parent_path
+                and cat.parent_path.startswith(hifi_cat.parent_path)):
+            return defaults
+
+        # Force HiFi mandatory config — override model defaults (which set 'consu')
+        defaults['detailed_type'] = 'product'
+        defaults['tracking'] = 'serial'
+        defaults['sale_ok'] = True
+        if 'rent_ok' in self._fields:
+            defaults['rent_ok'] = True
 
         input_name = self.env.context.get('default_name') or self.env.context.get('default_display_name')
 
@@ -151,30 +154,45 @@ class ProductTemplate(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        records = super().create(vals_list)
-        for rec in records:
-            if rec.is_hifi_device:
-                rec._ensure_hifi_product_config()
-        return records
+        hifi_cat = self.env.ref('repair_devices.product_category_hifi', raise_if_not_found=False)
+        if hifi_cat:
+            for vals in vals_list:
+                categ_id = vals.get('categ_id')
+                if categ_id:
+                    cat = self.env['product.category'].browse(categ_id)
+                    if (cat.parent_path and hifi_cat.parent_path
+                            and cat.parent_path.startswith(hifi_cat.parent_path)):
+                        vals['detailed_type'] = 'product'
+                        vals['tracking'] = 'serial'
+                        vals.setdefault('sale_ok', True)
+                        if 'rent_ok' in self._fields:
+                            vals.setdefault('rent_ok', True)
+        return super().create(vals_list)
 
     def write(self, vals):
-        res = super().write(vals)
-        if 'categ_id' in vals or 'name' in vals or 'brand_id' in vals:
-            for rec in self.filtered('is_hifi_device'):
-                rec._ensure_hifi_product_config()
-        return res
+        hifi_cat = self.env.ref('repair_devices.product_category_hifi', raise_if_not_found=False)
+        if hifi_cat and 'categ_id' in vals:
+            cat = self.env['product.category'].browse(vals['categ_id'])
+            if (cat.parent_path and hifi_cat.parent_path
+                    and cat.parent_path.startswith(hifi_cat.parent_path)):
+                vals.setdefault('detailed_type', 'product')
+                vals.setdefault('tracking', 'serial')
+                vals.setdefault('sale_ok', True)
+                if 'rent_ok' in self._fields:
+                    vals.setdefault('rent_ok', True)
+        return super().write(vals)
 
-    def _ensure_hifi_product_config(self):
-        """Ensure HiFi products have correct config (storable, serial tracked)."""
-        vals = {}
-        if self.type != 'product':
-            vals['type'] = 'product'
-        if self.tracking != 'serial':
-            vals['tracking'] = 'serial'
-        if not self.sale_ok:
-            vals['sale_ok'] = True
-        if vals:
-            super(ProductTemplate, self).write(vals)
+    @api.constrains('is_hifi_device', 'tracking', 'detailed_type')
+    def _check_hifi_device_config(self):
+        for rec in self.filtered('is_hifi_device'):
+            if rec.tracking != 'serial':
+                raise ValidationError(_(
+                    "L'appareil « %s » doit être suivi par numéro de série."
+                ) % rec.display_name)
+            if rec.detailed_type != 'product':
+                raise ValidationError(_(
+                    "L'appareil « %s » doit être un article stockable."
+                ) % rec.display_name)
 
     _sql_constraints = [
         ("unique_hifi_brand_model",
