@@ -65,6 +65,40 @@ def migrate(cr, version):
         _logger.info("No repair_device table — fresh install, skipping.")
         return
 
+    # ── Step 0.5: Deduplicate devices before brand_id copy ────────────────
+    # Multiple repair_device records may share the same (brand_id, name).
+    # After brand_id is copied to product_template, the unique(brand_id, name)
+    # constraint would fail. Merge duplicates: keep the oldest product_template,
+    # remap other devices to it.
+
+    cr.execute("""
+        WITH device_templates AS (
+            SELECT rd.id AS device_id, rd.brand_id, rd.product_tmpl_id, pt.name
+            FROM repair_device rd
+            JOIN product_template pt ON pt.id = rd.product_tmpl_id
+            WHERE rd.brand_id IS NOT NULL
+              AND rd.product_tmpl_id IS NOT NULL
+        ),
+        ranked AS (
+            SELECT *,
+                ROW_NUMBER() OVER (
+                    PARTITION BY brand_id, name ORDER BY product_tmpl_id
+                ) AS rn,
+                FIRST_VALUE(product_tmpl_id) OVER (
+                    PARTITION BY brand_id, name ORDER BY product_tmpl_id
+                ) AS canonical_id
+            FROM device_templates
+        )
+        UPDATE repair_device rd
+        SET product_tmpl_id = r.canonical_id
+        FROM ranked r
+        WHERE r.device_id = rd.id
+          AND r.rn > 1
+    """)
+    if cr.rowcount:
+        _logger.info("Step 0.5: merged %d duplicate devices to canonical templates",
+                      cr.rowcount)
+
     # ── Step 1: Copy brand_id, production_year → product_template ────────
 
     cr.execute("""
