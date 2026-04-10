@@ -94,12 +94,9 @@ def migrate(cr, version):
     if not _table_exists(cr, 'repair_device_unit'):
         _logger.info("No repair_device_unit table — skipping unit migration.")
     else:
-        has_image = _column_exists(cr, 'repair_device_unit', 'image')
-        image_col = ', rdu.image' if has_image else ', NULL as image'
-
-        cr.execute(f"""
+        cr.execute("""
             SELECT rdu.id, rdu.serial_number, rdu.partner_id, rdu.notes,
-                   rdu.variant_id{image_col},
+                   rdu.variant_id,
                    pp.id as product_id, rd.product_tmpl_id,
                    (SELECT id FROM res_company LIMIT 1) as company_id
             FROM repair_device_unit rdu
@@ -139,23 +136,22 @@ def migrate(cr, version):
                     SET is_hifi_unit = TRUE,
                         hifi_partner_id = %s,
                         hifi_notes = %s,
-                        hifi_variant_id = %s,
-                        hifi_image = %s
+                        hifi_variant_id = %s
                     WHERE id = %s
                 """, [unit['partner_id'], unit['notes'],
-                      unit['variant_id'], unit.get('image'), lot_id])
+                      unit['variant_id'], lot_id])
             else:
                 cr.execute("""
                     INSERT INTO stock_lot
                         (name, product_id, company_id, is_hifi_unit,
-                         hifi_partner_id, hifi_notes, hifi_variant_id, hifi_image,
+                         hifi_partner_id, hifi_notes, hifi_variant_id,
                          create_uid, create_date, write_uid, write_date)
-                    VALUES (%s, %s, %s, TRUE, %s, %s, %s, %s,
+                    VALUES (%s, %s, %s, TRUE, %s, %s, %s,
                             1, NOW(), 1, NOW())
                     RETURNING id
                 """, [serial, unit['product_id'], unit['company_id'],
                       unit['partner_id'], unit['notes'],
-                      unit['variant_id'], unit.get('image')])
+                      unit['variant_id']])
                 lot_id = cr.fetchone()[0]
 
             cr.execute(
