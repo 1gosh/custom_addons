@@ -41,12 +41,16 @@ def migrate(cr, version):
         return
 
     # Clean up orphan "Appareils Hi-Fi" categories (created by pre-migrate without xmlid)
+    # Must also check for child categories to avoid cascade-deleting subcategories
     cr.execute("""
         DELETE FROM product_category
-        WHERE name = 'Appareils Hi-Fi'
+        WHERE name IN ('Appareils Hi-Fi', 'HIFI')
           AND id != %s
           AND NOT EXISTS (
               SELECT 1 FROM product_template WHERE categ_id = product_category.id
+          )
+          AND NOT EXISTS (
+              SELECT 1 FROM product_category pc2 WHERE pc2.parent_id = product_category.id
           )
     """, [hifi_cat.id])
     if cr.rowcount:

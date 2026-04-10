@@ -53,7 +53,7 @@ def migrate(cr, version):
     if row:
         hifi_root_id = row[0]
     else:
-        cr.execute("SELECT id FROM product_category WHERE name = 'Appareils Hi-Fi' LIMIT 1")
+        cr.execute("SELECT id FROM product_category WHERE name IN ('HIFI', 'Appareils Hi-Fi') LIMIT 1")
         row = cr.fetchone()
         if row:
             hifi_root_id = row[0]

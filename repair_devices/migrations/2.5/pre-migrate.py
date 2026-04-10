@@ -43,7 +43,7 @@ def migrate(cr, version):
         hifi_cat_id = row[0]
         _logger.info("Found HiFi category id=%d via xmlid", hifi_cat_id)
     else:
-        cr.execute("SELECT id FROM product_category WHERE name = 'Appareils Hi-Fi' LIMIT 1")
+        cr.execute("SELECT id FROM product_category WHERE name IN ('Appareils Hi-Fi', 'HIFI') LIMIT 1")
         row = cr.fetchone()
         if row:
             hifi_cat_id = row[0]
@@ -51,7 +51,7 @@ def migrate(cr, version):
         else:
             cr.execute("""
                 INSERT INTO product_category (name, parent_path, create_uid, write_uid, create_date, write_date)
-                VALUES ('Appareils Hi-Fi', '', 1, 1, NOW(), NOW())
+                VALUES ('HIFI', '', 1, 1, NOW(), NOW())
                 RETURNING id
             """)
             hifi_cat_id = cr.fetchone()[0]
@@ -60,6 +60,15 @@ def migrate(cr, version):
                 [f"{hifi_cat_id}/", hifi_cat_id],
             )
             _logger.info("Created HiFi category id=%d", hifi_cat_id)
+
+        # Register the xmlid so data loading reuses this record
+        # instead of creating a duplicate
+        cr.execute("""
+            INSERT INTO ir_model_data (module, name, model, res_id, noupdate, create_uid, write_uid, create_date, write_date)
+            VALUES ('repair_devices', 'product_category_hifi', 'product.category', %s, TRUE, 1, 1, NOW(), NOW())
+            ON CONFLICT (module, name) DO NOTHING
+        """, [hifi_cat_id])
+        _logger.info("Registered xmlid repair_devices.product_category_hifi → id=%d", hifi_cat_id)
 
     # --- Assign HiFi category to HiFi products ---
     if _column_exists(cr, 'product_template', 'is_hifi_device'):
