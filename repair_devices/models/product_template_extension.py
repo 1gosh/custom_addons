@@ -71,13 +71,7 @@ class ProductTemplate(models.Model):
     @api.model
     def _name_search(self, name, domain=None, operator='ilike', limit=None, order=None):
         domain = domain or []
-        # Check if we're searching HiFi devices specifically
-        is_hifi_search = any(
-            isinstance(a, (list, tuple)) and len(a) == 3
-            and a[0] == 'is_hifi_device' and a[2] is True
-            for a in domain
-        )
-        if name and is_hifi_search:
+        if name:
             search_terms = name.split()
             search_domain = []
             for term in search_terms:

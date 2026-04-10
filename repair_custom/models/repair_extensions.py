@@ -522,6 +522,28 @@ class SaleOrderLine(models.Model):
                     and margin_tax):
                 line.tax_id = margin_tax
 
+    def action_generate_serial(self):
+        """Auto-generate a serial number and create the stock.lot for HiFi products."""
+        for line in self:
+            if line.lot_id:
+                continue
+            product = line.product_id
+            if not product:
+                raise UserError(_("Veuillez sélectionner un produit avant de générer un numéro de série."))
+            if not product.product_tmpl_id.is_hifi_device:
+                raise UserError(_("La génération automatique de série est réservée aux appareils HiFi."))
+            serial = self.env['ir.sequence'].next_by_code('stock.lot.hifi')
+            lot = self.env['stock.lot'].create({
+                'name': serial,
+                'product_id': product.id,
+                'company_id': self.env.company.id,
+            })
+            line.lot_id = lot
+            line.product_uom_qty = 1
+            if lot.is_hifi_unit:
+                device_name = lot.with_context(lot_display='device_only').display_name
+                line.name = f"{device_name} – SN: {lot.name}"
+
     @api.onchange('product_id')
     def _onchange_product_id_set_categ(self):
         if self.product_id:
@@ -534,6 +556,9 @@ class SaleOrderLine(models.Model):
             if not self.product_id:
                 self.product_id = self.lot_id.product_id
                 self.categ_id = self.lot_id.product_id.categ_id
+            if self.lot_id.is_hifi_unit:
+                device_name = self.lot_id.with_context(lot_display='device_only').display_name
+                self.name = f"{device_name} – SN: {self.lot_id.name}" if self.lot_id.name else device_name
 
     def _prepare_procurement_values(self, group_id=False):
         values = super()._prepare_procurement_values(group_id=group_id)
