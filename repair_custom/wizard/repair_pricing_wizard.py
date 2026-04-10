@@ -287,12 +287,15 @@ class RepairPricingWizard(models.TransientModel):
             label += f" (S/N: {sn})"
         return label
 
+    def _get_service_tax(self):
+        tax_id = self.env['ir.config_parameter'].sudo().get_param('repair_custom.service_tax_id')
+        if tax_id:
+            return self.env['account.tax'].browse(int(tax_id)).exists()
+        return self.env['account.tax']
+
     def _create_global_invoice(self, lines_list_dicts, is_quote=False):
-        """Create invoice with proper fiscal position tax mapping."""
-
-        # Determine fiscal position based on repair order type
-        fiscal_position = self._get_fiscal_position_for_invoice()
-
+        """Create invoice from repair pricing lines, forcing service VAT on all product lines."""
+        service_tax = self._get_service_tax()
         formatted_lines = []
 
         for l in lines_list_dicts:
@@ -303,35 +306,24 @@ class RepairPricingWizard(models.TransientModel):
                 'product_id': l['product_id'],
             }
 
-            # Product lines: apply tax mapping
             if dtype == 'product' or not dtype:
-                original_tax_ids = l['tax_ids']
-
-                # Apply fiscal position mapping
-                mapped_tax_ids = self._map_taxes_via_fiscal_position(
-                    original_tax_ids,
-                    fiscal_position
-                )
-
+                tax_ids = [service_tax.id] if service_tax else l['tax_ids']
                 val.update({
                     'quantity': l['quantity'],
                     'price_unit': l['price_unit'],
-                    'tax_ids': [(6, 0, mapped_tax_ids)],
+                    'tax_ids': [(6, 0, tax_ids)],
                 })
 
             formatted_lines.append((0, 0, val))
 
-        # Partner
         partner = self.batch_id.partner_id if self.batch_id else self.repair_id.partner_id
 
         move_vals = {
             'move_type': 'out_invoice',
             'partner_id': partner.id,
             'invoice_line_ids': formatted_lines,
-            'fiscal_position_id': fiscal_position.id if fiscal_position else False,
         }
 
-        # Link to repair order for traceability
         if not self.batch_id and self.repair_id:
             move_vals['repair_id'] = self.repair_id.id
         elif self.batch_id:
@@ -346,47 +338,6 @@ class RepairPricingWizard(models.TransientModel):
             'res_id': move.id,
             'view_mode': 'form',
         }
-
-    def _get_fiscal_position_for_invoice(self):
-        """Determine which fiscal position to apply based on context.
-
-        Returns:
-            account.fiscal.position recordset (may be empty)
-        """
-        # Case 1: Repair is linked to a sale order with fiscal position
-        if self.repair_id.sale_order_id and self.repair_id.sale_order_id.fiscal_position_id:
-            return self.repair_id.sale_order_id.fiscal_position_id
-
-        # Case 2: Batch repairs - use first repair's logic
-        if self.batch_id and self.batch_id.repair_ids:
-            first_repair = self.batch_id.repair_ids[0]
-            if first_repair.sale_order_id and first_repair.sale_order_id.fiscal_position_id:
-                return first_repair.sale_order_id.fiscal_position_id
-
-        # Case 3: Direct invoice (no sale order) - default to repair fiscal position
-        # Repairs always use 20% VAT
-        return self.env.ref('repair_custom.fiscal_position_repair', raise_if_not_found=False)
-
-    def _map_taxes_via_fiscal_position(self, original_tax_ids, fiscal_position):
-        """Apply fiscal position tax mapping rules.
-
-        Args:
-            original_tax_ids: list of tax IDs from product
-            fiscal_position: account.fiscal.position recordset
-
-        Returns:
-            list of mapped tax IDs
-        """
-        if not fiscal_position:
-            return original_tax_ids
-
-        # Convert to recordset
-        original_taxes = self.env['account.tax'].browse(original_tax_ids)
-
-        # Apply fiscal position mapping
-        mapped_taxes = fiscal_position.map_tax(original_taxes)
-
-        return mapped_taxes.ids 
 
     def _create_global_sale_order(self, lines_list_dicts):
         """ Crée un devis (sale.order) depuis la liste de dictionnaires """

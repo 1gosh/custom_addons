@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_repair" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.repair</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base_setup.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//app[@name='general_settings']" position="after">
+                <app string="Réparations" name="repair_custom" groups="base.group_system">
+                    <block title="Comptabilité">
+                        <setting string="TVA Services (réparations/locations)"
+                                 help="Taxe appliquée automatiquement sur toutes les lignes de devis de réparation et de commandes de location.">
+                            <field name="repair_service_tax_id"/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+</odoo>

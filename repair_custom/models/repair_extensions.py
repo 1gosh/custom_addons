@@ -219,34 +219,6 @@ class SaleOrder(models.Model):
             else:
                 order.computed_order_type = 'standard'
 
-    fiscal_position_id = fields.Many2one(
-        'account.fiscal.position',
-        string="Position Fiscale",
-        compute='_compute_fiscal_position_from_template',
-        store=True,
-        readonly=False,
-        check_company=True,
-        help="Position fiscale appliquée automatiquement selon le type de commande"
-    )
-
-    @api.depends('computed_order_type')
-    def _compute_fiscal_position_from_template(self):
-        for order in self:
-            if order.state not in ['draft', 'sent']:
-                continue
-            if order.computed_order_type == 'repair_quote':
-                order.fiscal_position_id = self.env.ref(
-                    'repair_custom.fiscal_position_repair', raise_if_not_found=False)
-            elif order.computed_order_type == 'equipment_sale':
-                order.fiscal_position_id = self.env.ref(
-                    'repair_custom.fiscal_position_equipment_sale', raise_if_not_found=False)
-            elif order.computed_order_type == 'rental':
-                order.fiscal_position_id = self.env.ref(
-                    'repair_custom.fiscal_position_rental', raise_if_not_found=False)
-            else:
-                if not order.fiscal_position_id:
-                    order.fiscal_position_id = False
-
     def _is_rental(self):
         self.ensure_one()
         return self.computed_order_type == 'rental'
@@ -262,6 +234,15 @@ class SaleOrder(models.Model):
     def _requires_special_stock_handling(self):
         self.ensure_one()
         return self.computed_order_type in ('rental', 'equipment_sale')
+
+    stock_location_id = fields.Many2one(
+        'stock.location', compute='_compute_stock_location_id',
+    )
+
+    @api.depends('warehouse_id')
+    def _compute_stock_location_id(self):
+        for order in self:
+            order.stock_location_id = order.warehouse_id.lot_stock_id
 
     # --- Rental fields ---
     rental_start_date = fields.Datetime("Date début location")
@@ -506,6 +487,12 @@ class SaleOrder(models.Model):
 class SaleOrderLine(models.Model):
     _inherit = 'sale.order.line'
 
+    categ_id = fields.Many2one(
+        'product.category',
+        string="Catégorie",
+        copy=False,
+    )
+
     lot_id = fields.Many2one(
         'stock.lot',
         string="Numéro de série (Stock)",
@@ -513,10 +500,40 @@ class SaleOrderLine(models.Model):
         copy=False,
     )
 
+    @api.model
+    def _get_service_tax(self):
+        tax_id = self.env['ir.config_parameter'].sudo().get_param('repair_custom.service_tax_id')
+        if tax_id:
+            return self.env['account.tax'].browse(int(tax_id)).exists()
+        return self.env['account.tax']
+
+    @api.depends('product_id', 'order_id.computed_order_type', 'lot_id', 'lot_id.is_hifi_unit')
+    def _compute_tax_id(self):
+        super()._compute_tax_id()
+        margin_tax = self.env.ref('repair_custom.account_tax_0_margin', raise_if_not_found=False)
+        service_tax = self._get_service_tax()
+        for line in self:
+            order_type = line.order_id.computed_order_type
+            if order_type in ('repair_quote', 'rental') and service_tax:
+                line.tax_id = service_tax
+            elif (order_type == 'equipment_sale'
+                    and line.lot_id
+                    and line.lot_id.is_hifi_unit
+                    and margin_tax):
+                line.tax_id = margin_tax
+
+    @api.onchange('product_id')
+    def _onchange_product_id_set_categ(self):
+        if self.product_id:
+            self.categ_id = self.product_id.categ_id
+
     @api.onchange('lot_id')
     def _onchange_lot_id(self):
         if self.lot_id:
             self.product_uom_qty = 1
+            if not self.product_id:
+                self.product_id = self.lot_id.product_id
+                self.categ_id = self.lot_id.product_id.categ_id
 
     def _prepare_procurement_values(self, group_id=False):
         values = super()._prepare_procurement_values(group_id=group_id)

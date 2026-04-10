@@ -22,6 +22,7 @@
                 <!-- Wizard button in header -->
                 <xpath expr="//header" position="inside">
                     <field name="computed_order_type" invisible="1"/>
+                    <field name="stock_location_id" invisible="1"/>
                     <field name="rental_end_date" invisible="1"/>
                     <button name="action_return_rental"
                         string="Marquer Retourné"
@@ -56,12 +57,23 @@
                     <attribute name="invisible">1</attribute>
                 </xpath>
 
-                <!-- Lot on order lines -->
+                <!-- Category + Lot on order lines -->
+                <xpath expr="//field[@name='order_line']/tree/field[@name='product_template_id']" position="before">
+                    <field name="categ_id" optional="show" string="Catégorie"
+                        column_invisible="parent.computed_order_type in ('standard', 'repair_quote')"/>
+                </xpath>
+
+                <xpath expr="//field[@name='order_line']/tree/field[@name='product_template_id']" position="attributes">
+                    <attribute name="domain">[('sale_ok', '=', True)] + ([('categ_id', 'child_of', categ_id)] if categ_id else [])</attribute>
+                    <attribute name="context">{'default_categ_id': categ_id}</attribute>
+                </xpath>
+
                 <xpath expr="//field[@name='order_line']/tree/field[@name='product_template_id']" position="after">
                     <field name="lot_id" optional="show" string="N° Série (Stock)"
                         column_invisible="parent.computed_order_type in ('standard', 'repair_quote')"
-                        domain="[('product_id.product_tmpl_id', '=', product_template_id), ('quant_ids.quantity', '>', 0), ('quant_ids.location_id.usage', '=', 'internal')]"
+                        domain="[('product_id.product_tmpl_id', '=', product_template_id), ('location_id', '=', parent.stock_location_id)]"
                         context="{'default_product_id': product_id}"/>
+                        <!-- ('stock_state', '=', 'stock') -->
                 </xpath>
 
                 <!-- Hide "Delivered" column for rental orders -->

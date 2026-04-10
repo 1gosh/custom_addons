@@ -1,52 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <data noupdate="1">
-        <!-- Fiscal Position: Repair Quote (20% VAT) -->
+        <!-- Kept to avoid FK violations on existing invoices. No longer auto-assigned. -->
         <record id="fiscal_position_repair" model="account.fiscal.position">
             <field name="name">Réparations</field>
-            <field name="active">True</field>
+            <field name="active">False</field>
             <field name="auto_apply">False</field>
-            <field name="sequence">10</field>
-            <!-- <field name="note">TVA au taux normal de 20 % – Article 278 du CGI.</field> -->
-        </record>
-
-        <!-- Tax mapping: 20% VAT → 20% VAT (identity, ensures 20% is always applied) -->
-        <record id="fiscal_position_repair_tax_mapping" model="account.fiscal.position.tax">
-            <field name="position_id" ref="fiscal_position_repair"/>
-            <field name="tax_src_id" ref="account_tax_20_vat"/>
-            <field name="tax_dest_id" ref="account_tax_20_vat"/>
         </record>
 
         <!-- Fiscal Position: Equipment Sale (0% Margin Regime) -->
+        <!-- Used only for invoice display detection, not for blanket tax mapping -->
         <record id="fiscal_position_equipment_sale" model="account.fiscal.position">
             <field name="name">Ventes Équipement</field>
             <field name="active">True</field>
             <field name="auto_apply">False</field>
             <field name="sequence">20</field>
-            <!-- <field name="note">TVA sur la marge – Biens d’occasion – Article 297 A du CGI. TVA non récupérable par l’acheteur.</field> -->
         </record>
 
-        <!-- Tax mapping: 20% VAT → 0% Margin -->
-        <record id="fiscal_position_equipment_sale_tax_mapping" model="account.fiscal.position.tax">
-            <field name="position_id" ref="fiscal_position_equipment_sale"/>
-            <field name="tax_src_id" ref="account_tax_20_vat"/>
-            <field name="tax_dest_id" ref="account_tax_0_margin"/>
-        </record>
-
-        <!-- Fiscal Position: Rental (20% VAT) -->
+        <!-- Kept to avoid FK violations on existing invoices. No longer auto-assigned. -->
         <record id="fiscal_position_rental" model="account.fiscal.position">
             <field name="name">Locations</field>
-            <field name="active">True</field>
+            <field name="active">False</field>
             <field name="auto_apply">False</field>
-            <field name="sequence">30</field>
-            <!-- <field name="note">TVA au taux normal de 20 % – Article 278 du CGI.</field> -->
-        </record>
-
-        <!-- Tax mapping: 20% VAT → 20% VAT (identity, ensures 20% is always applied) -->
-        <record id="fiscal_position_rental_tax_mapping" model="account.fiscal.position.tax">
-            <field name="position_id" ref="fiscal_position_rental"/>
-            <field name="tax_src_id" ref="account_tax_20_vat"/>
-            <field name="tax_dest_id" ref="account_tax_20_vat"/>
         </record>
     </data>
 </odoo>

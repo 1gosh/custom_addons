@@ -3,7 +3,7 @@
     <data noupdate="1">
 
         <record id="product_category_hifi" model="product.category">
-            <field name="name">Appareils Hi-Fi</field>
+            <field name="name">HIFI</field>
         </record>
 
     </data>
