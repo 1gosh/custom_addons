@@ -40,12 +40,27 @@ def migrate(cr, version):
 
     env = api.Environment(cr, SUPERUSER_ID, {})
 
-    # 1. Resolve the HiFi root product.category via external ID
-    hifi_cat = env.ref('repair_devices.product_category_hifi', raise_if_not_found=False)
-    if not hifi_cat:
-        _logger.error("HiFi root product.category not found — aborting pre-migrate.")
-        return
-    hifi_root_id = hifi_cat.id
+    # 1. Resolve the HiFi root product.category
+    #    env.ref() won't work here because the xmlid is registered by
+    #    product_category_data.xml which loads AFTER pre-migrate scripts.
+    #    Use raw SQL lookup: first try ir_model_data, then fallback to name.
+    cr.execute("""
+        SELECT res_id FROM ir_model_data
+        WHERE module = 'repair_devices' AND name = 'product_category_hifi'
+        LIMIT 1
+    """)
+    row = cr.fetchone()
+    if row:
+        hifi_root_id = row[0]
+    else:
+        cr.execute("SELECT id FROM product_category WHERE name = 'Appareils Hi-Fi' LIMIT 1")
+        row = cr.fetchone()
+        if row:
+            hifi_root_id = row[0]
+        else:
+            _logger.error("HiFi root product.category not found — aborting pre-migrate.")
+            return
+    _logger.info("Resolved HiFi root category id=%d", hifi_root_id)
 
     # 2. Load all repair.device.category rows ordered by parent_path
     #    so parents are always processed before children

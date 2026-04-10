@@ -143,9 +143,10 @@ def _post_init_migrate_devices(env):
     # Match repair orders to lots via serial_number = stock_lot.name
     cr.execute("""
         SELECT column_name FROM information_schema.columns
-        WHERE table_name = 'repair_order' AND column_name = 'lot_id'
+        WHERE table_name = 'repair_order' AND column_name IN ('lot_id', 'product_tmpl_id')
     """)
-    if cr.fetchone():
+    ro_columns = {row[0] for row in cr.fetchall()}
+    if 'lot_id' in ro_columns and 'product_tmpl_id' in ro_columns:
         cr.execute("""
             UPDATE repair_order ro
             SET lot_id = sl.id,
@@ -158,6 +159,10 @@ def _post_init_migrate_devices(env):
               AND ro.serial_number IS NOT NULL
         """)
         _logger.info("Migrated repair.order lot_id (via serial_number match): %d rows", cr.rowcount)
+    elif 'lot_id' in ro_columns:
+        # product_tmpl_id not yet available (repair_custom not updated yet) — skip,
+        # repair_custom 17.0.1.2.5 post-migrate will handle this.
+        _logger.info("repair_order.product_tmpl_id not yet available — deferring to repair_custom migration.")
 
     # --- 4d. Migrate sale.order.line references ---
     # Match SOL to lot via repair_device_unit.sale_order_id
