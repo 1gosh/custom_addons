@@ -278,8 +278,7 @@ class Repair(models.Model):
 
     # --- DEVICE FIELDS ---
     category_id = fields.Many2one('product.category', string="Catégorie")
-    product_tmpl_id = fields.Many2one('product.template', string="Modèle",
-                                       domain=[('is_hifi_device', '=', True)])
+    product_tmpl_id = fields.Many2one('product.template', string="Modèle")
     variant_id = fields.Many2one('repair.device.variant', string="Variante")
     variant_ids_available = fields.Many2many('repair.device.variant', compute='_compute_variant_ids_available', store=False)
 
@@ -675,6 +674,15 @@ class Repair(models.Model):
         if self.delivery_state == 'abandoned':
             raise UserError(_("Impossible de modifier l'état d'une réparation abandonnée."))
         return self.write({'state': 'confirmed'})
+
+    def action_generate_serial(self):
+        """Auto-generate a serial number (without creating the lot — action_validate handles that)."""
+        self.ensure_one()
+        if self.serial_number or self.lot_id:
+            return
+        if not self.product_tmpl_id:
+            raise UserError(_("Veuillez sélectionner un appareil avant de générer un numéro de série."))
+        self.serial_number = self.env['ir.sequence'].next_by_code('stock.lot.hifi')
 
     def action_validate(self):
         """Confirm repair, create stock.lot if needed, and create intake stock move."""

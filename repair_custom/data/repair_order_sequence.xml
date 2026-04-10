@@ -10,6 +10,14 @@
             <field name="company_id" eval="False"/>
             <field name="implementation">no_gap</field>
         </record>
+        <record id="seq_hifi_serial" model="ir.sequence">
+            <field name="name">Numéro de série HiFi</field>
+            <field name="code">stock.lot.hifi</field>
+            <field name="prefix">HF/%(year)s/</field>
+            <field name="padding">4</field>
+            <field name="company_id" eval="False"/>
+            <field name="implementation">no_gap</field>
+        </record>
         <record id="seq_repair_batch" model="ir.sequence">
             <field name="name">Séquence Dossier Réparation</field>
             <field name="code">repair.batch</field> 

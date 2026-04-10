@@ -319,8 +319,10 @@
                                         options="{'no_create': True, 'no_open': True}"
                                         invisible="not show_lot_field"
                                         readonly="state not in 'draft'"
+                                        context="{'lot_display': 'device_only'}"
                                         string="Appareil(s) existant(s)"/>
-                                    <field name="category_id" readonly="state not in 'draft' or lot_id" force_save="1"/>
+                                    <field name="category_id" readonly="state not in 'draft' or lot_id" force_save="1"
+                                        domain="[('id', 'child_of', %(repair_devices.product_category_hifi)d)]"/>
                                     <field name="product_tmpl_id"
                                         required="True"
                                         options="{'no_quick_create':True}"
@@ -335,11 +337,19 @@
                                         force_save="1"
                                         placeholder="Sélectionner une variante (optionnel)"
                                         invisible ="(not product_tmpl_id) or (not variant_id and (state not in 'draft'))"/>
-                                    <field name="serial_number"
-                                        placeholder="Numéro de série (ou laisser vide pour auto)"
-                                        readonly="state not in 'draft' or lot_id"
-                                        force_save="1"
-                                        invisible ="not product_tmpl_id"/>
+                                    <label for="serial_number" string="N° de série"
+                                        invisible="not product_tmpl_id"/>
+                                    <div class="d-flex align-items-center gap-2"
+                                        invisible="not product_tmpl_id">
+                                        <field name="serial_number" nolabel="1"
+                                            placeholder="Numéro de série"
+                                            readonly="state not in 'draft' or lot_id"
+                                            force_save="1"/>
+                                        <button name="action_generate_serial" type="object"
+                                            class="btn-sm" icon="fa-barcode"
+                                            title="Générer N° Série"
+                                            invisible="state != 'draft' or serial_number or lot_id"/>
+                                    </div>
                                 </group>
                                 <group>
                                     <field name="tag_ids"   

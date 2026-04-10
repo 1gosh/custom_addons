@@ -29,14 +29,19 @@ class StockLot(models.Model):
         non_hifi = self - hifi
         if non_hifi:
             super(StockLot, non_hifi)._compute_display_name()
+
+        lot_display = self.env.context.get('lot_display', 'full')
         for rec in hifi:
-            tmpl = rec.product_id.product_tmpl_id
-            device_name = tmpl.display_name or rec.product_id.name or ""
-            if rec.hifi_variant_id:
-                device_name += f" ({rec.hifi_variant_id.name})"
-            if rec.name:
-                device_name += f" – SN: {rec.name}"
-            rec.display_name = device_name
+            if lot_display == 'serial_only':
+                rec.display_name = rec.name or ""
+            else:
+                tmpl = rec.product_id.product_tmpl_id
+                device_name = tmpl.display_name or rec.product_id.name or ""
+                if rec.hifi_variant_id:
+                    device_name += f" ({rec.hifi_variant_id.name})"
+                if lot_display == 'full' and rec.name:
+                    device_name += f" – SN: {rec.name}"
+                rec.display_name = device_name
 
     @api.depends('product_id.product_tmpl_id.is_hifi_device')
     def _compute_is_hifi_unit(self):
