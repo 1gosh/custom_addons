@@ -1,13 +1,13 @@
 """Pre-migration for repair_devices 2.7.
 
-Converts repair.device.category records to product.category records,
-then remaps every FK/M2M that pointed at the old model so the data
-survives the model deletion.
+Runs BEFORE schema update. Prepares data that must be in place before Odoo
+adds new columns and recomputes stored fields.
 
-Note: In Odoo 17, translatable fields (translate=True) are stored as JSONB
-in PostgreSQL. We use the ORM for product.category creation so that Odoo
-handles serialization automatically, and extract plain strings from the
-JSONB name dict when needed for raw SQL operations.
+Steps:
+  1. Create HIFI root product.category + register xmlid
+  2. Migrate repair.device.category → product.category (under HIFI root)
+  3. Set product_template.categ_id from category mapping
+  4. Set product_template.name from repair_device.name (model name only)
 """
 import logging
 
@@ -15,35 +15,34 @@ _logger = logging.getLogger(__name__)
 
 
 def _name_from_raw(name_raw):
-    """Extract a plain string from a JSONB name value (dict) or plain string."""
+    """Extract a plain string from a JSONB name value (dict) or plain string.
+
+    In Odoo 17, translatable fields (translate=True) are stored as JSONB.
+    """
     if isinstance(name_raw, dict):
         return (name_raw.get('fr_FR') or name_raw.get('en_US')
                 or next(iter(name_raw.values()), '') or '')
     return name_raw or ''
 
 
+def _table_exists(cr, table):
+    cr.execute("""
+        SELECT EXISTS (
+            SELECT FROM information_schema.tables WHERE table_name = %s
+        )
+    """, [table])
+    return cr.fetchone()[0]
+
+
 def migrate(cr, version):
     from odoo import api, SUPERUSER_ID
 
-    _logger.info("2.7 pre-migrate: starting repair.device.category → product.category consolidation")
+    _logger.info("2.7 pre-migrate: starting")
 
-    # Guard: nothing to do on a fresh install
-    cr.execute("""
-        SELECT EXISTS (
-            SELECT FROM information_schema.tables
-            WHERE table_name = 'repair_device_category'
-        )
-    """)
-    if not cr.fetchone()[0]:
-        _logger.info("repair_device_category table absent — fresh install, skipping.")
-        return
+    # ── Step 1: Create HIFI root category + register xmlid ──────────────
 
-    env = api.Environment(cr, SUPERUSER_ID, {})
+    hifi_cat_id = None
 
-    # 1. Resolve the HiFi root product.category
-    #    env.ref() won't work here because the xmlid is registered by
-    #    product_category_data.xml which loads AFTER pre-migrate scripts.
-    #    Use raw SQL lookup: first try ir_model_data, then fallback to name.
     cr.execute("""
         SELECT res_id FROM ir_model_data
         WHERE module = 'repair_devices' AND name = 'product_category_hifi'
@@ -51,19 +50,58 @@ def migrate(cr, version):
     """)
     row = cr.fetchone()
     if row:
-        hifi_root_id = row[0]
-    else:
-        cr.execute("SELECT id FROM product_category WHERE name IN ('HIFI', 'Appareils Hi-Fi') LIMIT 1")
+        # Verify record actually exists
+        cr.execute("SELECT id FROM product_category WHERE id = %s", [row[0]])
+        if cr.fetchone():
+            hifi_cat_id = row[0]
+            _logger.info("Found HIFI category id=%d via xmlid", hifi_cat_id)
+        else:
+            cr.execute("""
+                DELETE FROM ir_model_data
+                WHERE module = 'repair_devices' AND name = 'product_category_hifi'
+            """)
+            _logger.warning("Stale xmlid removed (pointed to deleted record)")
+
+    if not hifi_cat_id:
+        cr.execute("SELECT id FROM product_category WHERE name = 'HIFI' LIMIT 1")
         row = cr.fetchone()
         if row:
-            hifi_root_id = row[0]
+            hifi_cat_id = row[0]
+            _logger.info("Found HIFI category id=%d by name", hifi_cat_id)
         else:
-            _logger.error("HiFi root product.category not found — aborting pre-migrate.")
-            return
-    _logger.info("Resolved HiFi root category id=%d", hifi_root_id)
+            cr.execute("""
+                INSERT INTO product_category
+                    (name, parent_path, create_uid, write_uid, create_date, write_date)
+                VALUES ('HIFI', '', 1, 1, NOW(), NOW())
+                RETURNING id
+            """)
+            hifi_cat_id = cr.fetchone()[0]
+            cr.execute(
+                "UPDATE product_category SET parent_path = %s WHERE id = %s",
+                [f"{hifi_cat_id}/", hifi_cat_id],
+            )
+            _logger.info("Created HIFI category id=%d", hifi_cat_id)
 
-    # 2. Load all repair.device.category rows ordered by parent_path
-    #    so parents are always processed before children
+        # Register xmlid (noupdate=FALSE to match product_category_data.xml)
+        cr.execute("""
+            INSERT INTO ir_model_data
+                (module, name, model, res_id, noupdate,
+                 create_uid, write_uid, create_date, write_date)
+            VALUES
+                ('repair_devices', 'product_category_hifi', 'product.category',
+                 %s, FALSE, 1, 1, NOW(), NOW())
+            ON CONFLICT (module, name) DO UPDATE SET res_id = EXCLUDED.res_id
+        """, [hifi_cat_id])
+        _logger.info("Registered xmlid → id=%d", hifi_cat_id)
+
+    # ── Step 2: Migrate repair.device.category → product.category ───────
+
+    if not _table_exists(cr, 'repair_device_category'):
+        _logger.info("No repair_device_category table — fresh install, skipping.")
+        return
+
+    env = api.Environment(cr, SUPERUSER_ID, {})
+
     cr.execute("""
         SELECT id, name, parent_id, parent_path
         FROM repair_device_category
@@ -72,18 +110,14 @@ def migrate(cr, version):
     old_cats = cr.fetchall()
     _logger.info("Found %d repair.device.category records to migrate", len(old_cats))
 
-    if not old_cats:
-        return
+    # Build old→new mapping, create product.category records via ORM
+    old_to_new = {}
 
-    # 3. Build old→new mapping by creating product.category records via ORM
-    #    (ORM handles JSONB serialization and _parent_store parent_path recompute)
-    old_to_new = {}  # old repair.device.category.id → new product.category.id
-
-    for (old_id, name_raw, old_parent_id, parent_path) in old_cats:
+    for (old_id, name_raw, old_parent_id, _parent_path) in old_cats:
         name_str = _name_from_raw(name_raw)
-        new_parent_id = old_to_new.get(old_parent_id, hifi_root_id)
+        new_parent_id = old_to_new.get(old_parent_id, hifi_cat_id)
 
-        # Idempotency: check if a category with this name already exists under new_parent_id
+        # Idempotency: reuse existing category with same name under same parent
         existing = env['product.category'].search([
             ('name', '=', name_str),
             ('parent_id', '=', new_parent_id),
@@ -91,122 +125,75 @@ def migrate(cr, version):
 
         if existing:
             new_id = existing.id
-            _logger.info("  Reusing existing product.category id=%d for '%s'", new_id, name_str)
+            _logger.info("  Reusing product.category id=%d for '%s'", new_id, name_str)
         else:
             new_cat = env['product.category'].create({
                 'name': name_str,
                 'parent_id': new_parent_id,
             })
             new_id = new_cat.id
-            _logger.info("  Created product.category id=%d for old id=%d '%s'", new_id, old_id, name_str)
+            _logger.info("  Created product.category id=%d for old id=%d '%s'",
+                         new_id, old_id, name_str)
 
         old_to_new[old_id] = new_id
 
-    # 4. Update product_template.categ_id based on hifi_category_id mapping
+    # Persist mapping in temp table for use by post-migrate and repair_custom
     cr.execute("""
-        SELECT EXISTS (
-            SELECT FROM information_schema.columns
-            WHERE table_name = 'product_template' AND column_name = 'hifi_category_id'
+        CREATE TABLE IF NOT EXISTS _repair_category_migration_map (
+            old_id integer PRIMARY KEY,
+            new_id integer NOT NULL
         )
     """)
-    has_hifi_cat_col = cr.fetchone()[0]
-
-    if has_hifi_cat_col:
-        for old_id, new_id in old_to_new.items():
-            cr.execute("""
-                UPDATE product_template
-                SET categ_id = %s
-                WHERE hifi_category_id = %s
-            """, [new_id, old_id])
-            if cr.rowcount:
-                _logger.info(
-                    "  Updated %d product_template rows: hifi_category_id=%d → categ_id=%d",
-                    cr.rowcount, old_id, new_id,
-                )
-
-    # 5. Update repair_order.category_id — drop FK constraint FIRST, then update values
-    cr.execute("""
-        SELECT EXISTS (
-            SELECT FROM information_schema.columns
-            WHERE table_name = 'repair_order' AND column_name = 'category_id'
+    cr.execute("DELETE FROM _repair_category_migration_map")
+    for old_id, new_id in old_to_new.items():
+        cr.execute(
+            "INSERT INTO _repair_category_migration_map (old_id, new_id) VALUES (%s, %s)",
+            [old_id, new_id],
         )
+    _logger.info("Stored %d category mappings in temp table", len(old_to_new))
+
+    # ── Step 3: Set product_template.categ_id from mapping ──────────────
+
+    if not _table_exists(cr, 'repair_device'):
+        _logger.info("No repair_device table — skipping categ_id assignment.")
+        return
+
+    # Products with a mapped category
+    cr.execute("""
+        UPDATE product_template pt
+        SET categ_id = m.new_id
+        FROM repair_device rd
+        JOIN _repair_category_migration_map m ON m.old_id = rd.category_id
+        WHERE pt.id = rd.product_tmpl_id
+          AND rd.product_tmpl_id IS NOT NULL
     """)
-    if cr.fetchone()[0]:
-        # Drop FK constraint before updating so we can write product.category IDs
-        cr.execute("""
-            SELECT tc.constraint_name
-            FROM information_schema.table_constraints tc
-            JOIN information_schema.key_column_usage kcu
-                ON tc.constraint_name = kcu.constraint_name
-                AND tc.table_name = kcu.table_name
-            WHERE tc.table_name = 'repair_order'
-              AND tc.constraint_type = 'FOREIGN KEY'
-              AND kcu.column_name = 'category_id'
-        """)
-        for (cname,) in cr.fetchall():
-            cr.execute(f'ALTER TABLE repair_order DROP CONSTRAINT IF EXISTS "{cname}"')
-            _logger.info("  Dropped FK constraint: %s", cname)
+    _logger.info("Set categ_id via category mapping: %d rows", cr.rowcount)
 
-        for old_id, new_id in old_to_new.items():
-            cr.execute("""
-                UPDATE repair_order SET category_id = %s WHERE category_id = %s
-            """, [new_id, old_id])
+    # Products without a category mapping → assign to HIFI root
+    cr.execute("""
+        UPDATE product_template pt
+        SET categ_id = %s
+        FROM repair_device rd
+        WHERE pt.id = rd.product_tmpl_id
+          AND rd.product_tmpl_id IS NOT NULL
+          AND (rd.category_id IS NULL
+               OR rd.category_id NOT IN (SELECT old_id FROM _repair_category_migration_map))
+    """, [hifi_cat_id])
+    if cr.rowcount:
+        _logger.info("Set categ_id to HIFI root for %d unmapped products", cr.rowcount)
 
-    # 6. Migrate M2M tables
-    m2m_migrations = [
-        (
-            'repair_tags_repair_device_category_rel',
-            'repair_tags_id', 'repair_device_category_id',
-            'repair_tags_product_category_rel',
-            'repair_tags_id', 'product_category_id',
-        ),
-        (
-            'repair_notes_template_repair_device_category_rel',
-            'repair_notes_template_id', 'repair_device_category_id',
-            'repair_notes_template_product_category_rel',
-            'repair_notes_template_id', 'product_category_id',
-        ),
-        (
-            'repair_invoice_template_repair_device_category_rel',
-            'repair_invoice_template_id', 'repair_device_category_id',
-            'repair_invoice_template_product_category_rel',
-            'repair_invoice_template_id', 'product_category_id',
-        ),
-    ]
-
-    for (old_tbl, old_left, old_right, new_tbl, new_left, new_right) in m2m_migrations:
-        cr.execute("""
-            SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = %s)
-        """, [old_tbl])
-        if not cr.fetchone()[0]:
-            _logger.info("  M2M table %s not found — skipping", old_tbl)
-            continue
-
-        cr.execute(f"SELECT {old_left}, {old_right} FROM {old_tbl}")
-        old_rows = cr.fetchall()
-        if not old_rows:
-            continue
-
-        cr.execute(f"""
-            CREATE TABLE IF NOT EXISTS {new_tbl} (
-                {new_left} integer NOT NULL,
-                {new_right} integer NOT NULL,
-                PRIMARY KEY ({new_left}, {new_right})
-            )
-        """)
-
-        inserted = 0
-        for left_id, old_right_id in old_rows:
-            new_right_id = old_to_new.get(old_right_id)
-            if not new_right_id:
-                continue
-            cr.execute(f"""
-                INSERT INTO {new_tbl} ({new_left}, {new_right})
-                VALUES (%s, %s)
-                ON CONFLICT DO NOTHING
-            """, [left_id, new_right_id])
-            inserted += cr.rowcount
-
-        _logger.info("  Migrated %d rows: %s → %s", inserted, old_tbl, new_tbl)
+    # ── Step 4: Fix product_template.name ───────────────────────────────
+    # The old _sync_product_template() stored display_name (brand+model) as
+    # product.template.name. Copy the correct model-only name from repair_device.
+    cr.execute("""
+        UPDATE product_template pt
+        SET name = UPPER(rd.name)
+        FROM repair_device rd
+        WHERE pt.id = rd.product_tmpl_id
+          AND rd.product_tmpl_id IS NOT NULL
+          AND rd.name IS NOT NULL
+          AND rd.name != ''
+    """)
+    _logger.info("Fixed product_template.name from repair_device.name: %d rows", cr.rowcount)
 
     _logger.info("2.7 pre-migrate: complete.")
