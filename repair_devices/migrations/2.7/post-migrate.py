@@ -94,9 +94,12 @@ def migrate(cr, version):
     if not _table_exists(cr, 'repair_device_unit'):
         _logger.info("No repair_device_unit table — skipping unit migration.")
     else:
-        cr.execute("""
+        has_image = _column_exists(cr, 'repair_device_unit', 'image')
+        image_col = ', rdu.image' if has_image else ', NULL as image'
+
+        cr.execute(f"""
             SELECT rdu.id, rdu.serial_number, rdu.partner_id, rdu.notes,
-                   rdu.variant_id, rdu.image,
+                   rdu.variant_id{image_col},
                    pp.id as product_id, rd.product_tmpl_id,
                    (SELECT id FROM res_company LIMIT 1) as company_id
             FROM repair_device_unit rdu
@@ -140,7 +143,7 @@ def migrate(cr, version):
                         hifi_image = %s
                     WHERE id = %s
                 """, [unit['partner_id'], unit['notes'],
-                      unit['variant_id'], unit['image'], lot_id])
+                      unit['variant_id'], unit.get('image'), lot_id])
             else:
                 cr.execute("""
                     INSERT INTO stock_lot
@@ -152,7 +155,7 @@ def migrate(cr, version):
                     RETURNING id
                 """, [serial, unit['product_id'], unit['company_id'],
                       unit['partner_id'], unit['notes'],
-                      unit['variant_id'], unit['image']])
+                      unit['variant_id'], unit.get('image')])
                 lot_id = cr.fetchone()[0]
 
             cr.execute(
