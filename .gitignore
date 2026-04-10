@@ -28,6 +28,7 @@ ir.model.access.csv.backup
 # Distribution
 build/
 dist/
+plans/
 *.egg-info/
 
 CLAUDE.md
