@@ -185,15 +185,34 @@ def migrate(cr, version):
     # ── Step 4: Fix product_template.name ───────────────────────────────
     # The old _sync_product_template() stored display_name (brand+model) as
     # product.template.name. Copy the correct model-only name from repair_device.
+    # Both columns are JSONB (Odoo 17 translatable fields). We must rebuild the
+    # JSONB object with UPPER() applied to each language value.
     cr.execute("""
         UPDATE product_template pt
-        SET name = UPPER(rd.name)
+        SET name = (
+            SELECT jsonb_object_agg(key, UPPER(value #>> '{}'))
+            FROM jsonb_each(rd.name)
+        )
         FROM repair_device rd
         WHERE pt.id = rd.product_tmpl_id
           AND rd.product_tmpl_id IS NOT NULL
           AND rd.name IS NOT NULL
-          AND rd.name != ''
+          AND rd.name != '{}'::jsonb
+          AND jsonb_typeof(rd.name) = 'object'
     """)
-    _logger.info("Fixed product_template.name from repair_device.name: %d rows", cr.rowcount)
+    _logger.info("Fixed product_template.name from repair_device.name (jsonb): %d rows", cr.rowcount)
+
+    # Handle edge case: rd.name stored as plain text (non-JSONB, shouldn't happen but be safe)
+    cr.execute("""
+        UPDATE product_template pt
+        SET name = jsonb_build_object('en_US', UPPER(rd.name::text))
+        FROM repair_device rd
+        WHERE pt.id = rd.product_tmpl_id
+          AND rd.product_tmpl_id IS NOT NULL
+          AND rd.name IS NOT NULL
+          AND jsonb_typeof(rd.name) != 'object'
+    """)
+    if cr.rowcount:
+        _logger.info("Fixed product_template.name from repair_device.name (text fallback): %d rows", cr.rowcount)
 
     _logger.info("2.7 pre-migrate: complete.")
