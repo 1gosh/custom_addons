@@ -80,6 +80,37 @@ def migrate(cr, version):
     else:
         _logger.warning("Step 1: _repair_order_device_map not found — skipping")
 
+    # ── Step 1b: Fallback — match via serial_number → stock_lot ─────────
+    # Catches repair orders missed by the mapping (e.g., devices that had
+    # NULL product_tmpl_id before pre-migrate fixed them).
+
+    cr.execute("""
+        UPDATE repair_order ro
+        SET lot_id = sl.id
+        FROM stock_lot sl
+        WHERE sl.name = ro.serial_number
+          AND sl.is_hifi_unit = TRUE
+          AND ro.lot_id IS NULL
+          AND ro.serial_number IS NOT NULL
+          AND ro.serial_number != ''
+    """)
+    if cr.rowcount:
+        _logger.info("Step 1b: fallback lot_id via serial_number match: %d rows", cr.rowcount)
+
+    # ── Step 1c: Derive product_tmpl_id from lot_id ─────────────────────
+
+    cr.execute("""
+        UPDATE repair_order ro
+        SET product_tmpl_id = pp.product_tmpl_id
+        FROM stock_lot sl
+        JOIN product_product pp ON pp.id = sl.product_id
+        WHERE sl.id = ro.lot_id
+          AND ro.product_tmpl_id IS NULL
+          AND ro.lot_id IS NOT NULL
+    """)
+    if cr.rowcount:
+        _logger.info("Step 1c: derived product_tmpl_id from lot_id: %d rows", cr.rowcount)
+
     # ── Step 2: Copy warranty/stock fields → stock.lot ───────────────────
     # repair_device_unit had stock_state, sale_date, sav_expiry, etc.
     # These fields are now on stock.lot (added by repair_custom schema update).

@@ -81,8 +81,9 @@ def migrate(cr, version):
             device_join = ""
             tmpl_col = "NULL::integer as product_tmpl_id"
 
+        cr.execute("DROP TABLE IF EXISTS _repair_order_device_map")
         cr.execute(f"""
-            CREATE TABLE IF NOT EXISTS _repair_order_device_map AS
+            CREATE TABLE _repair_order_device_map AS
             SELECT ro.id as repair_id, ro.unit_id, ro.device_id,
                    {unit_lot_col}, {tmpl_col}
             FROM repair_order ro
@@ -136,16 +137,17 @@ def migrate(cr, version):
             _logger.info("Step 3: %s not found, skipping", m2m['old_table'])
             continue
 
+        cr.execute(f"DROP TABLE IF EXISTS {m2m['save_table']}")
         if has_mapping:
             cr.execute(f"""
-                CREATE TABLE IF NOT EXISTS {m2m['save_table']} AS
+                CREATE TABLE {m2m['save_table']} AS
                 SELECT rel.{m2m['id_col']}, m.new_id as product_category_id
                 FROM {m2m['old_table']} rel
                 JOIN _repair_category_migration_map m ON m.old_id = rel.{m2m['cat_col']}
             """)
         else:
             cr.execute(f"""
-                CREATE TABLE IF NOT EXISTS {m2m['save_table']} AS
+                CREATE TABLE {m2m['save_table']} AS
                 SELECT rel.{m2m['id_col']}, rel.{m2m['cat_col']} as product_category_id
                 FROM {m2m['old_table']} rel
                 WHERE FALSE

@@ -97,28 +97,37 @@ def migrate(cr, version):
         cr.execute("""
             SELECT rdu.id, rdu.serial_number, rdu.partner_id, rdu.notes,
                    rdu.variant_id,
-                   pp.id as product_id, rd.product_tmpl_id,
+                   pp.product_id, rd.product_tmpl_id,
                    (SELECT id FROM res_company LIMIT 1) as company_id
             FROM repair_device_unit rdu
             JOIN repair_device rd ON rd.id = rdu.device_id
             JOIN product_template pt ON pt.id = rd.product_tmpl_id
-            JOIN product_product pp ON pp.product_tmpl_id = pt.id
+            CROSS JOIN LATERAL (
+                SELECT pp.id as product_id FROM product_product pp
+                WHERE pp.product_tmpl_id = pt.id AND pp.active = TRUE
+                ORDER BY pp.id LIMIT 1
+            ) pp
             WHERE rd.product_tmpl_id IS NOT NULL
         """)
         units = cr.dictfetchall()
         _logger.info("Step 3: found %d units to migrate to stock.lot", len(units))
 
         # Create temp mapping table for cross-module use
+        cr.execute("DROP TABLE IF EXISTS _repair_unit_lot_map")
         cr.execute("""
-            CREATE TABLE IF NOT EXISTS _repair_unit_lot_map (
+            CREATE TABLE _repair_unit_lot_map (
                 unit_id integer PRIMARY KEY,
                 lot_id integer NOT NULL
             )
         """)
-        cr.execute("DELETE FROM _repair_unit_lot_map")
 
+        migr_serial_counter = 0
         for unit in units:
-            serial = unit['serial_number'] or f"UNIT-{unit['id']}"
+            if unit['serial_number']:
+                serial = unit['serial_number']
+            else:
+                migr_serial_counter += 1
+                serial = f"HF/MIGR/{migr_serial_counter:04d}"
 
             # Idempotency: check if lot already exists for this product+serial
             cr.execute("""

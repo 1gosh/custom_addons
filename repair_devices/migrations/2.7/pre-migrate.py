@@ -152,6 +152,41 @@ def migrate(cr, version):
         )
     _logger.info("Stored %d category mappings in temp table", len(old_to_new))
 
+    # ── Step 2.5: Create product.template for orphan devices ────────────
+    # Some repair.device records may never have been synced to product.template
+    # (e.g., _sync_product_template() failed or was bypassed). Create the
+    # missing product.template records now so the entire migration chain works.
+
+    if _table_exists(cr, 'repair_device'):
+        cr.execute("""
+            SELECT id, name, brand_id, category_id
+            FROM repair_device
+            WHERE product_tmpl_id IS NULL
+        """)
+        orphan_devices = cr.fetchall()
+
+        if orphan_devices:
+            _logger.info("Step 2.5: found %d devices without product_tmpl_id",
+                         len(orphan_devices))
+            for (dev_id, name_raw, brand_id, cat_id) in orphan_devices:
+                name_str = _name_from_raw(name_raw) or f"Device {dev_id}"
+                categ_id = old_to_new.get(cat_id, hifi_cat_id) if cat_id else hifi_cat_id
+
+                tmpl = env['product.template'].create({
+                    'name': name_str.upper(),
+                    'categ_id': categ_id,
+                    'tracking': 'serial',
+                    'type': 'product',
+                    'sale_ok': True,
+                })
+                cr.execute(
+                    "UPDATE repair_device SET product_tmpl_id = %s WHERE id = %s",
+                    [tmpl.id, dev_id],
+                )
+                _logger.info("  Created product.template id=%d for orphan device id=%d '%s'",
+                             tmpl.id, dev_id, name_str)
+            _logger.info("Step 2.5: created %d product.template records", len(orphan_devices))
+
     # ── Step 3: Set product_template.categ_id from mapping ──────────────
 
     if not _table_exists(cr, 'repair_device'):
