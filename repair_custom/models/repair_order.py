@@ -1114,6 +1114,17 @@ class Repair(models.Model):
             rec.message_post(body=_("📞 Contacté par %s") % self.env.user.name)
         return True
 
+    def _send_quote_reminder_mail(self):
+        """Send the reminder mail template to the client."""
+        template = self.env.ref(
+            'repair_custom.mail_template_repair_quote_reminder',
+            raise_if_not_found=False,
+        )
+        if not template:
+            return
+        for rec in self:
+            template.send_mail(rec.id, force_send=False)
+
     def action_atelier_parts_toggle(self):
         for rec in self:
             rec.parts_waiting = not rec.parts_waiting

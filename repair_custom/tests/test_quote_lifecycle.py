@@ -232,3 +232,15 @@ class TestActionQuoteContacted(RepairQuoteCase):
         before = len(repair.message_ids)
         repair.action_quote_contacted()
         self.assertGreater(len(repair.message_ids), before)
+
+
+class TestReminderMail(RepairQuoteCase):
+    """Test the reminder mail helper in isolation."""
+
+    def test_send_quote_reminder_mail_posts_message(self):
+        repair = self._make_repair()
+        repair._apply_quote_state_transition('sent')
+        before = len(repair.message_ids)
+        repair._send_quote_reminder_mail()
+        self.assertGreater(len(repair.message_ids), before,
+                           "Sending the reminder should post a tracked message on the repair")
