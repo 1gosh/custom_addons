@@ -78,3 +78,4 @@ class TestMandatoryBatches(RepairQuoteCase):
         repair.invalidate_recordset(['batch_id'])
         self.assertTrue(repair.batch_id, "pre-migration should backfill batch_id")
         self.assertEqual(repair.batch_id.partner_id, self.partner)
+        self.assertEqual(repair.batch_id.company_id, repair.company_id)
