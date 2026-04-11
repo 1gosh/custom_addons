@@ -1000,6 +1000,116 @@ class Repair(models.Model):
         self.message_post(body="Devis validé par le management.")
         return self.write({'quote_state': 'approved'})
 
+    # ============================================================
+    # Quote lifecycle (sub-project 2)
+    # ============================================================
+
+    def _apply_quote_state_transition(self, new_state, from_sale_order=False):
+        """Single entry point for all `quote_state` transitions.
+
+        Called from:
+        - action_atelier_request_quote (tech button)
+        - sale.order.write() override (sale.order state sync)
+        - _cron_process_pending_quotes (CRON)
+        - action_quote_contacted (manager button)
+
+        Handles side effects:
+        - Chatter messages
+        - Activity creation/closure
+        - Tech notifications
+        - Date stamping (quote_sent_date)
+        """
+        for rec in self:
+            old = rec.quote_state
+            if old == new_state:
+                continue
+            rec.quote_state = new_state
+            is_portal_action = self.env.user.share if from_sale_order else False
+
+            if new_state == 'sent':
+                rec.quote_sent_date = fields.Datetime.now()
+                rec.message_post(body=_("📧 Devis envoyé au client."))
+
+            elif new_state == 'approved':
+                if is_portal_action:
+                    rec.message_post(body=_(
+                        "✅ Devis accepté par le client via le portail."
+                    ))
+                else:
+                    rec.message_post(body=_(
+                        "✅ Devis validé manuellement par %s."
+                    ) % self.env.user.name)
+                rec._notify_tech_quote_approved()
+                rec._close_escalation_activities()
+
+            elif new_state == 'refused':
+                if is_portal_action:
+                    rec.message_post(body=_(
+                        "❌ Devis refusé par le client via le portail."
+                    ))
+                else:
+                    rec.message_post(body=_(
+                        "❌ Devis annulé manuellement par %s."
+                    ) % self.env.user.name)
+                rec._create_refusal_activity()
+                rec._close_escalation_activities()
+
+            elif new_state == 'pending' and old in ('sent', 'approved', 'refused'):
+                rec.message_post(body=_("↩ Devis remis en préparation."))
+
+    def _notify_tech_quote_approved(self):
+        """Post a chatter message with a mention of the technician when possible."""
+        for rec in self:
+            tech = rec.technician_employee_id
+            if tech and tech.user_id:
+                rec.message_post(
+                    body=_("✅ Devis validé. @%s peut reprendre l'intervention.") % tech.name,
+                    partner_ids=[tech.user_id.partner_id.id],
+                )
+            else:
+                rec.message_post(body=_(
+                    "✅ Devis validé. Le technicien peut reprendre l'intervention."
+                ))
+
+    def _close_escalation_activities(self):
+        """Mark all open escalation activities on these repairs as done."""
+        escalate_type = self.env.ref(
+            'repair_custom.mail_act_repair_quote_escalate',
+            raise_if_not_found=False,
+        )
+        if not escalate_type:
+            return
+        for rec in self:
+            activities = rec.activity_ids.filtered(
+                lambda a: a.activity_type_id == escalate_type and a.state != 'done'
+            )
+            if activities:
+                activities.action_feedback(feedback=_("Fermée automatiquement (changement d'état du devis)"))
+
+    def _create_refusal_activity(self):
+        """Create a 'statuer' activity for each manager in the repair group."""
+        refusal_type = self.env.ref(
+            'repair_custom.mail_act_repair_quote_refused',
+            raise_if_not_found=False,
+        )
+        manager_group = self.env.ref(
+            'repair_custom.group_repair_manager',
+            raise_if_not_found=False,
+        )
+        if not refusal_type or not manager_group:
+            return
+        for rec in self:
+            for manager_user in manager_group.users:
+                rec.activity_schedule(
+                    activity_type_id=refusal_type.id,
+                    user_id=manager_user.id,
+                    summary=_("Devis refusé — statuer sur la réparation"),
+                    note=_(
+                        "Le devis pour %s a été refusé. Action requise (retrait, nouveau devis, annulation…)."
+                    ) % (rec.device_id_name or rec.name),
+                    date_deadline=fields.Date.today(),
+                )
+
     def action_atelier_parts_toggle(self):
         for rec in self:
             rec.parts_waiting = not rec.parts_waiting
