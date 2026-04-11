@@ -74,7 +74,12 @@
             <form string="Dossier de Prise en Charge">
                 <header>
                     <button name="%(action_repair_pricing_wizard)d" icon="fa-file" string="Devis/Facture" type="action" invisible="state in 'draft'"/>
-                    
+                    <field name="ready_for_pickup_notification" invisible="1"/>
+                    <button name="action_notify_client_ready"
+                            type="object"
+                            string="Notifier client – dossier prêt"
+                            class="btn-primary"
+                            invisible="not ready_for_pickup_notification"/>
                     <field name="state" widget="statusbar"/>
                 </header>
                 <sheet>
@@ -164,6 +169,12 @@
                     <button name="action_repair_start" invisible="state not in 'confirmed'" type="object" string="Commencer" class="oe_highlight" data-hotkey="q"/>
                     <button name="action_repair_end" invisible="state not in 'under_repair'" type="object" string="Terminer la réparation" class="btn-success" data-hotkey="x"/>
                     <button name="action_set_irreparable" string="Non Réparable" type="object" class="btn-danger" invisible="state not in ['under_repair']"/>
+                    <field name="batch_ready_for_pickup_notification" invisible="1"/>
+                    <button name="action_notify_client_ready_from_repair"
+                            type="object"
+                            string="Notifier client"
+                            class="btn-secondary"
+                            invisible="not batch_ready_for_pickup_notification"/>
                     <button name="action_repair_delivered" string="Livrer" type="object" class="btn-secondary" invisible="delivery_state != 'none' or state not in ['done', 'irreparable']"/>
                     <button name="action_open_abandon_wizard" string="Abandon" type="object" class="btn-warning" invisible="delivery_state != 'none' or state == 'draft'" groups="repair_custom.group_repair_manager"/>
                     <button name="action_repair_cancel_draft" groups="repair_custom.group_repair_manager" invisible="state in 'draft'" string="Marquer comme brouillon" type="object" data-hotkey="z"/>
