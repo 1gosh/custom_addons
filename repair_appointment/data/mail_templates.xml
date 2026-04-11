@@ -1,6 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <data noupdate="1">
+        <record id="mail_template_pickup_ready" model="mail.template">
+            <field name="name">Appareil prêt : prendre un RDV de retrait</field>
+            <field name="model_id" ref="model_repair_pickup_appointment"/>
+            <field name="subject">Votre appareil est prêt à être récupéré</field>
+            <field name="email_from">{{ (object.company_id.email or user.email) }}</field>
+            <field name="email_to">{{ object.partner_id.email }}</field>
+            <field name="body_html" type="html">
+                <div>
+                    <p>Bonjour <t t-out="object.partner_id.name or ''"/>,</p>
+                    <p>Bonne nouvelle : votre appareil est prêt à être récupéré.</p>
+                    <p>Pour choisir le créneau qui vous convient le mieux, cliquez sur
+                       le lien ci-dessous :</p>
+                    <p>
+                        <a t-att-href="object._portal_url()">Prendre rendez-vous</a>
+                    </p>
+                    <p>À très bientôt,<br/>L'équipe de réparation</p>
+                </div>
+            </field>
+            <field name="lang">{{ object.partner_id.lang or 'fr_FR' }}</field>
+            <field name="auto_delete" eval="True"/>
+        </record>
         <record id="mail_template_pickup_reminder" model="mail.template">
             <field name="name">Rappel : RDV retrait non pris</field>
             <field name="model_id" ref="model_repair_pickup_appointment"/>
