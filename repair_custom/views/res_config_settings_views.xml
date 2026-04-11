@@ -13,6 +13,16 @@
                             <field name="repair_service_tax_id"/>
                         </setting>
                     </block>
+                    <block title="Cycle de vie du devis">
+                        <setting string="Délai avant relance"
+                                 help="Nombre de jours après l'envoi du devis avant qu'un rappel automatique soit envoyé au client.">
+                            <field name="quote_reminder_delay_days"/>
+                        </setting>
+                        <setting string="Délai avant escalade"
+                                 help="Nombre de jours après la relance (ou après un clic 'Contacté') avant qu'une activité d'escalade soit créée pour le manager.">
+                            <field name="quote_escalation_delay_days"/>
+                        </setting>
+                    </block>
                 </app>
             </xpath>
         </field>
