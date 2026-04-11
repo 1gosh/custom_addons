@@ -4,6 +4,7 @@
 from datetime import date, datetime, time, timedelta
 from odoo import api, Command, fields, models, _
 from odoo.exceptions import UserError, ValidationError
+from odoo.http import request
 from dateutil.relativedelta import relativedelta
 import secrets
 
@@ -1012,12 +1013,25 @@ class Repair(models.Model):
         - Tech notifications
         - Date stamping (quote_sent_date)
         """
+        # Detect portal actions reliably. The Odoo portal flow calls
+        # `sale.order.sudo().action_confirm()` from the portal controller,
+        # which masks `self.env.user` as OdooBot (non-share). The only
+        # trustworthy signal is the HTTP request's authenticated user,
+        # which remains the portal/public user throughout the sudo call.
+        http_user = request.env.user if request else None
+        is_portal_action = bool(
+            from_sale_order and http_user and http_user.share
+        )
+        # For manual-path chatter messages, prefer the HTTP user over
+        # `self.env.user` so we don't attribute backend sudo calls to
+        # OdooBot when a real user is logged in.
+        actor = http_user if http_user and not http_user.share else self.env.user
+
         for rec in self:
             old = rec.quote_state
             if old == new_state:
                 continue
             rec.quote_state = new_state
-            is_portal_action = self.env.user.share if from_sale_order else False
 
             if new_state == 'sent':
                 rec.quote_sent_date = fields.Datetime.now()
@@ -1031,7 +1045,7 @@ class Repair(models.Model):
                 else:
                     rec.message_post(body=_(
                         "✅ Devis validé manuellement par %s."
-                    ) % self.env.user.name)
+                    ) % actor.name)
                 rec._notify_tech_quote_approved()
                 rec._close_escalation_activities()
 
@@ -1043,7 +1057,7 @@ class Repair(models.Model):
                 else:
                     rec.message_post(body=_(
                         "❌ Devis annulé manuellement par %s."
-                    ) % self.env.user.name)
+                    ) % actor.name)
                 rec._create_refusal_activity()
                 rec._close_escalation_activities()
 
