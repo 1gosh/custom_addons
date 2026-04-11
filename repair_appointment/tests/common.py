@@ -21,9 +21,6 @@ class RepairAppointmentCase(TransactionCase):
             [('id', '!=', cls.location_boutique.id)], limit=1
         ) or cls.Location.create({'name': 'Atelier Test'})
 
-        # Ensure each location has a schedule (idempotent)
-        cls.Schedule._seed_default_schedules()
-
         cls.partner = cls.Partner.create({
             'name': 'Client Test',
             'phone': '+33612345678',
