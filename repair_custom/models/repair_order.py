@@ -108,11 +108,74 @@ class Repair(models.Model):
 
     quote_state = fields.Selection([
         ('none', 'Pas de devis'),
-        ('draft', 'Estimation en cours'),
-        ('pending', 'Attente Validation'),
+        ('pending', 'En préparation manager'),
+        ('sent', 'Envoyé au client'),
         ('approved', 'Validé'),
         ('refused', 'Refusé')
     ], string="Statut Devis", default='none', tracking=True)
+
+    # --- Quote lifecycle tracking fields (sub-project 2) ---
+    quote_requested_date = fields.Datetime(
+        string="Date demande devis",
+        readonly=True, copy=False,
+        help="Horodatage de l'appel à action_atelier_request_quote",
+    )
+    quote_sent_date = fields.Datetime(
+        string="Date envoi devis",
+        readonly=True, copy=False,
+        help="Horodatage de la transition quote_state → sent",
+    )
+    last_reminder_sent_at = fields.Datetime(
+        string="Dernière relance envoyée",
+        readonly=True, copy=False,
+    )
+    contacted = fields.Boolean(
+        string="Contacté hors système",
+        default=False, copy=False,
+        help="Flag consommé par le CRON après clic 'Contacté'",
+    )
+    contacted_at = fields.Datetime(
+        string="Date du contact manuel",
+        readonly=True, copy=False,
+    )
+    has_open_escalation = fields.Boolean(
+        string="Escalade ouverte",
+        compute='_compute_has_open_escalation',
+        store=True,
+    )
+    has_open_refusal_activity = fields.Boolean(
+        string="Activité de refus ouverte",
+        compute='_compute_has_open_refusal_activity',
+        store=True,
+    )
+
+    @api.depends('activity_ids.state', 'activity_ids.activity_type_id')
+    def _compute_has_open_escalation(self):
+        escalate_type = self.env.ref(
+            'repair_custom.mail_act_repair_quote_escalate',
+            raise_if_not_found=False,
+        )
+        for rec in self:
+            if not escalate_type:
+                rec.has_open_escalation = False
+                continue
+            rec.has_open_escalation = bool(rec.activity_ids.filtered(
+                lambda a: a.activity_type_id == escalate_type and a.state != 'done'
+            ))
+
+    @api.depends('activity_ids.state', 'activity_ids.activity_type_id')
+    def _compute_has_open_refusal_activity(self):
+        refusal_type = self.env.ref(
+            'repair_custom.mail_act_repair_quote_refused',
+            raise_if_not_found=False,
+        )
+        for rec in self:
+            if not refusal_type:
+                rec.has_open_refusal_activity = False
+                continue
+            rec.has_open_refusal_activity = bool(rec.activity_ids.filtered(
+                lambda a: a.activity_type_id == refusal_type and a.state != 'done'
+            ))
 
     delivery_state = fields.Selection([
         ('none', 'En Atelier'),
