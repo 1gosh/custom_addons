@@ -30,6 +30,11 @@ repair.batch.
         'views/repair_batch_views.xml',
         'views/menus.xml',
     ],
+    'assets': {
+        'web.assets_backend': [
+            'repair_appointment/static/src/js/appointment_calendar_patch.js',
+        ],
+    },
     'installable': True,
     'application': False,
 }

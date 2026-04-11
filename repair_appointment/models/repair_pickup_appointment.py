@@ -104,6 +104,28 @@ class RepairPickupAppointment(models.Model):
                 vals['token'] = str(uuid.uuid4())
         return super().create(vals_list)
 
+    def write(self, vals):
+        track_datetime_change = False
+        old_starts = {}
+        if 'start_datetime' in vals and not self.env.context.get('skip_reschedule_notification'):
+            track_datetime_change = True
+            old_starts = {apt.id: apt.start_datetime for apt in self}
+        res = super().write(vals)
+        if track_datetime_change:
+            template = self.env.ref(
+                'repair_appointment.mail_template_pickup_reschedule',
+                raise_if_not_found=False,
+            )
+            for apt in self:
+                if (apt.state == 'scheduled'
+                        and old_starts.get(apt.id) != apt.start_datetime):
+                    if template:
+                        template.send_mail(apt.id, force_send=False)
+                    apt.message_post(body=_(
+                        "RDV déplacé — notification client envoyée."
+                    ))
+        return res
+
     # ------------------------------------------------------------------
     # State transitions
     # ------------------------------------------------------------------

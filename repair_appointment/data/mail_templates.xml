@@ -23,5 +23,25 @@
             <field name="lang">{{ object.partner_id.lang or 'fr_FR' }}</field>
             <field name="auto_delete" eval="True"/>
         </record>
+        <record id="mail_template_pickup_reschedule" model="mail.template">
+            <field name="name">RDV retrait : déplacement</field>
+            <field name="model_id" ref="model_repair_pickup_appointment"/>
+            <field name="subject">Votre rendez-vous de retrait a été déplacé</field>
+            <field name="email_from">{{ (object.company_id.email or user.email) }}</field>
+            <field name="email_to">{{ object.partner_id.email }}</field>
+            <field name="body_html" type="html">
+                <div>
+                    <p>Bonjour <t t-out="object.partner_id.name or ''"/>,</p>
+                    <p>Votre rendez-vous a été déplacé au
+                       <strong t-out="object.start_datetime"/>.</p>
+                    <p>
+                        <a t-att-href="object._portal_url()">Voir mon rendez-vous</a>
+                    </p>
+                    <p>Cordialement,<br/>L'équipe de réparation</p>
+                </div>
+            </field>
+            <field name="lang">{{ object.partner_id.lang or 'fr_FR' }}</field>
+            <field name="auto_delete" eval="True"/>
+        </record>
     </data>
 </odoo>
