@@ -421,3 +421,54 @@ class RepairPickupAppointment(models.Model):
             apt._send_reminder_mail()
             apt.last_reminder_sent_at = fields.Datetime.now()
             apt.message_post(body=_("Rappel envoyé manuellement."))
+
+    # ------------------------------------------------------------------
+    # Reminder CRON
+    # ------------------------------------------------------------------
+
+    def _get_reminder_delay_days(self):
+        return int(self.env['ir.config_parameter'].sudo().get_param(
+            'repair_appointment.reminder_delay_days', default='3',
+        ))
+
+    def _get_escalation_delay_days(self):
+        return int(self.env['ir.config_parameter'].sudo().get_param(
+            'repair_appointment.escalation_delay_days', default='3',
+        ))
+
+    @api.model
+    def _cron_process_pending_appointments(self):
+        """Send the single reminder and create escalation activities.
+        Pseudocode matches the spec's Reminder CRON section."""
+        from datetime import timedelta
+        now = fields.Datetime.now()
+        reminder_delay = self._get_reminder_delay_days()
+        escalation_delay = self._get_escalation_delay_days()
+
+        pending = self.search([
+            ('state', '=', 'pending'),
+            ('notification_sent_at', '!=', False),
+        ])
+
+        for apt in pending:
+            # Phase 1: single reminder mail
+            if (not apt.last_reminder_sent_at
+                    and not apt.contacted
+                    and now >= apt.notification_sent_at + timedelta(days=reminder_delay)):
+                apt._send_reminder_mail()
+                apt.last_reminder_sent_at = now
+                continue
+
+            # Phase 2: escalation
+            apt.invalidate_recordset(['escalation_activity_id'])
+            if apt.escalation_activity_id:
+                continue  # still open, wait for manager
+
+            if apt.contacted:
+                if (apt.contacted_at
+                        and now >= apt.contacted_at + timedelta(days=escalation_delay)):
+                    apt._create_escalation_activity()
+                    apt.contacted = False  # consume the flag
+            elif apt.last_reminder_sent_at:
+                if now >= apt.last_reminder_sent_at + timedelta(days=escalation_delay):
+                    apt._create_escalation_activity()

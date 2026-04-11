@@ -21,6 +21,7 @@ repair.batch.
         'data/mail_activity_type_data.xml',
         'data/mail_templates.xml',
         'data/pickup_schedule_data.xml',
+        'data/ir_cron.xml',
     ],
     'installable': True,
     'application': False,

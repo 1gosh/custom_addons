@@ -5,3 +5,4 @@ from . import test_state_machine
 from . import test_slot_availability
 from . import test_batch_integration
 from . import test_escalation
+from . import test_reminder_cron
