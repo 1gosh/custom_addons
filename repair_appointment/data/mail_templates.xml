@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="mail_template_pickup_reminder" model="mail.template">
+            <field name="name">Rappel : RDV retrait non pris</field>
+            <field name="model_id" ref="model_repair_pickup_appointment"/>
+            <field name="subject">Rappel : votre appareil est prêt à être récupéré</field>
+            <field name="email_from">{{ (object.company_id.email or user.email) }}</field>
+            <field name="email_to">{{ object.partner_id.email }}</field>
+            <field name="body_html" type="html">
+                <div>
+                    <p>Bonjour <t t-out="object.partner_id.name or ''"/>,</p>
+                    <p>Nous n'avons pas encore reçu de rendez-vous de votre part pour
+                       récupérer votre appareil qui est prêt à être retiré.</p>
+                    <p>Pour choisir un créneau, cliquez sur le lien suivant :</p>
+                    <p>
+                        <a t-att-href="object._portal_url()">Prendre rendez-vous</a>
+                    </p>
+                    <p>Merci de prendre contact avec nous rapidement.</p>
+                    <p>Cordialement,<br/>L'équipe de réparation</p>
+                </div>
+            </field>
+            <field name="lang">{{ object.partner_id.lang or 'fr_FR' }}</field>
+            <field name="auto_delete" eval="True"/>
+        </record>
+    </data>
+</odoo>

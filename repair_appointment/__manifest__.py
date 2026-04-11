@@ -19,6 +19,7 @@ repair.batch.
         'security/ir.model.access.csv',
         'data/ir_sequence.xml',
         'data/mail_activity_type_data.xml',
+        'data/mail_templates.xml',
         'data/pickup_schedule_data.xml',
     ],
     'installable': True,

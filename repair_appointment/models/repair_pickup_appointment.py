@@ -396,3 +396,28 @@ class RepairPickupAppointment(models.Model):
             ])
             for act in activities:
                 act.action_feedback(feedback=_("RDV planifié — escalade close."))
+
+    # ------------------------------------------------------------------
+    # Mail / portal helpers
+    # ------------------------------------------------------------------
+
+    def _portal_url(self):
+        """Absolute URL to the client portal for this appointment."""
+        self.ensure_one()
+        base = self.env['ir.config_parameter'].sudo().get_param('web.base.url', '')
+        return f"{base.rstrip('/')}/my/pickup/{self.token}"
+
+    def _send_reminder_mail(self):
+        self.ensure_one()
+        template = self.env.ref(
+            'repair_appointment.mail_template_pickup_reminder',
+            raise_if_not_found=False,
+        )
+        if template:
+            template.send_mail(self.id, force_send=False)
+
+    def action_send_reminder_now(self):
+        for apt in self:
+            apt._send_reminder_mail()
+            apt.last_reminder_sent_at = fields.Datetime.now()
+            apt.message_post(body=_("Rappel envoyé manuellement."))
