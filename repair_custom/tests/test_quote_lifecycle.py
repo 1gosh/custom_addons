@@ -288,3 +288,70 @@ class TestCronReminderPhase(RepairQuoteCase):
         self._rewind_sent_date(10)
         self.Repair._cron_process_pending_quotes()
         self.assertFalse(self.repair.last_reminder_sent_at)
+
+
+class TestCronEscalationPhase(RepairQuoteCase):
+    """Tests for the escalation phase of _cron_process_pending_quotes."""
+
+    def setUp(self):
+        super().setUp()
+        self.repair = self._make_repair()
+        self.repair._apply_quote_state_transition('sent')
+        # Pretend the reminder was already sent 4 days ago
+        self.repair.quote_sent_date = fields.Datetime.now() - timedelta(days=10)
+        self.repair.last_reminder_sent_at = fields.Datetime.now() - timedelta(days=4)
+
+    def test_escalation_not_created_before_delay(self):
+        self.repair.last_reminder_sent_at = fields.Datetime.now() - timedelta(days=2)
+        self.Repair._cron_process_pending_quotes()
+        self.repair.invalidate_recordset(['has_open_escalation'])
+        self.assertFalse(self.repair.has_open_escalation)
+
+    def test_escalation_created_after_delay(self):
+        self.Repair._cron_process_pending_quotes()
+        self.repair.invalidate_recordset(['has_open_escalation'])
+        self.assertTrue(self.repair.has_open_escalation)
+
+    def test_one_escalation_activity_per_manager(self):
+        self.Repair._cron_process_pending_quotes()
+        escalate_type = self.env.ref('repair_custom.mail_act_repair_quote_escalate')
+        activities = self.repair.activity_ids.filtered(
+            lambda a: a.activity_type_id == escalate_type and a.state != 'done'
+        )
+        # Expect one per user in group_repair_manager
+        expected_count = len(self.env.ref('repair_custom.group_repair_manager').users)
+        self.assertEqual(len(activities), expected_count)
+
+    def test_escalation_not_recreated_if_already_open(self):
+        self.Repair._cron_process_pending_quotes()
+        escalate_type = self.env.ref('repair_custom.mail_act_repair_quote_escalate')
+        first_count = len(self.repair.activity_ids.filtered(
+            lambda a: a.activity_type_id == escalate_type and a.state != 'done'
+        ))
+        # Run CRON again
+        self.Repair._cron_process_pending_quotes()
+        second_count = len(self.repair.activity_ids.filtered(
+            lambda a: a.activity_type_id == escalate_type and a.state != 'done'
+        ))
+        self.assertEqual(first_count, second_count)
+
+    def test_contacted_resets_escalation_clock(self):
+        # First escalation
+        self.Repair._cron_process_pending_quotes()
+        # Manager clicks "Contacté"
+        self.repair.action_quote_contacted()
+        self.repair.invalidate_recordset(['has_open_escalation'])
+        self.assertFalse(self.repair.has_open_escalation)
+        # Rewind contacted_at
+        self.repair.contacted_at = fields.Datetime.now() - timedelta(days=2)
+        # CRON should not re-escalate yet
+        self.Repair._cron_process_pending_quotes()
+        self.repair.invalidate_recordset(['has_open_escalation'])
+        self.assertFalse(self.repair.has_open_escalation)
+        # After 3 days, escalation fires again
+        self.repair.contacted_at = fields.Datetime.now() - timedelta(days=3)
+        self.Repair._cron_process_pending_quotes()
+        self.repair.invalidate_recordset(['has_open_escalation'])
+        self.assertTrue(self.repair.has_open_escalation)
+        # contacted flag is consumed
+        self.assertFalse(self.repair.contacted)

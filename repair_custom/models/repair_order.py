@@ -1127,12 +1127,7 @@ class Repair(models.Model):
 
     @api.model
     def _cron_process_pending_quotes(self):
-        """Hourly CRON: phase 1 reminder + phase 2 escalation.
-
-        Phase 1 — send the single reminder mail after `quote_reminder_delay_days`
-        Phase 2 — create the escalation activity after `quote_escalation_delay_days`
-                  (implemented in Task 16)
-        """
+        """Hourly CRON: reminder + escalation cascade for sent quotes."""
         today = fields.Datetime.now()
         Params = self.env['ir.config_parameter'].sudo()
         reminder_delay = int(Params.get_param('repair_custom.quote_reminder_delay_days', 5))
@@ -1152,7 +1147,47 @@ class Repair(models.Model):
                 repair.last_reminder_sent_at = today
                 continue
 
-            # Phase 2: escalation activity (implemented in Task 16)
+            # Phase 2: escalation activity
+            if repair.has_open_escalation:
+                continue
+
+            if repair.contacted:
+                if repair.contacted_at and today >= repair.contacted_at + timedelta(days=escalation_delay):
+                    repair._create_quote_escalation_activity()
+                    repair.contacted = False
+            elif repair.last_reminder_sent_at:
+                if today >= repair.last_reminder_sent_at + timedelta(days=escalation_delay):
+                    repair._create_quote_escalation_activity()
+
+    def _create_quote_escalation_activity(self):
+        """Create one escalation activity per manager in group_repair_manager."""
+        escalate_type = self.env.ref(
+            'repair_custom.mail_act_repair_quote_escalate',
+            raise_if_not_found=False,
+        )
+        manager_group = self.env.ref(
+            'repair_custom.group_repair_manager',
+            raise_if_not_found=False,
+        )
+        if not escalate_type or not manager_group:
+            return
+        for rec in self:
+            for manager_user in manager_group.users:
+                note_lines = [
+                    _("Devis envoyé le %s, toujours pas de réponse client.") % (
+                        rec.quote_sent_date.strftime('%d/%m/%Y') if rec.quote_sent_date else '?'
+                    ),
+                    _("Téléphone client : %s") % (rec.partner_id.phone or '?'),
+                ]
+                if rec.sale_order_id:
+                    note_lines.append(_("Devis : %s") % rec.sale_order_id.name)
+                rec.activity_schedule(
+                    activity_type_id=escalate_type.id,
+                    user_id=manager_user.id,
+                    summary=_("Client à contacter — devis non validé"),
+                    note="<br/>".join(note_lines),
+                    date_deadline=fields.Date.today(),
+                )
 
     def action_atelier_parts_toggle(self):
         for rec in self:
