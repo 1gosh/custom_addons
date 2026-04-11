@@ -195,3 +195,40 @@ class TestComputedActivityFlags(RepairQuoteCase):
         repair._apply_quote_state_transition('refused')
         repair.invalidate_recordset(['has_open_refusal_activity'])
         self.assertTrue(repair.has_open_refusal_activity)
+
+
+class TestActionQuoteContacted(RepairQuoteCase):
+    """Tests for the 'Contacté' button handler."""
+
+    def _setup_sent_with_escalation(self):
+        repair = self._make_repair()
+        repair._apply_quote_state_transition('sent')
+        escalate_type = self.env.ref('repair_custom.mail_act_repair_quote_escalate')
+        # Create one activity per manager (mirrors the CRON behaviour)
+        for manager in [self.manager_user_1, self.manager_user_2]:
+            repair.activity_schedule(
+                activity_type_id=escalate_type.id,
+                user_id=manager.id,
+                summary='Test escalate',
+            )
+        repair.invalidate_recordset(['has_open_escalation'])
+        return repair
+
+    def test_contacted_closes_all_sibling_activities(self):
+        repair = self._setup_sent_with_escalation()
+        self.assertTrue(repair.has_open_escalation)
+        repair.action_quote_contacted()
+        repair.invalidate_recordset(['has_open_escalation'])
+        self.assertFalse(repair.has_open_escalation)
+
+    def test_contacted_sets_contacted_flag_and_timestamp(self):
+        repair = self._setup_sent_with_escalation()
+        repair.action_quote_contacted()
+        self.assertTrue(repair.contacted)
+        self.assertTrue(repair.contacted_at)
+
+    def test_contacted_posts_chatter_note(self):
+        repair = self._setup_sent_with_escalation()
+        before = len(repair.message_ids)
+        repair.action_quote_contacted()
+        self.assertGreater(len(repair.message_ids), before)

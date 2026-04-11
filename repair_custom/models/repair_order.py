@@ -1103,6 +1103,17 @@ class Repair(models.Model):
                     date_deadline=fields.Date.today(),
                 )
 
+    def action_quote_contacted(self):
+        """Manager button: mark the client as contacted, close escalation activities,
+        reset the CRON escalation clock.
+        """
+        for rec in self:
+            rec._close_escalation_activities()
+            rec.contacted = True
+            rec.contacted_at = fields.Datetime.now()
+            rec.message_post(body=_("📞 Contacté par %s") % self.env.user.name)
+        return True
+
     def action_atelier_parts_toggle(self):
         for rec in self:
             rec.parts_waiting = not rec.parts_waiting
