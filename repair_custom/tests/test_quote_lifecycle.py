@@ -355,3 +355,57 @@ class TestCronEscalationPhase(RepairQuoteCase):
         self.assertTrue(self.repair.has_open_escalation)
         # contacted flag is consumed
         self.assertFalse(self.repair.contacted)
+
+
+class TestQuoteLifecycleIntegration(RepairQuoteCase):
+    """End-to-end: tech request → manager creates SO → client portal accept."""
+
+    def test_full_happy_path_via_sale_order_sync(self):
+        # Tech requests quote
+        repair = self._make_repair(tech=self.tech_with_user)
+        repair.action_atelier_request_quote()
+        self.assertEqual(repair.quote_state, 'pending')
+        self.assertTrue(repair.quote_requested_date)
+
+        # Manager creates sale.order (minimal direct linking, skipping wizard)
+        so = self._make_sale_order_linked(repair)
+        self.assertEqual(so.state, 'draft')
+        self.assertEqual(repair.quote_state, 'pending')
+
+        # Manager sends mail
+        so.state = 'sent'
+        self.assertEqual(repair.quote_state, 'sent')
+        self.assertTrue(repair.quote_sent_date)
+
+        # Client accepts on portal
+        so.with_user(self.manager_user_1).state = 'sale'
+        self.assertEqual(repair.quote_state, 'approved')
+
+    def test_full_refusal_path_triggers_activity(self):
+        repair = self._make_repair()
+        repair.action_atelier_request_quote()
+        so = self._make_sale_order_linked(repair)
+        so.state = 'sent'
+        so.state = 'cancel'
+        self.assertEqual(repair.quote_state, 'refused')
+        repair.invalidate_recordset(['has_open_refusal_activity'])
+        self.assertTrue(repair.has_open_refusal_activity)
+
+    def test_cron_stops_on_state_transition(self):
+        repair = self._make_repair()
+        repair._apply_quote_state_transition('sent')
+        repair.quote_sent_date = fields.Datetime.now() - timedelta(days=10)
+        repair.last_reminder_sent_at = fields.Datetime.now() - timedelta(days=4)
+
+        # Before: would create escalation
+        self.Repair._cron_process_pending_quotes()
+        repair.invalidate_recordset(['has_open_escalation'])
+        self.assertTrue(repair.has_open_escalation)
+
+        # Move to approved — escalation activities should be closed
+        repair._apply_quote_state_transition('approved')
+        repair.invalidate_recordset(['has_open_escalation'])
+        self.assertFalse(repair.has_open_escalation)
+
+        # CRON should now find nothing to do
+        self.Repair._cron_process_pending_quotes()
