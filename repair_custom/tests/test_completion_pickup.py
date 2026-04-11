@@ -163,3 +163,46 @@ class TestPickupNotifyWizard(RepairQuoteCase):
         r = self._done_repair()
         r.action_notify_client_ready_from_repair()
         self.assertTrue(r.batch_id.current_appointment_id)
+
+
+@tagged('post_install', '-at_install', 'repair_completion_pickup')
+class TestActionRepairDoneDialog(RepairQuoteCase):
+
+    def _start(self, quote_required=False):
+        r = self._make_repair(quote_required=quote_required)
+        r.action_validate()
+        r.action_repair_start()
+        return r
+
+    def test_last_in_batch_returns_wizard_action(self):
+        r = self._start()
+        res = r.with_context(force_stop=True).action_repair_done()
+        self.assertIsInstance(res, dict)
+        self.assertEqual(res.get('res_model'), 'repair.pickup.notify.wizard')
+        self.assertEqual(res['context']['default_batch_id'], r.batch_id.id)
+
+    def test_bulk_done_skips_dialog(self):
+        r1 = self._start()
+        r2 = self._make_repair(quote_required=False)
+        r2.batch_id = r1.batch_id
+        r2.action_validate()
+        r2.action_repair_start()
+        res = (r1 | r2).with_context(force_stop=True).action_repair_done()
+        # Bulk path returns the write() truthy value, NOT the wizard action.
+        self.assertNotIsInstance(res, dict)
+
+    def test_skip_pickup_notify_prompt_context(self):
+        r = self._start()
+        res = r.with_context(
+            force_stop=True, skip_pickup_notify_prompt=True,
+        ).action_repair_done()
+        self.assertNotIsInstance(res, dict)
+
+    def test_no_legacy_activity_created(self):
+        r = self._start()
+        r.with_context(force_stop=True).action_repair_done()
+        pickup_type = self.env.ref('repair_custom.mail_act_repair_done')
+        self.assertFalse(
+            r.activity_ids.filtered(lambda a: a.activity_type_id == pickup_type),
+            "legacy Appareil Prêt activity fan-out should be gone",
+        )

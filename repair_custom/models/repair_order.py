@@ -621,59 +621,74 @@ class Repair(models.Model):
         return self.write({'state': 'draft', 'end_date': False})
 
     def action_repair_done(self):
-        if self.delivery_state == 'abandoned':
+        if any(r.delivery_state == 'abandoned' for r in self):
             raise UserError(_("Impossible de modifier l'état d'une réparation abandonnée."))
         for rec in self:
             try:
-                self.env.cr.execute("SELECT id FROM repair_order WHERE id=%s FOR UPDATE NOWAIT", (rec.id,))
+                self.env.cr.execute(
+                    "SELECT id FROM repair_order WHERE id=%s FOR UPDATE NOWAIT",
+                    (rec.id,),
+                )
             except Exception:
-                raise UserError(_("La réparation %s est en cours de modification par un autre utilisateur.") % rec.name)
+                raise UserError(
+                    _("La réparation %s est en cours de modification par un autre utilisateur.")
+                    % rec.name
+                )
 
         self.invalidate_recordset(['state', 'quote_state', 'quote_required'])
 
-        if self.quote_required and self.quote_state != 'approved' and not self.env.context.get('force_stop'):
+        if (not self.env.context.get('force_stop')
+                and self.quote_required and self.quote_state != 'approved'):
             return {
                 'name': _("Alerte : Devis non validé"),
                 'type': 'ir.actions.act_window',
                 'res_model': 'repair.warn.quote.wizard',
                 'view_mode': 'form',
                 'target': 'new',
-                'context': {'default_repair_id': self.id}
+                'context': {'default_repair_id': self.id},
             }
 
         res = self.write({
             'state': 'done',
             'parts_waiting': False,
-            'end_date': fields.Datetime.now()
+            'end_date': fields.Datetime.now(),
         })
 
-        quote_act_type = self.env.ref('repair_custom.mail_act_repair_quote_validate', raise_if_not_found=False)
+        quote_act_type = self.env.ref(
+            'repair_custom.mail_act_repair_quote_validate', raise_if_not_found=False,
+        )
         if quote_act_type:
-            activities_to_clean = self.activity_ids.filtered(lambda a: a.activity_type_id.id == quote_act_type.id)
-            if activities_to_clean:
-                activities_to_clean.action_feedback(feedback="Clôture automatique : Réparation terminée.")
+            to_clean = self.activity_ids.filtered(
+                lambda a: a.activity_type_id.id == quote_act_type.id
+            )
+            if to_clean:
+                to_clean.action_feedback(
+                    feedback="Clôture automatique : Réparation terminée."
+                )
 
-        pickup_type = self.env.ref('repair_custom.mail_act_repair_done', raise_if_not_found=True)
-        group_manager = self.env.ref('repair_custom.group_repair_manager', raise_if_not_found=True)
+        # Sub-project 3: drop the legacy per-manager "Appareil Prêt" fan-out.
+        # The new UX (batch-ready compute + notify dialog + fallback button)
+        # replaces it.
 
-        if pickup_type and group_manager:
-            repair_model = self.env['ir.model']._get('repair.order')
-            activities_to_create = []
-            for rec in self:
-                for manager_user in group_manager.users:
-                    activities_to_create.append({
-                        'res_model_id': repair_model.id,
-                        'res_model': 'repair.order',
-                        'res_id': rec.id,
-                        'activity_type_id': pickup_type.id,
-                        'user_id': manager_user.id,
-                        'summary': "Appareil Prêt",
-                        'note': f"L'appareil {rec.device_id_name} est réparé. À facturer et livrer.",
-                        'date_deadline': fields.Date.today(),
-                    })
-
-            if activities_to_create:
-                self.env['mail.activity'].create(activities_to_create)
+        self.env.flush_all()
+        self.mapped('batch_id').invalidate_recordset(
+            ['ready_for_pickup_notification']
+        )
+        ready_batches = self.mapped('batch_id').filtered(
+            'ready_for_pickup_notification'
+        )
+        if (ready_batches
+                and not self.env.context.get('skip_pickup_notify_prompt')
+                and len(ready_batches) == 1
+                and len(self) == 1):
+            return {
+                'name': _("Dossier prêt pour retrait"),
+                'type': 'ir.actions.act_window',
+                'res_model': 'repair.pickup.notify.wizard',
+                'view_mode': 'form',
+                'target': 'new',
+                'context': {'default_batch_id': ready_batches.id},
+            }
 
         return res
 
