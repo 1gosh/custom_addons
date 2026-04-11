@@ -97,3 +97,88 @@ class RepairPickupAppointment(models.Model):
             if not vals.get('token'):
                 vals['token'] = str(uuid.uuid4())
         return super().create(vals_list)
+
+    # ------------------------------------------------------------------
+    # State transitions
+    # ------------------------------------------------------------------
+
+    TERMINAL_STATES = ('done', 'no_show', 'cancelled')
+
+    def _ensure_not_terminal(self):
+        for apt in self:
+            if apt.state in self.TERMINAL_STATES:
+                raise UserError(_(
+                    "Ce rendez-vous est déjà dans un état final (%s).",
+                ) % dict(STATE_SELECTION).get(apt.state))
+
+    def action_schedule(self, start_datetime, end_datetime):
+        """Transition pending → scheduled, or update datetime in-place on
+        an already-scheduled appointment. Validates slot availability
+        unless context `skip_slot_validation` is True."""
+        for apt in self:
+            apt._ensure_not_terminal()
+            if apt.state not in ('pending', 'scheduled'):
+                raise UserError(_("Impossible de planifier ce rendez-vous."))
+
+            if not self.env.context.get('skip_slot_validation'):
+                apt._validate_slot(start_datetime, end_datetime)
+
+            was_scheduled = apt.state == 'scheduled'
+            old_start = apt.start_datetime
+
+            apt.write({
+                'start_datetime': start_datetime,
+                'end_datetime': end_datetime,
+                'state': 'scheduled',
+            })
+
+            if was_scheduled and old_start != start_datetime:
+                apt.reschedule_count += 1
+                apt.message_post(body=_(
+                    "RDV déplacé du %(old)s au %(new)s."
+                ) % {
+                    'old': old_start,
+                    'new': start_datetime,
+                })
+            elif not was_scheduled:
+                apt.message_post(body=_(
+                    "RDV confirmé pour le %s."
+                ) % start_datetime)
+
+            # Mark any open escalation activities as done
+            apt._close_open_escalation_activities()
+
+    def _validate_slot(self, start_datetime, end_datetime):
+        """Placeholder — full validation lives in Task 7."""
+        if not start_datetime or not end_datetime:
+            raise UserError(_("Début et fin de créneau requis."))
+        if end_datetime <= start_datetime:
+            raise UserError(_("La fin doit être postérieure au début."))
+
+    def _close_open_escalation_activities(self):
+        """Placeholder — full escalation handling lives in Task 10."""
+        return
+
+    def action_mark_done(self):
+        for apt in self:
+            if apt.state != 'scheduled':
+                raise UserError(_(
+                    "Seuls les rendez-vous confirmés peuvent être marqués comme terminés."
+                ))
+            apt.state = 'done'
+            apt.message_post(body=_("Rendez-vous terminé."))
+
+    def action_mark_no_show(self):
+        for apt in self:
+            if apt.state != 'scheduled':
+                raise UserError(_(
+                    "Seuls les rendez-vous confirmés peuvent être marqués comme absents."
+                ))
+            apt.state = 'no_show'
+            apt.message_post(body=_("Client absent."))
+
+    def action_cancel(self):
+        for apt in self:
+            apt._ensure_not_terminal()
+            apt.state = 'cancelled'
+            apt.message_post(body=_("Rendez-vous annulé."))
