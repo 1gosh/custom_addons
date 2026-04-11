@@ -9,6 +9,10 @@ class TestSlotAvailability(RepairAppointmentCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        # Drop any schedule the tenant may have created manually via the
+        # backend so the test owns its fixture. Safe because the class
+        # savepoint rolls this back at teardown.
+        cls.Schedule.search([]).unlink()
         cls.Schedule._seed_default_schedules()
 
     def _count_available(self, slots):
