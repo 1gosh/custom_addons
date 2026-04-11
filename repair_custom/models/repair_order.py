@@ -891,6 +891,12 @@ class Repair(models.Model):
         return super(Repair, self).create(vals_list)
 
     # --- CONSTRAINTS ---
+    @api.constrains('batch_id')
+    def _check_batch_id_required(self):
+        for rec in self:
+            if not rec.batch_id:
+                raise ValidationError(_("Un dossier de dépôt est obligatoire pour chaque réparation."))
+
     @api.constrains('lot_id', 'product_tmpl_id', 'variant_id', 'serial_number')
     def _check_unit_consistency(self):
         for rec in self:
