@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_inherit_appointment" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.repair_appointment</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <div class="app_settings_block" data-string="Rendez-vous retrait"
+                     string="Rendez-vous retrait" data-key="repair_appointment">
+                    <h2>Rendez-vous de retrait</h2>
+                    <div class="row mt16 o_settings_container">
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_right_pane">
+                                <label for="appointment_booking_horizon_days"/>
+                                <field name="appointment_booking_horizon_days"/>
+                                <div class="text-muted">
+                                    Fenêtre maximum visible sur le portail client.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_right_pane">
+                                <label for="appointment_min_lead_days"/>
+                                <field name="appointment_min_lead_days"/>
+                                <div class="text-muted">
+                                    Le client ne peut pas réserver avant J+N.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_right_pane">
+                                <label for="appointment_reminder_delay_days"/>
+                                <field name="appointment_reminder_delay_days"/>
+                                <div class="text-muted">
+                                    Envoi du rappel si le client n'a pas réservé.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_right_pane">
+                                <label for="appointment_escalation_delay_days"/>
+                                <field name="appointment_escalation_delay_days"/>
+                                <div class="text-muted">
+                                    Création de l'activité « à contacter ».
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </xpath>
+        </field>
+    </record>
+</odoo>
