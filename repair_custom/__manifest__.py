@@ -36,6 +36,7 @@ The following topics are covered by this module:
         'data/repair_location_data.xml',
         'views/res_config_settings_views.xml',
         'views/repair_views.xml',
+        'views/repair_quote_queue_views.xml',
         'views/sale_order_views.xml',
         'views/tracking_views.xml',
         'views/account_move_views.xml',

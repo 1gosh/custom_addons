@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!-- Tree view for the shared quote queue -->
+        <record id="view_repair_quote_queue_tree" model="ir.ui.view">
+            <field name="name">repair.order.quote.queue.tree</field>
+            <field name="model">repair.order</field>
+            <field name="arch" type="xml">
+                <tree string="Devis à préparer"
+                      decoration-warning="quote_state == 'sent' and last_reminder_sent_at"
+                      decoration-danger="has_open_escalation">
+                    <field name="name"/>
+                    <field name="partner_id"/>
+                    <field name="device_id_name"/>
+                    <field name="technician_employee_id"/>
+                    <field name="internal_notes" widget="text" optional="show"/>
+                    <field name="quote_requested_date" widget="date" optional="show"/>
+                    <field name="quote_sent_date" widget="date" optional="hide"/>
+                    <field name="quote_state" widget="badge"
+                           decoration-info="quote_state == 'pending'"
+                           decoration-primary="quote_state == 'sent'"/>
+                    <field name="sale_order_id" optional="hide"/>
+                    <field name="has_open_escalation" invisible="1"/>
+                    <field name="has_open_refusal_activity" invisible="1"/>
+                    <field name="last_reminder_sent_at" invisible="1"/>
+                </tree>
+            </field>
+        </record>
+
+        <!-- Search view with predefined filters -->
+        <record id="view_repair_quote_queue_search" model="ir.ui.view">
+            <field name="name">repair.order.quote.queue.search</field>
+            <field name="model">repair.order</field>
+            <field name="arch" type="xml">
+                <search string="Devis à préparer">
+                    <field name="name"/>
+                    <field name="partner_id"/>
+                    <field name="technician_employee_id"/>
+                    <field name="device_id_name"/>
+
+                    <filter name="to_prepare"
+                            string="À préparer"
+                            domain="[('quote_state', '=', 'pending'), ('sale_order_id', '=', False)]"/>
+                    <filter name="to_send"
+                            string="À envoyer"
+                            domain="[('quote_state', '=', 'pending'), ('sale_order_id', '!=', False)]"/>
+                    <filter name="waiting_client"
+                            string="En attente client"
+                            domain="[('quote_state', '=', 'sent'), ('has_open_escalation', '=', False)]"/>
+                    <filter name="to_follow_up"
+                            string="À relancer"
+                            domain="[('quote_state', '=', 'sent'), ('last_reminder_sent_at', '!=', False), ('has_open_escalation', '=', False)]"/>
+                    <filter name="to_contact"
+                            string="À contacter"
+                            domain="[('has_open_escalation', '=', True)]"/>
+
+                    <separator/>
+                    <filter name="refused_to_handle"
+                            string="Devis refusés (à statuer)"
+                            domain="[('quote_state', '=', 'refused'), ('has_open_refusal_activity', '=', True)]"/>
+
+                    <group string="Regrouper par">
+                        <filter name="group_technician"
+                                string="Technicien"
+                                context="{'group_by': 'technician_employee_id'}"/>
+                        <filter name="group_partner"
+                                string="Client"
+                                context="{'group_by': 'partner_id'}"/>
+                        <filter name="group_quote_state"
+                                string="État du devis"
+                                context="{'group_by': 'quote_state'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <!-- Action -->
+        <record id="action_repair_quote_manager_queue" model="ir.actions.act_window">
+            <field name="name">Devis à préparer</field>
+            <field name="res_model">repair.order</field>
+            <field name="view_mode">tree,form</field>
+            <field name="domain">[('quote_state', 'in', ['pending', 'sent']), ('state', 'not in', ['cancel', 'done', 'irreparable'])]</field>
+            <field name="context">{'search_default_to_prepare': 1}</field>
+            <field name="view_id" ref="view_repair_quote_queue_tree"/>
+            <field name="search_view_id" ref="view_repair_quote_queue_search"/>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Aucun devis en attente.
+                </p>
+                <p>
+                    Cette liste regroupe toutes les demandes de devis en cours.
+                </p>
+            </field>
+        </record>
+
+        <!-- Top-level menu "Devis" -->
+        <menuitem id="menu_repair_quote"
+                  name="Devis"
+                  parent="menu_repair_order"
+                  sequence="15"
+                  groups="repair_custom.group_repair_manager"/>
+
+        <menuitem id="menu_repair_quote_queue"
+                  name="Devis à préparer"
+                  parent="menu_repair_quote"
+                  action="action_repair_quote_manager_queue"
+                  sequence="10"/>
+
+    </data>
+</odoo>
