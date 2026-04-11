@@ -876,6 +876,11 @@ class Repair(models.Model):
     # --- CREATE WITH SEQUENCE ---
     @api.model_create_multi
     def create(self, vals_list):
+        Batch = self.env['repair.batch']
+        for vals in vals_list:
+            if not vals.get('batch_id') and vals.get('partner_id'):
+                batch = Batch.create({'partner_id': vals['partner_id']})
+                vals['batch_id'] = batch.id
         for vals in vals_list:
             if vals.get('name', 'New') == 'New':
                 vals['name'] = self.env['ir.sequence'].next_by_code('repair.order') or 'New'
