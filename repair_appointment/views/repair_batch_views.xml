@@ -12,18 +12,22 @@
                     </group>
                     <field name="appointment_ids" readonly="1">
                         <tree>
-                            <field name="name"/>
                             <field name="start_datetime"/>
+                            <field name="device_count" string="Nb."/>
+                            <field name="device_summary"/>
+                            <field name="location_id"/>
+                            <field name="name" optional="hide"/>
                             <field name="state"/>
                         </tree>
                     </field>
-                    <button name="action_create_pickup_appointment"
+                </page>
+            </xpath>
+            <xpath expr="//header" position="inside">
+                <button name="action_open_new_pickup_appointment"
                             type="object"
                             string="Créer un RDV manuellement"
-                            context="{'notify': False}"
                             class="btn-secondary"
                             invisible="current_appointment_id"/>
-                </page>
             </xpath>
         </field>
     </record>

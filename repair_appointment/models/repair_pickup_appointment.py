@@ -1,7 +1,7 @@
 import uuid
 
 from odoo import api, fields, models, _
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 
 
 STATE_SELECTION = [
@@ -74,10 +74,52 @@ class RepairPickupAppointment(models.Model):
     company_id = fields.Many2one(
         'res.company', default=lambda self: self.env.company,
     )
+    device_count = fields.Integer(
+        'Nb. appareils',
+        compute='_compute_device_summary',
+    )
+    device_summary = fields.Char(
+        'Appareils',
+        compute='_compute_device_summary',
+        help="Identification rapide des appareils à préparer pour le retrait.",
+    )
 
     _sql_constraints = [
         ('token_unique', 'UNIQUE(token)', "Jeton déjà utilisé."),
     ]
+
+    @api.depends(
+        'repair_ids',
+        'repair_ids.device_id_name',
+        'repair_ids.serial_number',
+    )
+    def _compute_device_summary(self):
+        for apt in self:
+            repairs = apt.repair_ids
+            apt.device_count = len(repairs)
+            if not repairs:
+                apt.device_summary = _("Aucun appareil")
+                continue
+            parts = []
+            for repair in repairs[:3]:
+                label = repair.device_id_name or _("Appareil")
+                if repair.serial_number:
+                    label = "%s (SN:%s)" % (label, repair.serial_number)
+                parts.append(label)
+            if len(repairs) > 3:
+                parts.append(_("… (+%s)") % (len(repairs) - 3))
+            apt.device_summary = ", ".join(parts)
+
+    @api.constrains('state', 'start_datetime', 'end_datetime')
+    def _check_scheduled_has_dates(self):
+        for apt in self:
+            if apt.state == 'scheduled' and (
+                not apt.start_datetime or not apt.end_datetime
+            ):
+                raise ValidationError(_(
+                    "Un rendez-vous confirmé doit avoir une date de début "
+                    "et de fin."
+                ))
 
     @api.depends('batch_id.repair_ids.pickup_location_id')
     def _compute_location_id(self):
@@ -176,6 +218,29 @@ class RepairPickupAppointment(models.Model):
 
             # Mark any open escalation activities as done
             apt._close_open_escalation_activities()
+
+    def action_confirm_manual(self):
+        """Manual confirmation path for appointments booked by phone.
+
+        Unlike the portal flow, the staff is free to choose any datetime
+        (a phoned-in slot may not line up with the template schedule),
+        so slot validation is bypassed. Dates must already be filled on
+        the record before calling this.
+        """
+        for apt in self:
+            if apt.state != 'pending':
+                raise UserError(_(
+                    "Seuls les rendez-vous en attente peuvent être confirmés "
+                    "manuellement."
+                ))
+            if not apt.start_datetime or not apt.end_datetime:
+                raise UserError(_(
+                    "Renseignez le début et la fin du rendez-vous avant "
+                    "de confirmer."
+                ))
+            apt.with_context(skip_slot_validation=True).action_schedule(
+                apt.start_datetime, apt.end_datetime,
+            )
 
     def _validate_slot(self, start_datetime, end_datetime):
         if not start_datetime or not end_datetime:

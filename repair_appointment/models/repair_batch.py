@@ -23,6 +23,37 @@ class RepairBatch(models.Model):
             )
             batch.current_appointment_id = non_terminal[:1]
 
+    def action_open_new_pickup_appointment(self):
+        """Open a fresh appointment form pre-wired to this batch.
+
+        Used for the manual creation flow: a staff member organised the
+        pickup with the client by phone and wants to create + confirm
+        the appointment themselves. The form lets them fill the agreed
+        datetimes, save, then press 'Confirmer' to transition to
+        scheduled. Distinct from `action_create_pickup_appointment`
+        which is the automatic hook fired when a batch is marked done.
+        """
+        self.ensure_one()
+        if self.current_appointment_id:
+            return {
+                'type': 'ir.actions.act_window',
+                'name': _("Rendez-vous de retrait"),
+                'res_model': 'repair.pickup.appointment',
+                'res_id': self.current_appointment_id.id,
+                'view_mode': 'form',
+                'target': 'current',
+            }
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _("Nouveau rendez-vous de retrait"),
+            'res_model': 'repair.pickup.appointment',
+            'view_mode': 'form',
+            'target': 'current',
+            'context': {
+                'default_batch_id': self.id,
+            },
+        }
+
     def action_create_pickup_appointment(self, notify=True):
         """Create a pending appointment for this batch. Idempotent:
         returns the existing non-terminal appointment if one exists.

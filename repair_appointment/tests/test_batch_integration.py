@@ -34,10 +34,10 @@ class TestBatchIntegration(RepairAppointmentCase):
         self.assertNotEqual(apt1, apt2)
         self.assertEqual(apt2.state, 'pending')
 
-    def test_create_pickup_appointment_notify_without_template(self):
-        """notify=True must not raise when template is undefined (Task 9 dependency)."""
+    def test_create_pickup_appointment_notify_sets_timestamp(self):
+        """notify=True sends the pickup-ready template and stamps
+        notification_sent_at so the reminder CRON can find the record."""
         batch = self._make_batch()
-        # Must not raise even though mail template doesn't exist yet
         apt = batch.action_create_pickup_appointment(notify=True)
         self.assertEqual(apt.state, 'pending')
-        self.assertFalse(apt.notification_sent_at)  # nothing was sent
+        self.assertTrue(apt.notification_sent_at)
