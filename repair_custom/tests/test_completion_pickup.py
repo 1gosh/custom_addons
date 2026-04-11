@@ -37,3 +37,8 @@ class TestMandatoryBatches(RepairQuoteCase):
         })
         self.assertEqual(second.batch_id, first.batch_id)
         self.assertEqual(len(first.batch_id.repair_ids), 2)
+
+    def test_batch_id_required_constraint(self):
+        repair = self._make_repair()
+        with self.assertRaises(ValidationError):
+            repair.write({'batch_id': False})

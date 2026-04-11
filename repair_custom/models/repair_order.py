@@ -459,7 +459,11 @@ class Repair(models.Model):
             self.lot_id = False
 
     # --- BATCH MANAGEMENT ---
-    batch_id = fields.Many2one('repair.batch', string="Dossier de Dépôt", readonly=True, index=True, ondelete='restrict')
+    batch_id = fields.Many2one(
+        'repair.batch', string="Dossier de Dépôt",
+        readonly=True, index=True, ondelete='restrict',
+        required=True,
+    )
     batch_count = fields.Integer(compute='_compute_batch_count', string="Autres appareils")
 
     @api.depends('batch_id')
