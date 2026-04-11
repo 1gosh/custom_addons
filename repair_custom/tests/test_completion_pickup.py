@@ -189,14 +189,14 @@ class TestActionRepairDoneDialog(RepairQuoteCase):
         r2.action_repair_start()
         res = (r1 | r2).with_context(force_stop=True).action_repair_done()
         # Bulk path returns the write() truthy value, NOT the wizard action.
-        self.assertNotIsInstance(res, dict)
+        self.assertIs(res, True)
 
     def test_skip_pickup_notify_prompt_context(self):
         r = self._start()
         res = r.with_context(
             force_stop=True, skip_pickup_notify_prompt=True,
         ).action_repair_done()
-        self.assertNotIsInstance(res, dict)
+        self.assertIs(res, True)
 
     def test_no_legacy_activity_created(self):
         r = self._start()

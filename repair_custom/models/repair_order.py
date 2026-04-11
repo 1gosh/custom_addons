@@ -677,6 +677,7 @@ class Repair(models.Model):
         ready_batches = self.mapped('batch_id').filtered(
             'ready_for_pickup_notification'
         )
+        # Only offer the dialog for single-record UI actions.
         if (ready_batches
                 and not self.env.context.get('skip_pickup_notify_prompt')
                 and len(ready_batches) == 1
