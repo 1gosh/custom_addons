@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <record id="mail_template_repair_quote_reminder" model="mail.template">
+            <field name="name">Rappel devis de réparation</field>
+            <field name="model_id" ref="model_repair_order"/>
+            <field name="subject">Rappel : votre devis de réparation {{ object.name }}</field>
+            <field name="email_from">{{ object.company_id.email_formatted or user.email_formatted }}</field>
+            <field name="email_to">{{ object.partner_id.email }}</field>
+            <field name="lang">{{ object.partner_id.lang }}</field>
+            <field name="body_html" type="html">
+                <div style="margin: 0px; padding: 0px;">
+                    <p>Bonjour <t t-out="object.partner_id.name or ''"/>,</p>
+                    <p>
+                        Nous vous avons adressé il y a quelques jours un devis pour la réparation de votre
+                        <t t-out="object.device_id_name or 'appareil'"/> (<t t-out="object.name or ''"/>).
+                    </p>
+                    <p>
+                        N'hésitez pas à nous revenir avec votre décision afin que nous puissions planifier
+                        les travaux.
+                    </p>
+                    <p t-if="object.sale_order_id">
+                        Vous pouvez consulter et valider le devis directement en ligne :
+                        <a t-att-href="object.sale_order_id.get_portal_url()">Voir le devis</a>
+                    </p>
+                    <p>Cordialement,</p>
+                    <p><t t-out="user.company_id.name or ''"/></p>
+                </div>
+            </field>
+        </record>
+
+    </data>
+</odoo>
