@@ -7,6 +7,11 @@ from .common import RepairAppointmentCase
 @tagged('repair_appointment', 'post_install', '-at_install')
 class TestPortalController(HttpCase, RepairAppointmentCase):
 
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.Schedule._seed_default_schedules()
+
     def test_landing_valid_token(self):
         batch = self._make_batch()
         apt = batch.action_create_pickup_appointment(notify=False)
