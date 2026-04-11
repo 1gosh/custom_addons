@@ -67,3 +67,40 @@ class TestQuoteStateTransitions(RepairQuoteCase):
         repair._apply_quote_state_transition('pending')
         self.assertGreater(len(repair.message_ids), before_count,
                            "Going back to pending from sent should post a chatter note")
+
+
+class TestActionRequestQuote(RepairQuoteCase):
+    """Tests for the refactored action_atelier_request_quote."""
+
+    def test_request_quote_transitions_to_pending(self):
+        repair = self._make_repair(tech=self.tech_with_user)
+        repair.action_atelier_request_quote()
+        self.assertEqual(repair.quote_state, 'pending')
+
+    def test_request_quote_sets_quote_requested_date(self):
+        repair = self._make_repair()
+        repair.action_atelier_request_quote()
+        self.assertTrue(repair.quote_requested_date)
+
+    def test_request_quote_creates_no_legacy_activities(self):
+        repair = self._make_repair()
+        repair.action_atelier_request_quote()
+        legacy_type = self.env.ref('repair_custom.mail_act_repair_quote_validate')
+        legacy_activities = repair.activity_ids.filtered(
+            lambda a: a.activity_type_id == legacy_type
+        )
+        self.assertFalse(
+            legacy_activities,
+            "action_atelier_request_quote must not create per-manager activities anymore"
+        )
+
+    def test_request_quote_requires_internal_notes(self):
+        repair = self._make_repair(internal_notes=False)
+        with self.assertRaises(UserError):
+            repair.action_atelier_request_quote()
+
+    def test_request_quote_posts_chatter_note(self):
+        repair = self._make_repair()
+        before = len(repair.message_ids)
+        repair.action_atelier_request_quote()
+        self.assertGreater(len(repair.message_ids), before)

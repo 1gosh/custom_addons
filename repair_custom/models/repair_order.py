@@ -958,19 +958,12 @@ class Repair(models.Model):
         if not self.internal_notes:
             raise UserError(_("Veuillez remplir l'estimation technique avant de demander un devis."))
 
-        group_manager = self.env.ref('repair_custom.group_repair_manager')
-        activity_type_id = self.env.ref('repair_custom.mail_act_repair_quote_validate').id
-
-        for manager_user in group_manager.users:
-            self.activity_schedule(
-                activity_type_id=activity_type_id,
-                user_id=manager_user.id,
-                summary="Devis",
-                note=f"Demande par {self.technician_employee_id.name} pour {self.device_id_name}",
-                date_deadline=fields.Date.today(),  
-            )
-
-        return self.write({'quote_state': 'pending'})
+        self._apply_quote_state_transition('pending')
+        self.quote_requested_date = fields.Datetime.now()
+        tech_name = (self.technician_employee_id.name
+                     if self.technician_employee_id else self.env.user.name)
+        self.message_post(body=_("🔖 Devis demandé par %s.") % tech_name)
+        return True
 
     def action_create_quotation_wizard(self):
         self.ensure_one()
