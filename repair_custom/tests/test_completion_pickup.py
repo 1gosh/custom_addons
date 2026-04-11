@@ -206,3 +206,38 @@ class TestActionRepairDoneDialog(RepairQuoteCase):
             r.activity_ids.filtered(lambda a: a.activity_type_id == pickup_type),
             "legacy Appareil Prêt activity fan-out should be gone",
         )
+
+
+@tagged('post_install', '-at_install', 'repair_completion_pickup')
+class TestActionPickupStart(RepairQuoteCase):
+
+    def _done_repair(self):
+        r = self._make_repair()
+        r.action_validate()
+        r.action_repair_start()
+        r.with_context(force_stop=True, skip_pickup_notify_prompt=True).action_repair_done()
+        return r
+
+    def test_pickup_start_with_sale_order(self):
+        r = self._done_repair()
+        so = self._make_sale_order_linked(r)
+        res = r.batch_id.action_pickup_start()
+        self.assertEqual(res['res_model'], 'sale.order')
+        self.assertEqual(res['res_id'], so.id)
+
+    def test_pickup_start_without_sale_order_opens_wizard(self):
+        r = self._done_repair()
+        res = r.batch_id.action_pickup_start()
+        self.assertEqual(res['res_model'], 'repair.pricing.wizard')
+        self.assertEqual(res['context']['default_repair_id'], r.id)
+        self.assertEqual(res['context'].get('default_mode'), 'invoice')
+
+    def test_pickup_start_no_eligible_raises(self):
+        batch = self.env['repair.batch'].create({'partner_id': self.partner.id})
+        with self.assertRaises(UserError):
+            batch.action_pickup_start()
+
+    def test_repair_pickup_start_wrapper(self):
+        r = self._done_repair()
+        res = r.action_pickup_start()
+        self.assertEqual(res['res_model'], 'repair.pricing.wizard')

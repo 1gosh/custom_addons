@@ -70,6 +70,44 @@ class RepairBatch(models.Model):
                 continue
             batch.ready_for_pickup_notification = True
 
+    def action_pickup_start(self):
+        """Counter entry point. Route to linked sale.order or open the
+        pricing wizard in invoice mode. Invoice creation happens wherever;
+        delivery transition is driven by the account.move post hook.
+        """
+        self.ensure_one()
+        eligible = self.repair_ids.filtered(
+            lambda r: r.delivery_state == 'none'
+            and r.state in ('done', 'irreparable')
+        )
+        if not eligible:
+            raise UserError(_(
+                "Aucune réparation en attente de livraison dans ce dossier."
+            ))
+
+        sale_orders = self.repair_ids.mapped('sale_order_id')
+        if sale_orders:
+            return {
+                'name': _("Devis / Bon de Commande"),
+                'type': 'ir.actions.act_window',
+                'res_model': 'sale.order',
+                'res_id': sale_orders[:1].id,
+                'view_mode': 'form',
+                'target': 'current',
+            }
+
+        return {
+            'name': _("Facturation Atelier"),
+            'type': 'ir.actions.act_window',
+            'res_model': 'repair.pricing.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_repair_id': eligible[:1].id,
+                'default_mode': 'invoice',
+            },
+        }
+
     def action_notify_client_ready(self):
         """Trigger initial pickup-ready notification for this batch.
 
