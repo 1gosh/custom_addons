@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="activity_pickup_to_contact" model="mail.activity.type">
+            <field name="name">Client à contacter (retrait)</field>
+            <field name="summary">Client à contacter — RDV retrait non pris</field>
+            <field name="icon">fa-phone</field>
+            <field name="delay_count">0</field>
+            <field name="res_model">repair.pickup.appointment</field>
+        </record>
+    </data>
+</odoo>

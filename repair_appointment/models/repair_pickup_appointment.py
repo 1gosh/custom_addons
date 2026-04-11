@@ -64,6 +64,12 @@ class RepairPickupAppointment(models.Model):
     last_reminder_sent_at = fields.Datetime('Dernier rappel le')
     contacted = fields.Boolean('Client contacté')
     contacted_at = fields.Datetime('Contacté le')
+    escalation_activity_id = fields.Many2one(
+        'mail.activity',
+        string='Activité "à contacter"',
+        compute='_compute_escalation_activity',
+        store=True,
+    )
     reschedule_count = fields.Integer('Nombre de replanifications', default=0)
     company_id = fields.Many2one(
         'res.company', default=lambda self: self.env.company,
@@ -155,10 +161,6 @@ class RepairPickupAppointment(models.Model):
             raise UserError(_("La fin doit être postérieure au début."))
         if not self._is_slot_available(start_datetime, end_datetime):
             raise UserError(_("Ce créneau n'est plus disponible."))
-
-    def _close_open_escalation_activities(self):
-        """Placeholder — full escalation handling lives in Task 10."""
-        return
 
     def action_mark_done(self):
         for apt in self:
@@ -315,3 +317,82 @@ class RepairPickupAppointment(models.Model):
             if not self.env.context.get('bypass_capacity'):
                 return False
         return True
+
+    # ------------------------------------------------------------------
+    # Escalation activity handling
+    # ------------------------------------------------------------------
+
+    @api.depends('activity_ids', 'activity_ids.activity_type_id')
+    def _compute_escalation_activity(self):
+        activity_type = self.env.ref(
+            'repair_appointment.activity_pickup_to_contact',
+            raise_if_not_found=False,
+        )
+        for apt in self:
+            if not activity_type:
+                apt.escalation_activity_id = False
+                continue
+            matching = apt.activity_ids.filtered(
+                lambda a: a.activity_type_id == activity_type
+            )
+            apt.escalation_activity_id = matching[:1]
+
+    def _create_escalation_activity(self):
+        """Create one activity per user in group_repair_manager."""
+        self.ensure_one()
+        activity_type = self.env.ref('repair_appointment.activity_pickup_to_contact')
+        managers = self.env.ref('repair_custom.group_repair_manager').users
+        note_tmpl = _(
+            "Le client %(name)s n'a pas pris rendez-vous pour récupérer son appareil.\n"
+            "Dossier : %(batch)s\nTéléphone : %(phone)s"
+        )
+        for manager in managers:
+            self.env['mail.activity'].create({
+                'res_model_id': self.env['ir.model']._get_id('repair.pickup.appointment'),
+                'res_id': self.id,
+                'activity_type_id': activity_type.id,
+                'user_id': manager.id,
+                'summary': _("Client à contacter — RDV retrait non pris"),
+                'note': note_tmpl % {
+                    'name': self.partner_id.name or '',
+                    'batch': self.batch_id.name or '',
+                    'phone': self.partner_id.phone or '',
+                },
+            })
+
+    def action_mark_contacted(self):
+        """Manager clicked 'Contacté'. Marks all sibling activities (of
+        type activity_pickup_to_contact) on this record as done and
+        sets the `contacted` flag so the CRON restarts from contacted_at."""
+        activity_type = self.env.ref('repair_appointment.activity_pickup_to_contact')
+        for apt in self:
+            activities = self.env['mail.activity'].search([
+                ('res_model', '=', 'repair.pickup.appointment'),
+                ('res_id', '=', apt.id),
+                ('activity_type_id', '=', activity_type.id),
+            ])
+            for act in activities:
+                act.action_feedback(feedback=_("Marqué contacté depuis le RDV."))
+            apt.write({
+                'contacted': True,
+                'contacted_at': fields.Datetime.now(),
+            })
+            apt.message_post(body=_("Client marqué comme contacté."))
+
+    def _close_open_escalation_activities(self):
+        """Called from action_schedule. Cleanly closes any open
+        escalation activities on the record."""
+        activity_type = self.env.ref(
+            'repair_appointment.activity_pickup_to_contact',
+            raise_if_not_found=False,
+        )
+        if not activity_type:
+            return
+        for apt in self:
+            activities = self.env['mail.activity'].search([
+                ('res_model', '=', 'repair.pickup.appointment'),
+                ('res_id', '=', apt.id),
+                ('activity_type_id', '=', activity_type.id),
+            ])
+            for act in activities:
+                act.action_feedback(feedback=_("RDV planifié — escalade close."))
