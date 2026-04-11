@@ -157,3 +157,41 @@ class TestSaleOrderSync(RepairQuoteCase):
         self.sale_order.write({'state': 'sent'})
         self.assertEqual(len(self.repair.message_ids), before_count,
                          "Re-writing same state must not re-fire side effects")
+
+
+class TestComputedActivityFlags(RepairQuoteCase):
+    """Tests for has_open_escalation and has_open_refusal_activity."""
+
+    def test_has_open_escalation_false_by_default(self):
+        repair = self._make_repair()
+        self.assertFalse(repair.has_open_escalation)
+
+    def test_has_open_escalation_true_when_activity_open(self):
+        repair = self._make_repair()
+        escalate_type = self.env.ref('repair_custom.mail_act_repair_quote_escalate')
+        repair.activity_schedule(
+            activity_type_id=escalate_type.id,
+            user_id=self.manager_user_1.id,
+            summary='Test',
+        )
+        repair.invalidate_recordset(['has_open_escalation'])
+        self.assertTrue(repair.has_open_escalation)
+
+    def test_has_open_escalation_false_when_activity_done(self):
+        repair = self._make_repair()
+        escalate_type = self.env.ref('repair_custom.mail_act_repair_quote_escalate')
+        activity = repair.activity_schedule(
+            activity_type_id=escalate_type.id,
+            user_id=self.manager_user_1.id,
+            summary='Test',
+        )
+        activity.action_feedback(feedback='done')
+        repair.invalidate_recordset(['has_open_escalation'])
+        self.assertFalse(repair.has_open_escalation)
+
+    def test_has_open_refusal_activity_true_after_refusal(self):
+        repair = self._make_repair()
+        repair._apply_quote_state_transition('sent')
+        repair._apply_quote_state_transition('refused')
+        repair.invalidate_recordset(['has_open_refusal_activity'])
+        self.assertTrue(repair.has_open_refusal_activity)
