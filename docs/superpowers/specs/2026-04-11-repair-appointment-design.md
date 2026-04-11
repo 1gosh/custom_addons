@@ -70,6 +70,7 @@ repair_appointment/
 │   └── menus.xml                       # "Rendez-vous" menu under repair module
 ├── data/
 │   ├── mail_templates.xml              # reminder mail template
+│   ├── mail_activity_type_data.xml     # custom "Client à contacter" activity type
 │   ├── ir_cron.xml                     # reminder CRON
 │   ├── pickup_schedule_data.xml        # default Mon-Sat schedule per location (noupdate=1)
 │   └── ir_sequence.xml                 # appointment reference sequence
@@ -99,14 +100,14 @@ First-class entity representing a single client pickup slot. Inherits `mail.thre
 | `name` | Char | Auto-generated ref (e.g., `RDV/2026/00042`) via `ir.sequence` |
 | `batch_id` | M2O `repair.batch` | Required; the deposit dossier this pickup covers |
 | `partner_id` | M2O `res.partner` | Related to `batch_id.partner_id`, stored |
-| `location_id` | M2O `repair.pickup.location` | Computed from the first repair's `pickup_location_id`, stored; fallback to Boutique |
-| `state` | Selection | `pending`, `scheduled`, `done`, `no_show`, `cancelled` |
+| `location_id` | M2O `repair.pickup.location` | Computed from the first repair's `pickup_location_id`, stored. If the batch has no repairs with a location (shouldn't happen in practice), falls back to the first active `repair.pickup.location` record rather than hardcoding "Boutique" |
+| `state` | Selection | `pending`, `scheduled`, `done`, `no_show`, `cancelled`. Default: `pending` |
 | `start_datetime` | Datetime | Slot start (null while `pending`) |
 | `end_datetime` | Datetime | Slot end (null while `pending`) |
 | `token` | Char | UUID4, unique, readonly, auto-generated at create |
 | `notification_sent_at` | Datetime | When initial "ready for pickup" mail was sent (set by sub-project 3) |
 | `last_reminder_sent_at` | Datetime | When the reminder was last sent by the CRON |
-| `escalation_activity_id` | M2O `mail.activity` | Non-stored; reference to the latest open "à contacter" activity if any |
+| `escalation_activity_id` | M2O `mail.activity` | Computed, stored. Resolves to the first open activity of type `activity_pickup_to_contact` on this record (via `activity_ids` filter); falls back to False. Stored so it's queryable from search views and the CRON |
 | `contacted` | Boolean | Manager clicked "contacté" — used to reset escalation clock |
 | `contacted_at` | Datetime | Timestamp of the above, for CRON math |
 | `repair_ids` | O2M related | Related through `batch_id.repair_ids`, display only |
@@ -280,7 +281,7 @@ Odoo's `mail.activity.user_id` is a single-user M2O — there is no native group
 - When any one of them clicks "Contacté," `action_mark_contacted` joins sibling activities by `(res_id, res_model, activity_type_id, create_date)` and marks **all** as done so the others don't see stale entries
 
 **Activity metadata:**
-- `activity_type_id` — either Odoo's built-in "Appel à faire" (`mail.mail_activity_data_call`) or a new `repair_appointment.activity_pickup_to_contact` defined in data
+- `activity_type_id` — a custom type `repair_appointment.activity_pickup_to_contact` defined in `data/mail_activity_type_data.xml` (not the built-in "Appel à faire," so we have full control over the label, icon, and can filter on it unambiguously from the search view + the `escalation_activity_id` compute)
 - `summary` — "Client à contacter — RDV retrait non pris"
 - `note` — link to the appointment + the batch + the client's phone number
 
