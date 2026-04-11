@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import unittest
+
 from odoo.exceptions import UserError, ValidationError
 from odoo.tests.common import tagged
 
@@ -113,3 +115,35 @@ class TestReadyForPickupNotification(RepairQuoteCase):
     def test_repair_related_batch_ready_flag(self):
         r = self._done_repair()
         self.assertTrue(r.batch_ready_for_pickup_notification)
+
+
+@tagged('post_install', '-at_install', 'repair_completion_pickup')
+class TestPickupNotifyWizard(RepairQuoteCase):
+
+    def _done_repair(self):
+        r = self._make_repair()
+        r.action_validate()
+        r.action_repair_start()
+        r.with_context(force_stop=True).action_repair_done()
+        return r
+
+    @unittest.skip("Re-enabled in Task C2 once batch.action_notify_client_ready exists")
+    def test_notify_wizard_action_send_creates_appointment(self):
+        r = self._done_repair()
+        wiz = self.env['repair.pickup.notify.wizard'].create({
+            'batch_id': r.batch_id.id,
+        })
+        self.assertEqual(wiz.partner_name, self.partner.name)
+        self.assertEqual(wiz.repair_count, 1)
+        wiz.action_send()
+        self.assertTrue(r.batch_id.current_appointment_id)
+        self.assertTrue(r.batch_id.current_appointment_id.notification_sent_at)
+
+    def test_notify_wizard_action_postpone_noop(self):
+        r = self._done_repair()
+        wiz = self.env['repair.pickup.notify.wizard'].create({
+            'batch_id': r.batch_id.id,
+        })
+        res = wiz.action_postpone()
+        self.assertFalse(r.batch_id.current_appointment_id)
+        self.assertEqual(res.get('type'), 'ir.actions.act_window_close')
