@@ -1,4 +1,5 @@
 from odoo import api, Command, fields, models, _
+from odoo.exceptions import UserError
 
 class RepairBatch(models.Model):
     _name = 'repair.batch'
@@ -68,6 +69,25 @@ class RepairBatch(models.Model):
                 batch.ready_for_pickup_notification = False
                 continue
             batch.ready_for_pickup_notification = True
+
+    def action_notify_client_ready(self):
+        """Trigger initial pickup-ready notification for this batch.
+
+        Delegates to repair_appointment's `action_create_pickup_appointment(notify=True)`.
+        Idempotent: if the batch already has a non-terminal appointment with
+        `notification_sent_at` stamped, return True without creating a new one.
+        Raises UserError if the batch is not yet ready for notification.
+        """
+        self.ensure_one()
+        current_apt = self.current_appointment_id
+        if current_apt and current_apt.notification_sent_at:
+            # Already notified — idempotent no-op.
+            return True
+        if not self.ready_for_pickup_notification:
+            raise UserError(_(
+                "Ce dossier n'est pas prêt pour une notification de retrait."
+            ))
+        return self.action_create_pickup_appointment(notify=True)
 
     @api.model_create_multi
     def create(self, vals_list):

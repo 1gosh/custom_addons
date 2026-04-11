@@ -502,6 +502,11 @@ class Repair(models.Model):
             }
         }
 
+    def action_notify_client_ready_from_repair(self):
+        """Thin wrapper so repair form button can fire batch-level action."""
+        self.ensure_one()
+        return self.batch_id.action_notify_client_ready()
+
     # --- WRITE OVERRIDE WITH SECURITY ---
     def write(self, vals):
         is_admin = self.env.user.has_group('repair_custom.group_repair_admin')

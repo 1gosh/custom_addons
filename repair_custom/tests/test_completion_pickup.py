@@ -127,7 +127,6 @@ class TestPickupNotifyWizard(RepairQuoteCase):
         r.with_context(force_stop=True).action_repair_done()
         return r
 
-    @unittest.skip("Re-enabled in Task C2 once batch.action_notify_client_ready exists")
     def test_notify_wizard_action_send_creates_appointment(self):
         r = self._done_repair()
         wiz = self.env['repair.pickup.notify.wizard'].create({
@@ -147,3 +146,20 @@ class TestPickupNotifyWizard(RepairQuoteCase):
         res = wiz.action_postpone()
         self.assertFalse(r.batch_id.current_appointment_id)
         self.assertEqual(res.get('type'), 'ir.actions.act_window_close')
+
+    def test_notify_client_ready_guard(self):
+        r = self._make_repair()  # draft — not ready
+        with self.assertRaises(UserError):
+            r.batch_id.action_notify_client_ready()
+
+    def test_notify_client_ready_idempotent(self):
+        r = self._done_repair()
+        r.batch_id.action_notify_client_ready()
+        first_apt = r.batch_id.current_appointment_id
+        r.batch_id.action_notify_client_ready()
+        self.assertEqual(r.batch_id.current_appointment_id, first_apt)
+
+    def test_repair_notify_helper_delegates(self):
+        r = self._done_repair()
+        r.action_notify_client_ready_from_repair()
+        self.assertTrue(r.batch_id.current_appointment_id)
