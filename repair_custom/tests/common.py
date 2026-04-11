@@ -33,19 +33,26 @@ class RepairQuoteCase(TransactionCase):
 
         # Manager group
         cls.manager_group = cls.env.ref('repair_custom.group_repair_manager')
+        # Sales group — managers also need to write to sale.order when the
+        # quote lifecycle sync is exercised from the sale.order side.
+        cls.sales_group = cls.env.ref('sales_team.group_sale_salesman_all_leads')
+
+        # Ensure the test runner user can write protected fields on repair.order
+        # (e.g. sale_order_id inverse write triggered by sale.order creation).
+        cls.env.user.groups_id = [(4, cls.manager_group.id), (4, cls.sales_group.id)]
 
         # Two manager users for escalation activity tests
         cls.manager_user_1 = cls.User.create({
             'name': 'Manager One',
             'login': 'manager1_quote_test@example.com',
             'email': 'manager1_quote_test@example.com',
-            'groups_id': [(6, 0, [cls.manager_group.id])],
+            'groups_id': [(6, 0, [cls.manager_group.id, cls.sales_group.id])],
         })
         cls.manager_user_2 = cls.User.create({
             'name': 'Manager Two',
             'login': 'manager2_quote_test@example.com',
             'email': 'manager2_quote_test@example.com',
-            'groups_id': [(6, 0, [cls.manager_group.id])],
+            'groups_id': [(6, 0, [cls.manager_group.id, cls.sales_group.id])],
         })
 
         # Tech with Odoo user
