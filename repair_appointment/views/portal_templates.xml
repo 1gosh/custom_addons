@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="portal_pickup_page" name="Portail retrait">
+        <t t-call="portal.frontend_layout">
+            <div class="container mt-4 mb-5">
+                <t t-if="error">
+                    <div class="alert alert-danger" t-esc="error"/>
+                </t>
+
+                <h2>Bonjour <t t-out="apt.partner_id.name"/>,</h2>
+                <p class="text-muted">Référence : <t t-out="apt.batch_id.name"/></p>
+
+                <t t-if="apt.state == 'pending'">
+                    <p>Votre appareil est prêt à être récupéré :</p>
+                    <ul>
+                        <t t-foreach="apt.repair_ids" t-as="r">
+                            <li><t t-out="r.name or r.display_name"/></li>
+                        </t>
+                    </ul>
+                    <p>
+                        <strong>Lieu :</strong> <t t-out="apt.location_id.display_name"/><br/>
+                        <t t-if="apt.location_id.street">
+                            <t t-out="apt.location_id.street"/>, <t t-out="apt.location_id.city"/>
+                        </t>
+                    </p>
+
+                    <h4 class="mt-4">Choisissez un créneau :</h4>
+                    <div id="pickup-slot-selector">Chargement...</div>
+                    <form method="POST" t-att-action="'/my/pickup/' + apt.token + '/book'" id="pickup-book-form">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <input type="hidden" name="start_datetime" id="start_datetime_input"/>
+                        <button type="submit" class="btn btn-primary mt-2" disabled="1" id="book-submit">
+                            Valider mon rendez-vous
+                        </button>
+                    </form>
+                </t>
+
+                <t t-if="apt.state == 'scheduled'">
+                    <p>Votre rendez-vous est confirmé :</p>
+                    <ul>
+                        <li><strong>Date :</strong> <t t-out="apt.start_datetime"/></li>
+                        <li><strong>Lieu :</strong> <t t-out="apt.location_id.display_name"/></li>
+                    </ul>
+                    <p>Appareils à récupérer :</p>
+                    <ul>
+                        <t t-foreach="apt.repair_ids" t-as="r">
+                            <li><t t-out="r.name or r.display_name"/></li>
+                        </t>
+                    </ul>
+
+                    <h4 class="mt-4">Changer de créneau ?</h4>
+                    <div id="pickup-slot-selector">Chargement...</div>
+                    <form method="POST" t-att-action="'/my/pickup/' + apt.token + '/reschedule'" id="pickup-reschedule-form">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <input type="hidden" name="start_datetime" id="start_datetime_input"/>
+                        <button type="submit" class="btn btn-primary mt-2" disabled="1" id="book-submit">
+                            Valider le nouveau créneau
+                        </button>
+                    </form>
+                    <p class="text-muted mt-3">
+                        Pour annuler votre rendez-vous, merci de nous contacter directement.
+                    </p>
+                </t>
+
+                <t t-if="apt.state in ('done', 'cancelled', 'no_show')">
+                    <p>Ce rendez-vous est clôturé (<t t-out="apt.state"/>).</p>
+                    <p>Pour toute question, contactez-nous directement.</p>
+                </t>
+            </div>
+
+            <script type="text/javascript">
+                (async function() {
+                    const container = document.getElementById('pickup-slot-selector');
+                    if (!container) return;
+                    const token = '<t t-out="apt.token"/>';
+                    try {
+                        const resp = await fetch('/my/pickup/' + token + '/slots', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({jsonrpc: '2.0', method: 'call', params: {}}),
+                        });
+                        const payload = await resp.json();
+                        const slots = payload.result || [];
+                        if (!slots.length) {
+                            container.innerHTML = '<em>Aucun créneau disponible.</em>';
+                            return;
+                        }
+                        const list = document.createElement('div');
+                        slots.forEach(s => {
+                            const btn = document.createElement('button');
+                            btn.type = 'button';
+                            btn.className = 'btn btn-outline-primary m-1';
+                            btn.disabled = (s.remaining &lt;= 0);
+                            btn.textContent = s.label + ' (' + s.remaining + ' places)';
+                            btn.addEventListener('click', () => {
+                                document.getElementById('start_datetime_input').value = s.start;
+                                document.getElementById('book-submit').disabled = false;
+                                list.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                                btn.classList.add('active');
+                            });
+                            list.appendChild(btn);
+                        });
+                        container.innerHTML = '';
+                        container.appendChild(list);
+                    } catch (e) {
+                        container.innerHTML = '<em>Erreur de chargement des créneaux.</em>';
+                    }
+                })();
+            </script>
+        </t>
+    </template>
+
+    <template id="portal_pickup_confirmation" name="Portail retrait — confirmation">
+        <t t-call="portal.frontend_layout">
+            <div class="container mt-4 mb-5">
+                <h2>Rendez-vous confirmé</h2>
+                <p>Votre rendez-vous est confirmé pour le
+                   <strong t-out="apt.start_datetime"/> à
+                   <strong t-out="apt.location_id.display_name"/>.</p>
+                <p>
+                    <a t-att-href="'/my/pickup/' + apt.token" class="btn btn-outline-primary">
+                        Retour à ma demande
+                    </a>
+                </p>
+            </div>
+        </t>
+    </template>
+</odoo>

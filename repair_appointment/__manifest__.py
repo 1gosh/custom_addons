@@ -22,6 +22,7 @@ repair.batch.
         'data/mail_templates.xml',
         'data/pickup_schedule_data.xml',
         'data/ir_cron.xml',
+        'views/portal_templates.xml',
         'views/res_config_settings_views.xml',
     ],
     'installable': True,
