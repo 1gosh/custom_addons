@@ -464,6 +464,11 @@ class Repair(models.Model):
         readonly=True, index=True, ondelete='restrict',
         required=True,
     )
+    batch_ready_for_pickup_notification = fields.Boolean(
+        related='batch_id.ready_for_pickup_notification',
+        store=False,
+        string="Dossier prêt à notifier",
+    )
     batch_count = fields.Integer(compute='_compute_batch_count', string="Autres appareils")
 
     @api.depends('batch_id')

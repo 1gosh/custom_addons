@@ -109,3 +109,7 @@ class TestReadyForPickupNotification(RepairQuoteCase):
         r.delivery_state = 'abandoned'
         r.batch_id.invalidate_recordset(['ready_for_pickup_notification'])
         self.assertFalse(r.batch_id.ready_for_pickup_notification)
+
+    def test_repair_related_batch_ready_flag(self):
+        r = self._done_repair()
+        self.assertTrue(r.batch_ready_for_pickup_notification)
