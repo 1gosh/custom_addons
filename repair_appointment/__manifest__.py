@@ -24,6 +24,7 @@ repair.batch.
         'data/ir_cron.xml',
         'views/portal_templates.xml',
         'views/res_config_settings_views.xml',
+        'views/appointment_views.xml',
     ],
     'installable': True,
     'application': False,

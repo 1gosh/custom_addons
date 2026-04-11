@@ -423,6 +423,21 @@ class RepairPickupAppointment(models.Model):
             apt.message_post(body=_("Rappel envoyé manuellement."))
 
     # ------------------------------------------------------------------
+    # UI actions
+    # ------------------------------------------------------------------
+
+    def action_open_batch(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': self.batch_id.display_name or _("Dossier"),
+            'res_model': 'repair.batch',
+            'res_id': self.batch_id.id,
+            'view_mode': 'form',
+            'target': 'current',
+        }
+
+    # ------------------------------------------------------------------
     # Reminder CRON
     # ------------------------------------------------------------------
 

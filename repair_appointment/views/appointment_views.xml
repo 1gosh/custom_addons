@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Tree view -->
+    <record id="view_repair_pickup_appointment_tree" model="ir.ui.view">
+        <field name="name">repair.pickup.appointment.tree</field>
+        <field name="model">repair.pickup.appointment</field>
+        <field name="arch" type="xml">
+            <tree decoration-danger="state == 'no_show'"
+                  decoration-muted="state in ('cancelled','done')"
+                  decoration-bf="state == 'pending'">
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="batch_id"/>
+                <field name="location_id"/>
+                <field name="start_datetime"/>
+                <field name="state"/>
+                <field name="reschedule_count"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Form view -->
+    <record id="view_repair_pickup_appointment_form" model="ir.ui.view">
+        <field name="name">repair.pickup.appointment.form</field>
+        <field name="model">repair.pickup.appointment</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_mark_done" type="object"
+                            string="Marquer terminé" class="btn-primary"
+                            invisible="state != 'scheduled'"/>
+                    <button name="action_mark_no_show" type="object"
+                            string="Marquer absent"
+                            invisible="state != 'scheduled'"/>
+                    <button name="action_cancel" type="object"
+                            string="Annuler"
+                            confirm="Annuler ce rendez-vous ?"
+                            invisible="state in ('done','no_show','cancelled')"/>
+                    <button name="action_mark_contacted" type="object"
+                            string="Contacté"
+                            invisible="not escalation_activity_id"/>
+                    <button name="action_send_reminder_now" type="object"
+                            string="Renvoyer le rappel"
+                            invisible="state != 'pending'"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="pending,scheduled,done"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_batch" type="object" class="oe_stat_button"
+                                icon="fa-folder-open">
+                            <field name="batch_id" widget="statinfo" string="Dossier"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="batch_id"/>
+                            <field name="partner_id" readonly="1"/>
+                            <field name="location_id" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="start_datetime"/>
+                            <field name="end_datetime"/>
+                            <field name="reschedule_count" readonly="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Appareils">
+                            <field name="repair_ids" readonly="1">
+                                <tree>
+                                    <field name="name"/>
+                                    <field name="partner_id"/>
+                                    <field name="state"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Suivi">
+                            <group>
+                                <field name="notification_sent_at" readonly="1"/>
+                                <field name="last_reminder_sent_at" readonly="1"/>
+                                <field name="contacted" readonly="1"/>
+                                <field name="contacted_at" readonly="1"/>
+                                <field name="escalation_activity_id" readonly="1"/>
+                                <field name="token" readonly="1"
+                                       groups="repair_custom.group_repair_admin"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <!-- Calendar view -->
+    <record id="view_repair_pickup_appointment_calendar" model="ir.ui.view">
+        <field name="name">repair.pickup.appointment.calendar</field>
+        <field name="model">repair.pickup.appointment</field>
+        <field name="arch" type="xml">
+            <calendar string="Rendez-vous de retrait"
+                      date_start="start_datetime"
+                      date_stop="end_datetime"
+                      color="location_id"
+                      mode="week"
+                      quick_create="0">
+                <field name="partner_id"/>
+                <field name="batch_id"/>
+                <field name="location_id" filters="1"/>
+                <field name="state" filters="1"/>
+            </calendar>
+        </field>
+    </record>
+
+    <!-- Search view -->
+    <record id="view_repair_pickup_appointment_search" model="ir.ui.view">
+        <field name="name">repair.pickup.appointment.search</field>
+        <field name="model">repair.pickup.appointment</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="batch_id"/>
+                <filter name="pending" string="En attente"
+                        domain="[('state','=','pending')]"/>
+                <filter name="scheduled" string="Confirmés"
+                        domain="[('state','=','scheduled')]"/>
+                <filter name="to_contact" string="À contacter"
+                        domain="[('escalation_activity_id','!=',False)]"/>
+                <filter name="today" string="Aujourd'hui"
+                        domain="[('start_datetime','&gt;=', datetime.datetime.now().strftime('%Y-%m-%d 00:00:00')),
+                                 ('start_datetime','&lt;', (datetime.datetime.now() + datetime.timedelta(days=1)).strftime('%Y-%m-%d 00:00:00'))]"/>
+                <group expand="0" string="Grouper par">
+                    <filter name="group_location" string="Lieu"
+                            context="{'group_by': 'location_id'}"/>
+                    <filter name="group_state" string="État"
+                            context="{'group_by': 'state'}"/>
+                    <filter name="group_partner" string="Client"
+                            context="{'group_by': 'partner_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_repair_pickup_appointment" model="ir.actions.act_window">
+        <field name="name">Rendez-vous de retrait</field>
+        <field name="res_model">repair.pickup.appointment</field>
+        <field name="view_mode">calendar,tree,form</field>
+        <field name="search_view_id" ref="view_repair_pickup_appointment_search"/>
+        <field name="context">{'search_default_pending': 1, 'search_default_scheduled': 1}</field>
+    </record>
+</odoo>
