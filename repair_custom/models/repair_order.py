@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Main Repair Order model."""
 
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from odoo import api, Command, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 from dateutil.relativedelta import relativedelta
@@ -1124,6 +1124,35 @@ class Repair(models.Model):
             return
         for rec in self:
             template.send_mail(rec.id, force_send=False)
+
+    @api.model
+    def _cron_process_pending_quotes(self):
+        """Hourly CRON: phase 1 reminder + phase 2 escalation.
+
+        Phase 1 — send the single reminder mail after `quote_reminder_delay_days`
+        Phase 2 — create the escalation activity after `quote_escalation_delay_days`
+                  (implemented in Task 16)
+        """
+        today = fields.Datetime.now()
+        Params = self.env['ir.config_parameter'].sudo()
+        reminder_delay = int(Params.get_param('repair_custom.quote_reminder_delay_days', 5))
+        escalation_delay = int(Params.get_param('repair_custom.quote_escalation_delay_days', 3))
+
+        sent_repairs = self.search([
+            ('quote_state', '=', 'sent'),
+            ('quote_sent_date', '!=', False),
+        ])
+
+        for repair in sent_repairs:
+            # Phase 1: the single reminder mail
+            if (not repair.last_reminder_sent_at
+                    and not repair.contacted
+                    and today >= repair.quote_sent_date + timedelta(days=reminder_delay)):
+                repair._send_quote_reminder_mail()
+                repair.last_reminder_sent_at = today
+                continue
+
+            # Phase 2: escalation activity (implemented in Task 16)
 
     def action_atelier_parts_toggle(self):
         for rec in self:

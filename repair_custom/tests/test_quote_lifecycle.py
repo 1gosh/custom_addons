@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from datetime import timedelta
+
 from odoo import fields
 from odoo.exceptions import UserError
 
@@ -244,3 +246,45 @@ class TestReminderMail(RepairQuoteCase):
         repair._send_quote_reminder_mail()
         self.assertGreater(len(repair.message_ids), before,
                            "Sending the reminder should post a tracked message on the repair")
+
+
+class TestCronReminderPhase(RepairQuoteCase):
+    """Tests for the reminder phase of _cron_process_pending_quotes."""
+
+    def setUp(self):
+        super().setUp()
+        self.repair = self._make_repair()
+        self.repair._apply_quote_state_transition('sent')
+
+    def _rewind_sent_date(self, days):
+        self.repair.quote_sent_date = fields.Datetime.now() - timedelta(days=days)
+
+    def test_reminder_not_sent_before_delay(self):
+        self._rewind_sent_date(4)  # reminder_delay default is 5
+        self.Repair._cron_process_pending_quotes()
+        self.assertFalse(self.repair.last_reminder_sent_at)
+
+    def test_reminder_sent_after_delay(self):
+        self._rewind_sent_date(5)
+        self.Repair._cron_process_pending_quotes()
+        self.assertTrue(self.repair.last_reminder_sent_at)
+
+    def test_reminder_sent_only_once(self):
+        self._rewind_sent_date(5)
+        self.Repair._cron_process_pending_quotes()
+        first_timestamp = self.repair.last_reminder_sent_at
+        self.Repair._cron_process_pending_quotes()
+        self.assertEqual(self.repair.last_reminder_sent_at, first_timestamp,
+                         "CRON must not send a second reminder mail")
+
+    def test_cron_ignores_repairs_without_sent_date(self):
+        self.repair.quote_sent_date = False
+        # Should not crash
+        self.Repair._cron_process_pending_quotes()
+        self.assertFalse(self.repair.last_reminder_sent_at)
+
+    def test_cron_ignores_non_sent_state(self):
+        self.repair._apply_quote_state_transition('approved')
+        self._rewind_sent_date(10)
+        self.Repair._cron_process_pending_quotes()
+        self.assertFalse(self.repair.last_reminder_sent_at)
