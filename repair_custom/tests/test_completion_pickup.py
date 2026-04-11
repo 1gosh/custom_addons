@@ -79,3 +79,33 @@ class TestMandatoryBatches(RepairQuoteCase):
         self.assertTrue(repair.batch_id, "pre-migration should backfill batch_id")
         self.assertEqual(repair.batch_id.partner_id, self.partner)
         self.assertEqual(repair.batch_id.company_id, repair.company_id)
+
+
+@tagged('post_install', '-at_install', 'repair_completion_pickup')
+class TestReadyForPickupNotification(RepairQuoteCase):
+
+    def _done_repair(self, batch=None):
+        r = self._make_repair()
+        if batch:
+            r.batch_id = batch
+        r.action_validate()
+        r.action_repair_start()
+        r.with_context(force_stop=True).action_repair_done()
+        return r
+
+    def test_single_done_repair_is_ready(self):
+        r = self._done_repair()
+        self.assertTrue(r.batch_id.ready_for_pickup_notification)
+
+    def test_partial_batch_not_ready(self):
+        batch = self.env['repair.batch'].create({'partner_id': self.partner.id})
+        r1 = self._done_repair(batch=batch)
+        r2 = self._make_repair()
+        r2.batch_id = batch
+        self.assertFalse(batch.ready_for_pickup_notification)
+
+    def test_all_abandoned_not_ready(self):
+        r = self._done_repair()
+        r.delivery_state = 'abandoned'
+        r.batch_id.invalidate_recordset(['ready_for_pickup_notification'])
+        self.assertFalse(r.batch_id.ready_for_pickup_notification)

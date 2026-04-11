@@ -15,6 +15,20 @@ class RepairBatch(models.Model):
         store=False,
     )
 
+    ready_for_pickup_notification = fields.Boolean(
+        compute='_compute_ready_for_pickup_notification',
+        store=True,
+    )
+
+    @api.depends(
+        'repair_ids.state',
+        'repair_ids.delivery_state',
+        'appointment_ids.state',
+        'appointment_ids.notification_sent_at',
+    )
+    def _compute_ready_for_pickup_notification(self):
+        return super()._compute_ready_for_pickup_notification()
+
     @api.depends('appointment_ids.state')
     def _compute_current_appointment(self):
         for batch in self:

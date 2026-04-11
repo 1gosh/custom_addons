@@ -39,6 +39,36 @@ class RepairBatch(models.Model):
             # Draft: fallback for mixed states or all draft
             else: batch.state = 'draft'
 
+    ready_for_pickup_notification = fields.Boolean(
+        string="Prêt à notifier",
+        compute='_compute_ready_for_pickup_notification',
+        store=True,
+    )
+
+    @api.depends(
+        'repair_ids.state',
+        'repair_ids.delivery_state',
+    )
+    def _compute_ready_for_pickup_notification(self):
+        for batch in self:
+            non_abandoned = batch.repair_ids.filtered(
+                lambda r: r.delivery_state != 'abandoned'
+            )
+            if not non_abandoned:
+                batch.ready_for_pickup_notification = False
+                continue
+            all_terminal = all(
+                r.state in ('done', 'irreparable') for r in non_abandoned
+            )
+            if not all_terminal:
+                batch.ready_for_pickup_notification = False
+                continue
+            current_apt = getattr(batch, 'current_appointment_id', False)
+            if current_apt and current_apt.notification_sent_at:
+                batch.ready_for_pickup_notification = False
+                continue
+            batch.ready_for_pickup_notification = True
+
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
