@@ -261,6 +261,38 @@ class SaleOrder(models.Model):
         for order in self:
             order.repair_count = len(order.repair_order_ids)
 
+    # ============================================================
+    # Quote lifecycle sync (sub-project 2)
+    # ============================================================
+
+    def write(self, vals):
+        state_before = {rec.id: rec.state for rec in self} if 'state' in vals else {}
+        res = super().write(vals)
+        if 'state' in vals:
+            self._sync_repair_quote_state(state_before)
+        return res
+
+    def _sync_repair_quote_state(self, state_before):
+        """Propagate sale.order.state changes to linked repair.quote_state."""
+        mapping = {
+            'draft':  'pending',
+            'sent':   'sent',
+            'sale':   'approved',
+            'cancel': 'refused',
+        }
+        for order in self:
+            if not order.repair_order_ids:
+                continue
+            old = state_before.get(order.id)
+            new = order.state
+            if old == new:
+                continue
+            target = mapping.get(new)
+            if not target:
+                continue
+            for repair in order.repair_order_ids:
+                repair._apply_quote_state_transition(target, from_sale_order=True)
+
     def action_show_repair(self):
         self.ensure_one()
         if self.repair_count == 1:

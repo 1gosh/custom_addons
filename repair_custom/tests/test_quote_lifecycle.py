@@ -104,3 +104,56 @@ class TestActionRequestQuote(RepairQuoteCase):
         before = len(repair.message_ids)
         repair.action_atelier_request_quote()
         self.assertGreater(len(repair.message_ids), before)
+
+
+class TestSaleOrderSync(RepairQuoteCase):
+    """Tests for sale.order.write() override syncing to repair.quote_state."""
+
+    def setUp(self):
+        super().setUp()
+        self.repair = self._make_repair()
+        self.repair._apply_quote_state_transition('pending')
+        self.sale_order = self._make_sale_order_linked(self.repair)
+        # sale.order is created in 'draft', repair stays in 'pending'
+
+    def test_sale_order_draft_to_sent_syncs_to_sent(self):
+        self.sale_order.state = 'sent'
+        self.assertEqual(self.repair.quote_state, 'sent')
+        self.assertTrue(self.repair.quote_sent_date)
+
+    def test_sale_order_sent_to_sale_syncs_to_approved(self):
+        self.sale_order.state = 'sent'
+        self.sale_order.state = 'sale'
+        self.assertEqual(self.repair.quote_state, 'approved')
+
+    def test_sale_order_sent_to_cancel_syncs_to_refused(self):
+        self.sale_order.state = 'sent'
+        self.sale_order.state = 'cancel'
+        self.assertEqual(self.repair.quote_state, 'refused')
+
+    def test_cancel_then_draft_syncs_back_to_pending(self):
+        self.sale_order.state = 'sent'
+        self.sale_order.state = 'cancel'
+        self.sale_order.state = 'draft'
+        self.assertEqual(self.repair.quote_state, 'pending')
+
+    def test_sale_order_without_repair_link_no_op(self):
+        solo_so = self.SaleOrder.create({
+            'partner_id': self.partner.id,
+            'order_line': [(0, 0, {
+                'product_id': self.service_product.id,
+                'name': 'Standalone',
+                'product_uom_qty': 1.0,
+                'price_unit': 10.0,
+            })],
+        })
+        # Should not crash
+        solo_so.state = 'sent'
+        solo_so.state = 'sale'
+
+    def test_same_state_write_is_idempotent(self):
+        self.sale_order.state = 'sent'
+        before_count = len(self.repair.message_ids)
+        self.sale_order.write({'state': 'sent'})
+        self.assertEqual(len(self.repair.message_ids), before_count,
+                         "Re-writing same state must not re-fire side effects")
