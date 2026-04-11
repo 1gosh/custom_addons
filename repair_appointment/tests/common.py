@@ -8,6 +8,7 @@ class RepairAppointmentCase(TransactionCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.Schedule = cls.env['repair.pickup.schedule']
+        cls.Closure = cls.env['repair.pickup.closure']
         cls.Location = cls.env['repair.pickup.location']
         # Pick (or create) two distinct locations for tests
         cls.location_boutique = cls.Location.search([], limit=1)

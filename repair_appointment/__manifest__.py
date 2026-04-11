@@ -17,6 +17,7 @@ repair.batch.
     'depends': ['repair_custom', 'mail', 'portal'],
     'data': [
         'security/ir.model.access.csv',
+        'data/pickup_schedule_data.xml',
     ],
     'installable': True,
     'application': False,

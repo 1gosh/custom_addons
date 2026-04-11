@@ -2,3 +2,6 @@ id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_pickup_schedule_tech,Pickup schedule tech,model_repair_pickup_schedule,repair_custom.group_repair_technician,1,0,0,0
 access_pickup_schedule_manager,Pickup schedule manager,model_repair_pickup_schedule,repair_custom.group_repair_manager,1,0,0,0
 access_pickup_schedule_admin,Pickup schedule admin,model_repair_pickup_schedule,repair_custom.group_repair_admin,1,1,1,1
+access_pickup_closure_tech,Pickup closure tech,model_repair_pickup_closure,repair_custom.group_repair_technician,1,0,0,0
+access_pickup_closure_manager,Pickup closure manager,model_repair_pickup_closure,repair_custom.group_repair_manager,1,0,0,0
+access_pickup_closure_admin,Pickup closure admin,model_repair_pickup_closure,repair_custom.group_repair_admin,1,1,1,1

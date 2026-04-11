@@ -63,3 +63,12 @@ class RepairPickupSchedule(models.Model):
             self.thursday_open, self.friday_open, self.saturday_open, self.sunday_open,
         ]
         return bool(mapping[weekday_index])
+
+    @api.model
+    def _seed_default_schedules(self):
+        """Create a default Mon–Sat schedule for every location
+        that doesn't already have one."""
+        Location = self.env['repair.pickup.location']
+        for location in Location.search([]):
+            if not self.search([('location_id', '=', location.id)], limit=1):
+                self.create({'location_id': location.id})
