@@ -56,38 +56,99 @@
         <field name="model">product.template</field>
         <field name="inherit_id" ref="product.product_template_only_form_view"/>
         <field name="arch" type="xml">
+
+            <!-- Declare is_hifi_device early for visibility conditions -->
+            <xpath expr="//field[@name='product_variant_count']" position="after">
+                <field name="is_hifi_device" invisible="1"/>
+            </xpath>
+
+            <!-- Name placeholder for HiFi -->
             <xpath expr="//field[@name='name']" position="attributes">
                 <attribute name="placeholder">ex: BEOGRAM 3000</attribute>
-                <attibute name="string">Modèle</attibute>
+                <attribute name="string">Modèle</attribute>
             </xpath>
+
+            <!-- HiFi units stat button -->
             <xpath expr="//div[@name='button_box']" position="inside">
-                <button name="action_view_lots"
-                        type="object"
-                        class="oe_stat_button"
-                        icon="fa-cube"
-                        invisible="not is_hifi_device">
+                <button name="action_view_lots" type="object" class="oe_stat_button"
+                    icon="fa-cube" invisible="not is_hifi_device">
                     <field name="hifi_unit_count" widget="statinfo" string="Appareils physiques"/>
                 </button>
             </xpath>
-            <xpath expr="//field[@name='priority']" position="replace"/>
+
+            <!-- Hide priority for HiFi -->
+            <xpath expr="//field[@name='priority']" position="attributes">
+                <attribute name="invisible">is_hifi_device</attribute>
+            </xpath>
+
+            <!-- Replace options: restore checkboxes for non-HiFi, HiFi info for HiFi -->
             <xpath expr="//div[@name='options']" position="replace">
-                <field name="sale_ok" invisible="1"/>
-                <field name="purchase_ok" invisible="1"/>
+                <div name="options" invisible="is_hifi_device">
+                    <span class="d-inline-flex">
+                        <field name="sale_ok"/>
+                        <label for="sale_ok"/>
+                    </span>
+                    <span class="d-inline-flex">
+                        <field name="purchase_ok"/>
+                        <label for="purchase_ok"/>
+                    </span>
+                </div>
+                <group name="hifi_info_group" invisible="not is_hifi_device">
                     <group>
-                        <field name="is_hifi_device" invisible="1"/>
                         <field name="brand_id" required="is_hifi_device"/>
-                        <field name="categ_id"
-                               required="is_hifi_device"
-                               domain="[('id', 'child_of', %(repair_devices.product_category_hifi)d)]"
-                               string="Catégorie HiFi"/>
-                        <field name="hifi_variant_ids"
-                            widget="many2many_tags"
+                        <field name="categ_id" required="is_hifi_device"
+                            domain="[('id', 'child_of', %(repair_devices.product_category_hifi)d)]"
+                            string="Catégorie HiFi"/>
+                    </group>
+                    <group>
+                        <field name="hifi_variant_ids" widget="many2many_tags"
                             options="{'color_field': 'color', 'no_create_edit': True}"
-                            placeholder="Ajouter des variantes"
-                            string="Variantes"/>
+                            placeholder="Ajouter des variantes" string="Variantes"/>
                         <field name="production_year"/>
                     </group>
+                </group>
             </xpath>
+
+            <!-- Hide General Information page for HiFi -->
+            <xpath expr="//page[@name='general_information']" position="attributes">
+                <attribute name="invisible">is_hifi_device</attribute>
+            </xpath>
+
+            <!-- Hide Attributes & Variants page for HiFi -->
+            <xpath expr="//page[@name='variants']" position="attributes">
+                <attribute name="invisible">is_hifi_device</attribute>
+            </xpath>
+
+            <!-- HiFi tabs: Notes + Détails techniques (before hidden General Information) -->
+            <xpath expr="//page[@name='general_information']" position="before">
+                <page string="Notes" name="hifi_notes_page" invisible="not is_hifi_device">
+                    <field name="description" nolabel="1"
+                        placeholder="Notes internes sur cet appareil..."/>
+                </page>
+                <page string="Détails techniques" name="hifi_technical_page" invisible="not is_hifi_device">
+                    <group>
+                        <group>
+                            <field name="detailed_type" string="Type de produit"/>
+                            <field name="uom_id" groups="uom.group_uom"/>
+                            <field name="uom_po_id" groups="uom.group_uom"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                        <group>
+                            <label for="list_price"/>
+                            <div class="o_row">
+                                <field name="list_price" class="oe_inline" widget="monetary"
+                                    options="{'currency_field': 'currency_id', 'field_digits': True}"/>
+                            </div>
+                            <field name="standard_price" widget="monetary"
+                                options="{'currency_field': 'cost_currency_id', 'field_digits': True}"/>
+                            <field name="default_code" string="Référence interne"/>
+                            <field name="barcode"/>
+                        </group>
+                    </group>
+                    <field name="product_properties" columns="2"/>
+                </page>
+            </xpath>
+
         </field>
     </record>
 

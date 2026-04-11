@@ -24,6 +24,7 @@ class StockLot(models.Model):
 
     @api.depends("product_id", "product_id.brand_id", "product_id.name",
                  "hifi_variant_id", "hifi_variant_id.name", "name", "is_hifi_unit")
+    @api.depends_context('lot_display')
     def _compute_display_name(self):
         hifi = self.filtered('is_hifi_unit')
         non_hifi = self - hifi
@@ -42,6 +43,20 @@ class StockLot(models.Model):
                 if lot_display == 'full' and rec.name:
                     device_name += f" – SN: {rec.name}"
                 rec.display_name = device_name
+
+    @api.model
+    def _name_search(self, name, domain=None, operator='ilike', limit=None, order=None):
+        """Search lots by serial number, product name, or brand."""
+        domain = domain or []
+        if name:
+            lot_domain = [
+                '|', '|',
+                ('name', operator, name),
+                ('product_id.name', operator, name),
+                ('product_id.product_tmpl_id.brand_id.name', operator, name),
+            ]
+            return self._search(lot_domain + domain, limit=limit, order=order)
+        return super()._name_search(name, domain=domain, operator=operator, limit=limit, order=order)
 
     @api.depends('product_id.product_tmpl_id.is_hifi_device')
     def _compute_is_hifi_unit(self):

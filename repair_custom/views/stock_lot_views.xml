@@ -1,35 +1,164 @@
 <odoo>
-    <record id="stock_production_lot_view_form_repair_custom" model="ir.ui.view">
-        <field name="name">stock.lot.form.inherit.repair.custom</field>
+
+    <!-- HiFi tree view: add state/warranty columns -->
+    <record id="view_hifi_unit_tree_inherit" model="ir.ui.view">
+        <field name="name">stock.lot.hifi.tree.inherit.repair_custom</field>
         <field name="model">stock.lot</field>
-        <field name="inherit_id" ref="stock.view_production_lot_form"/>
+        <field name="inherit_id" ref="repair_devices.view_hifi_unit_tree"/>
         <field name="arch" type="xml">
-            
+            <xpath expr="//field[@name='hifi_partner_id']" position="after">
+                <field name="functional_state" widget="badge"
+                    decoration-danger="functional_state == 'broken'"
+                    decoration-info="functional_state == 'fixing'"
+                    decoration-success="functional_state == 'working'"/>
+                <field name="stock_state" widget="badge" optional="show"/>
+                <field name="repair_order_count"/>
+                <field name="warranty_state" column_invisible="1"/>
+                <field name="warranty_type" optional="show" widget="badge"
+                    decoration-success="warranty_state == 'active'"
+                    decoration-muted="warranty_state != 'active'"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- HiFi form view: add repair/warranty/status fields -->
+    <record id="view_hifi_unit_form_inherit" model="ir.ui.view">
+        <field name="name">stock.lot.hifi.form.inherit.repair_custom</field>
+        <field name="model">stock.lot</field>
+        <field name="inherit_id" ref="repair_devices.view_hifi_unit_form"/>
+        <field name="arch" type="xml">
+
+            <!-- Warranty banners above sheet -->
+            <xpath expr="//sheet" position="before">
+                <field name="functional_state" invisible="1"/>
+                <field name="warranty_state" invisible="1"/>
+                <field name="warranty_type" invisible="1"/>
+                <div class="alert alert-success text-center" role="alert" invisible="warranty_state != 'active' or not is_hifi_unit">
+                    <div class="d-flex align-items-center justify-content-center">
+                        <i class="fa fa-shield me-1"/>
+                        <strong>Garantie <field name="warranty_type" readonly="1" class="d-inline"/> active</strong>
+                        — Expire le <field name="warranty_expiry" readonly="1" class="d-inline"/>
+                    </div>
+                </div>
+                <div class="alert alert-secondary text-center" role="alert" invisible="warranty_state != 'expired' or not is_hifi_unit">
+                    <div class="d-flex align-items-center justify-content-center">
+                        <i class="fa fa-shield me-1"/>
+                        Garantie expirée (dernière expiration : <field name="warranty_expiry" readonly="1" class="d-inline"/>)
+                    </div>
+                </div>
+            </xpath>
+
+            <!-- Functional state ribbons -->
+            <!-- <xpath expr="//sheet" position="inside">
+                <widget name="web_ribbon" title="En Panne" bg_color="bg-danger" invisible="functional_state != 'broken' or not is_hifi_unit"/>
+                <widget name="web_ribbon" title="Fonctionnel" bg_color="bg-success" invisible="functional_state != 'working' or not is_hifi_unit"/>
+            </xpath> -->
+
+            <!-- Repairs stat button -->
             <xpath expr="//div[@name='button_box']" position="inside">
-                
-                <button name="action_lot_open_repairs" icon="fa-wrench" class="oe_stat_button" type="object">
+                <button name="action_view_repairs" icon="fa-wrench" class="oe_stat_button" type="object"
+                    invisible="not is_hifi_unit">
                     <div class="o_field_widget o_stat_info">
-                        
                         <div class="o_field_widget o_stat_info align-items-baseline flex-row gap-1 me-1">
-                            <span class="o_stat_text text-danger" invisible="in_repair_count == 0">En cours:</span>
-                            <span class="o_stat_text text-muted" invisible="in_repair_count > 0">En cours:</span>
+                            <span class="o_stat_text">Réparations:</span>
                             <span class="o_stat_value">
-                                <field name="in_repair_count" widget="statinfo" nolabel="1" class="mr4"/>
+                                <field name="repair_order_count" widget="statinfo" nolabel="1" class="mr4"/>
                             </span>
                         </div>
-
-                        <div class="o_field_widget o_stat_info align-items-baseline flex-row gap-1 me-1">
-                            <span class="o_stat_text">Historique:</span>
-                            <span class="o_stat_value">
-                                <field name="repaired_count" widget="statinfo" nolabel="1" class="mr4"/>
-                            </span>
-                        </div>
-
                     </div>
                 </button>
+            </xpath>
 
+            <!-- Fill status group: functional state, stock state, location -->
+            <xpath expr="//group[@name='hifi_status_group']" position="inside">
+                <field name="functional_state" widget="badge"
+                    decoration-danger="functional_state == 'broken'"
+                    decoration-info="functional_state == 'fixing'"
+                    decoration-success="functional_state == 'working'"/>
+                <field name="stock_state" widget="badge"/>
+                <field name="location_id" groups="stock.group_stock_manager"/>
+            </xpath>
+
+            <!-- Repairs tab (before Notes) -->
+            <xpath expr="//page[@name='hifi_notes_page']" position="before">
+                <page string="Réparations" name="hifi_repairs_page" invisible="not repair_order_ids or not is_hifi_unit">
+                    <field name="repair_order_ids" readonly="1">
+                        <tree string="Réparations" decoration-info="state == 'draft'">
+                            <field name="name" string="Référence" optional="show"/>
+                            <field name="entry_date" optional="show" string="Date d'entrée" readonly="True"
+                                widget="datetime" options="{'show_time':false}"/>
+                            <field name="state" optional="show" widget="badge"
+                                decoration-success="state == 'done'"
+                                decoration-info="state == 'confirmed'"
+                                decoration-warning="state == 'under_repair'"
+                                decoration-danger="state == 'cancel'"
+                                decoration-muted="state == 'draft'" readonly="True"/>
+                            <field name="repair_warranty" optional="show"/>
+                            <field name="partner_id" readonly="1" optional="show" string="Client"/>
+                            <field name="technician_employee_id" optional="show"/>
+                        </tree>
+                    </field>
+                </page>
+                <page string="Garantie" name="hifi_warranty_page" invisible="warranty_state == 'none' or not is_hifi_unit">
+                    <group>
+                        <group>
+                            <field name="warranty_type" widget="badge"
+                                decoration-success="warranty_state == 'active'"
+                                decoration-muted="warranty_state != 'active'"/>
+                            <field name="warranty_expiry"/>
+                            <field name="warranty_state" widget="badge"
+                                decoration-success="warranty_state == 'active'"
+                                decoration-danger="warranty_state == 'expired'"/>
+                        </group>
+                        <group>
+                            <field name="sale_date" invisible="not sale_date"/>
+                            <field name="sav_expiry" invisible="not sav_expiry"/>
+                            <field name="sale_order_id" invisible="not sale_order_id"/>
+                            <field name="last_delivered_repair_id" invisible="not last_delivered_repair_id"/>
+                            <field name="sar_expiry" invisible="not sar_expiry"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+
+            <!-- Détails techniques tab (after Notes, for power users) -->
+            <xpath expr="//page[@name='hifi_notes_page']" position="after">
+                <page string="Détails techniques" name="hifi_technical_page" invisible="not is_hifi_unit">
+                    <group>
+                        <group>
+                            <field name="ref" string="Référence interne"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                        <group>
+                            <field name="product_qty" string="Quantité"/>
+                            <field name="last_delivery_partner_id" string="Dernier transfert vers"
+                                groups="stock.group_stock_manager"/>
+                        </group>
+                    </group>
+                    <field name="lot_properties" columns="2"/>
+                </page>
             </xpath>
 
         </field>
     </record>
+
+    <!-- HiFi search view: add stock state filters -->
+    <record id="view_hifi_unit_search_inherit" model="ir.ui.view">
+        <field name="name">stock.lot.hifi.search.inherit.repair_custom</field>
+        <field name="model">stock.lot</field>
+        <field name="inherit_id" ref="repair_devices.view_hifi_unit_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='hifi_variant_id']" position="after">
+                <field name="stock_state"/>
+                <filter name="filter_stock_client" string="Propriété Client" domain="[('stock_state', '=', 'client')]"/>
+                <filter name="filter_stock_stock" string="En Stock" domain="[('stock_state', '=', 'stock')]"/>
+                <filter name="filter_stock_rented" string="En Location" domain="[('stock_state', '=', 'rented')]"/>
+                <separator/>
+            </xpath>
+            <xpath expr="//group[@name='group_by']" position="inside">
+                <filter name="group_stock_state" string="Statut Stock" context="{'group_by': 'stock_state'}"/>
+            </xpath>
+        </field>
+    </record>
+
 </odoo>

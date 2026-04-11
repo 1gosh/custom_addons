@@ -51,7 +51,7 @@ class Repair(models.Model):
                 continue
             entry = rec.entry_date.date()
             delta = (today - entry).days
-            if delta < 0:
+            if delta <= 0:
                 rec.waiting_time = ''
             elif delta < 7:
                 rec.waiting_time = f"{delta} j"

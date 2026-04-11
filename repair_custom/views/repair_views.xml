@@ -319,7 +319,7 @@
                                         options="{'no_create': True, 'no_open': True}"
                                         invisible="not show_lot_field"
                                         readonly="state not in 'draft'"
-                                        context="{'lot_display': 'device_only'}"
+                                        context="{'lot_display': 'full'}"
                                         string="Appareil(s) existant(s)"/>
                                     <field name="category_id" readonly="state not in 'draft' or lot_id" force_save="1"
                                         domain="[('id', 'child_of', %(repair_devices.product_category_hifi)d)]"/>
@@ -382,7 +382,8 @@
                                     <field name="lot_id"
                                             invisible="not lot_id"
                                             readonly="1"
-                                            string="Appareil"/>
+                                            string="Appareil"
+                                            context="{'lot_display': 'full'}"/>
                                     <field name="technician_employee_id" 
                                         groups="repair_custom.group_repair_manager" 
                                         options="{'no_open':True}"

@@ -22,18 +22,49 @@
         <field name="model">stock.lot</field>
         <field name="inherit_id" ref="stock.view_production_lot_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//group[@name='main_group']" position="after">
-                <group name="hifi_device_group" string="Appareil Hi-Fi" invisible="not is_hifi_unit">
-                    <group>
-                        <field name="is_hifi_unit" invisible="1"/>
-                        <field name="hifi_partner_id"/>
+
+            <!-- Declare is_hifi_unit for visibility throughout the form -->
+            <xpath expr="//field[@name='display_complete']" position="after">
+                <field name="is_hifi_unit" invisible="1"/>
+            </xpath>
+
+            <!-- Hide standard main_group for HiFi units -->
+            <xpath expr="//group[@name='main_group']" position="attributes">
+                <attribute name="invisible">is_hifi_unit</attribute>
+            </xpath>
+
+            <!-- HiFi layout: device info + status columns -->
+            <xpath expr="//group[@name='main_group']" position="before">
+                <group name="hifi_device_group" invisible="not is_hifi_unit">
+                    <group string="Appareil">
+                        <field name="product_id" string="Modèle"
+                            context="{'default_is_hifi_device': True, 'default_detailed_type': 'product', 'default_tracking': 'serial'}"
+                            readonly="context.get('set_product_readonly', False)" force_save="1"/>
                         <field name="hifi_variant_id"/>
+                        <field name="hifi_partner_id"/>
                     </group>
-                    <group>
-                        <field name="hifi_notes" placeholder="Notes techniques, observations..."/>
+                    <group name="hifi_status_group" string="Statut">
                     </group>
                 </group>
             </xpath>
+
+            <!-- Ensure notebook is visible for HiFi units (base hides it when not display_complete) -->
+            <xpath expr="//notebook" position="attributes">
+                <attribute name="invisible">not display_complete and not is_hifi_unit</attribute>
+            </xpath>
+
+            <!-- Notes tab for HiFi (before base Description) -->
+            <xpath expr="//page[@name='description']" position="before">
+                <page string="Notes" name="hifi_notes_page" invisible="not is_hifi_unit">
+                    <field name="hifi_notes" placeholder="Notes techniques, observations..." nolabel="1"/>
+                </page>
+            </xpath>
+
+            <!-- Hide base Description page for HiFi (replaced by Notes above) -->
+            <xpath expr="//page[@name='description']" position="attributes">
+                <attribute name="invisible">is_hifi_unit</attribute>
+            </xpath>
+
         </field>
     </record>
 
