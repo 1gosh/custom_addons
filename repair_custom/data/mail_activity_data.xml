@@ -16,5 +16,25 @@
             <field name="delay_count">0</field>
         </record>
 
+        <record id="mail_act_repair_quote_escalate" model="mail.activity.type">
+            <field name="name">Devis non validé — à contacter</field>
+            <field name="icon">fa-phone</field>
+            <field name="res_model">repair.order</field>
+            <field name="delay_count">0</field>
+            <field name="delay_unit">days</field>
+            <field name="delay_from">current_date</field>
+            <field name="summary">Client à contacter — devis non validé</field>
+        </record>
+
+        <record id="mail_act_repair_quote_refused" model="mail.activity.type">
+            <field name="name">Devis refusé — statuer</field>
+            <field name="icon">fa-times-circle</field>
+            <field name="res_model">repair.order</field>
+            <field name="delay_count">0</field>
+            <field name="delay_unit">days</field>
+            <field name="delay_from">current_date</field>
+            <field name="summary">Devis refusé — statuer sur la réparation</field>
+        </record>
+
     </data>
 </odoo>
