@@ -5,3 +5,6 @@ access_pickup_schedule_admin,Pickup schedule admin,model_repair_pickup_schedule,
 access_pickup_closure_tech,Pickup closure tech,model_repair_pickup_closure,repair_custom.group_repair_technician,1,0,0,0
 access_pickup_closure_manager,Pickup closure manager,model_repair_pickup_closure,repair_custom.group_repair_manager,1,0,0,0
 access_pickup_closure_admin,Pickup closure admin,model_repair_pickup_closure,repair_custom.group_repair_admin,1,1,1,1
+access_pickup_appointment_tech,Pickup appointment tech,model_repair_pickup_appointment,repair_custom.group_repair_technician,1,0,0,0
+access_pickup_appointment_manager,Pickup appointment manager,model_repair_pickup_appointment,repair_custom.group_repair_manager,1,1,1,0
+access_pickup_appointment_admin,Pickup appointment admin,model_repair_pickup_appointment,repair_custom.group_repair_admin,1,1,1,1
