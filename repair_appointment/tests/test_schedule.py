@@ -6,6 +6,14 @@ from .common import RepairAppointmentCase
 @tagged('repair_appointment', 'post_install', '-at_install')
 class TestSchedule(RepairAppointmentCase):
 
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        # Clear any schedules created by the install-time seed function
+        # so each test owns its fixture. Safe because the class-level
+        # savepoint rolls this back at class teardown.
+        cls.Schedule.search([]).unlink()
+
     def test_create_schedule_with_defaults(self):
         schedule = self.Schedule.create({
             'location_id': self.location_boutique.id,
