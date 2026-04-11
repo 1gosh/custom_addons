@@ -58,3 +58,24 @@ class TestRescheduleNotification(RepairAppointmentCase):
             before,
             "Writes that do not touch start_datetime must not send mail",
         )
+
+    def test_write_first_time_scheduling_does_not_trigger_reschedule_mail(self):
+        """A pending->scheduled transition with no prior start_datetime must
+        NOT trigger the reschedule mail -- that mail says 'deplace' which is
+        wrong for a first-time booking."""
+        batch = self._make_batch()
+        pending_apt = self.env['repair.pickup.appointment'].create({
+            'batch_id': batch.id,
+            'state': 'pending',
+        })
+        before = self.env['mail.mail'].search_count([])
+        pending_apt.with_context(skip_slot_validation=True).write({
+            'state': 'scheduled',
+            'start_datetime': datetime(2026, 5, 5, 10, 0),
+            'end_datetime': datetime(2026, 5, 5, 10, 30),
+        })
+        self.assertEqual(
+            self.env['mail.mail'].search_count([]),
+            before,
+            "First-time scheduling must not send a reschedule (deplace) mail",
+        )

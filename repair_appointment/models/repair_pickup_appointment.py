@@ -118,6 +118,7 @@ class RepairPickupAppointment(models.Model):
             )
             for apt in self:
                 if (apt.state == 'scheduled'
+                        and old_starts.get(apt.id)
                         and old_starts.get(apt.id) != apt.start_datetime):
                     if template:
                         template.send_mail(apt.id, force_send=False)
