@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_repair_pickup_schedule_tree" model="ir.ui.view">
+        <field name="name">repair.pickup.schedule.tree</field>
+        <field name="model">repair.pickup.schedule</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="location_id"/>
+                <field name="slot_capacity"/>
+                <field name="monday_open"/>
+                <field name="saturday_open"/>
+                <field name="sunday_open"/>
+            </tree>
+        </field>
+    </record>
+    <record id="view_repair_pickup_schedule_form" model="ir.ui.view">
+        <field name="name">repair.pickup.schedule.form</field>
+        <field name="model">repair.pickup.schedule</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="location_id"/>
+                            <field name="slot_capacity"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="slot1_start" widget="float_time"/>
+                            <field name="slot1_end" widget="float_time"/>
+                            <field name="slot2_start" widget="float_time"/>
+                            <field name="slot2_end" widget="float_time"/>
+                        </group>
+                    </group>
+                    <group string="Jours ouverts">
+                        <field name="monday_open"/>
+                        <field name="tuesday_open"/>
+                        <field name="wednesday_open"/>
+                        <field name="thursday_open"/>
+                        <field name="friday_open"/>
+                        <field name="saturday_open"/>
+                        <field name="sunday_open"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_repair_pickup_schedule" model="ir.actions.act_window">
+        <field name="name">Horaires de retrait</field>
+        <field name="res_model">repair.pickup.schedule</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+</odoo>

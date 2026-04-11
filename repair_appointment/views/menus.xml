@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_repair_appointment_root"
+              name="Rendez-vous"
+              parent="repair_custom.menu_repair_order"
+              sequence="25"/>
+
+    <menuitem id="menu_repair_appointment_calendar"
+              name="Calendrier des retraits"
+              parent="menu_repair_appointment_root"
+              action="action_repair_pickup_appointment"
+              sequence="10"/>
+
+    <menuitem id="menu_repair_appointment_config_root"
+              name="Configuration"
+              parent="menu_repair_appointment_root"
+              groups="repair_custom.group_repair_admin"
+              sequence="90"/>
+
+    <menuitem id="menu_repair_appointment_schedules"
+              name="Horaires"
+              parent="menu_repair_appointment_config_root"
+              action="action_repair_pickup_schedule"
+              sequence="10"/>
+
+    <menuitem id="menu_repair_appointment_closures"
+              name="Fermetures"
+              parent="menu_repair_appointment_config_root"
+              action="action_repair_pickup_closure"
+              sequence="20"/>
+</odoo>

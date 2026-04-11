@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_repair_batch_form_inherit_appointment" model="ir.ui.view">
+        <field name="name">repair.batch.form.inherit.repair_appointment</field>
+        <field name="model">repair.batch</field>
+        <field name="inherit_id" ref="repair_custom.view_repair_batch_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Retrait">
+                    <group>
+                        <field name="current_appointment_id" readonly="1"/>
+                    </group>
+                    <field name="appointment_ids" readonly="1">
+                        <tree>
+                            <field name="name"/>
+                            <field name="start_datetime"/>
+                            <field name="state"/>
+                        </tree>
+                    </field>
+                    <button name="action_create_pickup_appointment"
+                            type="object"
+                            string="Créer un RDV manuellement"
+                            context="{'notify': False}"
+                            class="btn-secondary"
+                            invisible="current_appointment_id"/>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>
