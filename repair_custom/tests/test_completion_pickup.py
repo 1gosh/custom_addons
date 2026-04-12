@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import unittest
 
+from odoo import fields
 from odoo.exceptions import UserError, ValidationError
 from odoo.tests.common import tagged
 
@@ -409,3 +410,40 @@ class TestAccountMovePostHook(RepairQuoteCase):
         res = inv.action_post()
         self.assertNotIsInstance(res, dict)
         self.assertEqual(inv.state, 'posted')
+
+
+@tagged('post_install', '-at_install', 'repair_completion_pickup')
+class TestLegacyActivityMigration(RepairQuoteCase):
+
+    def test_post_migration_closes_legacy_activities(self):
+        r = self._make_repair()
+        act_type = self.env.ref('repair_custom.mail_act_repair_done')
+        self.env['mail.activity'].create({
+            'res_model_id': self.env['ir.model']._get('repair.order').id,
+            'res_model': 'repair.order',
+            'res_id': r.id,
+            'activity_type_id': act_type.id,
+            'user_id': self.env.user.id,
+            'summary': 'Legacy',
+            'date_deadline': fields.Date.today(),
+        })
+        self.assertTrue(r.activity_ids.filtered(
+            lambda a: a.activity_type_id == act_type))
+
+        import importlib.util
+        import os
+        from odoo.modules.module import get_module_path
+        migration_path = os.path.join(
+            get_module_path('repair_custom'),
+            'migrations', '17.0.1.5.0', 'post-migration.py',
+        )
+        spec = importlib.util.spec_from_file_location(
+            'post_migration_17_0_1_5_0', migration_path,
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        module.migrate(self.env.cr, '17.0.1.5.0')
+
+        r.invalidate_recordset(['activity_ids'])
+        self.assertFalse(r.activity_ids.filtered(
+            lambda a: a.activity_type_id == act_type))
