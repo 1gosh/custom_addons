@@ -194,6 +194,52 @@ class AccountMove(models.Model):
             return any(order._is_equipment_sale() for order in sale_orders)
         return False
 
+    def action_post(self):
+        res = super().action_post()
+
+        if self.env.context.get('skip_repair_pickup_transition'):
+            return res
+
+        candidate_repairs = self.env['repair.order']
+        for move in self:
+            if move.move_type != 'out_invoice':
+                continue
+            repairs = move.repair_id
+            if not repairs:
+                repairs = move.invoice_line_ids.mapped(
+                    'sale_line_ids.order_id.repair_order_ids'
+                )
+            candidate_repairs |= repairs.filtered(
+                lambda r: r.state in ('done', 'irreparable')
+                and r.delivery_state == 'none'
+            )
+
+        if not candidate_repairs:
+            return res
+
+        batches_with_work = candidate_repairs.mapped('batch_id').filtered(
+            lambda b: any(
+                r.delivery_state == 'none'
+                and r.state in ('done', 'irreparable')
+                for r in b.repair_ids
+            )
+        )
+
+        if len(batches_with_work) != 1 or len(self) != 1:
+            return res
+
+        return {
+            'name': _("Marquer la réparation comme livrée ?"),
+            'type': 'ir.actions.act_window',
+            'res_model': 'repair.pickup.deliver.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_batch_id': batches_with_work.id,
+                'default_invoice_id': self.id,
+            },
+        }
+
 
 class SaleOrder(models.Model):
     _inherit = 'sale.order'

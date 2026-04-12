@@ -351,3 +351,61 @@ class TestPickupDeliverWizard(RepairQuoteCase):
         res = wiz.action_dismiss()
         self.assertEqual(r.delivery_state, 'none')
         self.assertEqual(res.get('type'), 'ir.actions.act_window_close')
+
+
+@tagged('post_install', '-at_install', 'repair_completion_pickup')
+class TestAccountMovePostHook(RepairQuoteCase):
+
+    def _ready_repair(self):
+        r = self._make_repair()
+        r.action_validate()
+        r.action_repair_start()
+        r.with_context(force_stop=True, skip_pickup_notify_prompt=True).action_repair_done()
+        return r
+
+    def _invoice_for(self, repair, amount=100.0):
+        return self.env['account.move'].create({
+            'move_type': 'out_invoice',
+            'partner_id': repair.partner_id.id,
+            'repair_id': repair.id,
+            'invoice_line_ids': [(0, 0, {
+                'product_id': self.service_product.id,
+                'name': "Main d'oeuvre",
+                'quantity': 1,
+                'price_unit': amount,
+            })],
+        })
+
+    def test_action_post_returns_deliver_wizard(self):
+        r = self._ready_repair()
+        inv = self._invoice_for(r)
+        res = inv.action_post()
+        self.assertIsInstance(res, dict)
+        self.assertEqual(res.get('res_model'), 'repair.pickup.deliver.wizard')
+        self.assertEqual(res['context']['default_batch_id'], r.batch_id.id)
+        self.assertEqual(res['context']['default_invoice_id'], inv.id)
+        self.assertEqual(inv.state, 'posted')  # super() still ran
+
+    def test_action_post_skip_context(self):
+        r = self._ready_repair()
+        inv = self._invoice_for(r)
+        res = inv.with_context(skip_repair_pickup_transition=True).action_post()
+        self.assertNotIsInstance(res, dict)
+        self.assertEqual(inv.state, 'posted')
+
+    def test_action_post_invoice_without_repair_link(self):
+        """An invoice with no repair_id and no repair-linked sale line
+        posts normally and returns the super() result."""
+        inv = self.env['account.move'].create({
+            'move_type': 'out_invoice',
+            'partner_id': self.partner.id,
+            'invoice_line_ids': [(0, 0, {
+                'product_id': self.service_product.id,
+                'name': 'Service',
+                'quantity': 1,
+                'price_unit': 10.0,
+            })],
+        })
+        res = inv.action_post()
+        self.assertNotIsInstance(res, dict)
+        self.assertEqual(inv.state, 'posted')
