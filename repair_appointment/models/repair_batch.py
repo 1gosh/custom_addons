@@ -1,3 +1,5 @@
+import base64
+
 from odoo import api, fields, models, _
 
 
@@ -14,6 +16,20 @@ class RepairBatch(models.Model):
         compute='_compute_current_appointment',
         store=False,
     )
+
+    ready_for_pickup_notification = fields.Boolean(
+        compute='_compute_ready_for_pickup_notification',
+        store=True,
+    )
+
+    @api.depends(
+        'repair_ids.state',
+        'repair_ids.delivery_state',
+        'appointment_ids.state',
+        'appointment_ids.notification_sent_at',
+    )
+    def _compute_ready_for_pickup_notification(self):
+        return super()._compute_ready_for_pickup_notification()
 
     @api.depends('appointment_ids.state')
     def _compute_current_appointment(self):
@@ -54,6 +70,29 @@ class RepairBatch(models.Model):
             },
         }
 
+    def _build_pickup_quote_attachments(self):
+        """Return a list of ir.attachment ids to attach to the pickup-ready
+        mail. Attaches the linked sale.order PDF only when the SO is in
+        state 'sale' (accepted quote)."""
+        self.ensure_one()
+        sale_orders = self.repair_ids.mapped('sale_order_id').filtered(
+            lambda s: s.state == 'sale'
+        )
+        if not sale_orders:
+            return []
+        pdf_content, _mime = self.env['ir.actions.report']._render_qweb_pdf(
+            'sale.action_report_saleorder', sale_orders[:1].ids,
+        )
+        attachment = self.env['ir.attachment'].create({
+            'name': _("Devis %s.pdf") % sale_orders[:1].name,
+            'type': 'binary',
+            'datas': base64.b64encode(pdf_content),
+            'res_model': 'sale.order',
+            'res_id': sale_orders[:1].id,
+            'mimetype': 'application/pdf',
+        })
+        return [attachment.id]
+
     def action_create_pickup_appointment(self, notify=True):
         """Create a pending appointment for this batch. Idempotent:
         returns the existing non-terminal appointment if one exists.
@@ -75,6 +114,10 @@ class RepairBatch(models.Model):
                 raise_if_not_found=False,
             )
             if template:
-                template.send_mail(apt.id, force_send=False)
+                attachment_ids = self._build_pickup_quote_attachments()
+                email_values = None
+                if attachment_ids:
+                    email_values = {'attachment_ids': attachment_ids}
+                template.send_mail(apt.id, force_send=False, email_values=email_values)
                 apt.notification_sent_at = fields.Datetime.now()
         return apt

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_repair_pickup_deliver_wizard_form" model="ir.ui.view">
+        <field name="name">repair.pickup.deliver.wizard.form</field>
+        <field name="model">repair.pickup.deliver.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Marquer comme livré ?">
+                <p>
+                    La facture <field name="invoice_id" readonly="1"/>
+                    vient d'être validée.
+                </p>
+                <p>
+                    Souhaitez-vous marquer les appareils de
+                    <field name="partner_name" readonly="1"/>
+                    comme livrés et démarrer leur garantie retour (SAR) ?
+                </p>
+                <field name="repair_ids" readonly="1">
+                    <tree>
+                        <field name="name"/>
+                        <field name="device_id_name"/>
+                        <field name="state"/>
+                    </tree>
+                </field>
+                <footer>
+                    <button name="action_confirm" type="object"
+                            string="Confirmer la livraison"
+                            class="btn-primary"/>
+                    <button name="action_dismiss" type="object"
+                            string="Plus tard"
+                            class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

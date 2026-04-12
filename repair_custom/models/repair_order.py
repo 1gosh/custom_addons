@@ -459,7 +459,16 @@ class Repair(models.Model):
             self.lot_id = False
 
     # --- BATCH MANAGEMENT ---
-    batch_id = fields.Many2one('repair.batch', string="Dossier de Dépôt", readonly=True, index=True, ondelete='restrict')
+    batch_id = fields.Many2one(
+        'repair.batch', string="Dossier de Dépôt",
+        readonly=True, index=True, ondelete='restrict',
+        required=True,
+    )
+    batch_ready_for_pickup_notification = fields.Boolean(
+        related='batch_id.ready_for_pickup_notification',
+        store=False,
+        string="Dossier prêt à notifier",
+    )
     batch_count = fields.Integer(compute='_compute_batch_count', string="Autres appareils")
 
     @api.depends('batch_id')
@@ -492,6 +501,15 @@ class Repair(models.Model):
                 'default_batch_id': current_batch_id,
             }
         }
+
+    def action_notify_client_ready_from_repair(self):
+        """Thin wrapper so repair form button can fire batch-level action."""
+        self.ensure_one()
+        return self.batch_id.action_notify_client_ready()
+
+    def action_pickup_start(self):
+        self.ensure_one()
+        return self.batch_id.action_pickup_start()
 
     # --- WRITE OVERRIDE WITH SECURITY ---
     def write(self, vals):
@@ -607,59 +625,75 @@ class Repair(models.Model):
         return self.write({'state': 'draft', 'end_date': False})
 
     def action_repair_done(self):
-        if self.delivery_state == 'abandoned':
+        if any(r.delivery_state == 'abandoned' for r in self):
             raise UserError(_("Impossible de modifier l'état d'une réparation abandonnée."))
         for rec in self:
             try:
-                self.env.cr.execute("SELECT id FROM repair_order WHERE id=%s FOR UPDATE NOWAIT", (rec.id,))
+                self.env.cr.execute(
+                    "SELECT id FROM repair_order WHERE id=%s FOR UPDATE NOWAIT",
+                    (rec.id,),
+                )
             except Exception:
-                raise UserError(_("La réparation %s est en cours de modification par un autre utilisateur.") % rec.name)
+                raise UserError(
+                    _("La réparation %s est en cours de modification par un autre utilisateur.")
+                    % rec.name
+                )
 
         self.invalidate_recordset(['state', 'quote_state', 'quote_required'])
 
-        if self.quote_required and self.quote_state != 'approved' and not self.env.context.get('force_stop'):
+        if (not self.env.context.get('force_stop')
+                and self.quote_required and self.quote_state != 'approved'):
             return {
                 'name': _("Alerte : Devis non validé"),
                 'type': 'ir.actions.act_window',
                 'res_model': 'repair.warn.quote.wizard',
                 'view_mode': 'form',
                 'target': 'new',
-                'context': {'default_repair_id': self.id}
+                'context': {'default_repair_id': self.id},
             }
 
         res = self.write({
             'state': 'done',
             'parts_waiting': False,
-            'end_date': fields.Datetime.now()
+            'end_date': fields.Datetime.now(),
         })
 
-        quote_act_type = self.env.ref('repair_custom.mail_act_repair_quote_validate', raise_if_not_found=False)
+        quote_act_type = self.env.ref(
+            'repair_custom.mail_act_repair_quote_validate', raise_if_not_found=False,
+        )
         if quote_act_type:
-            activities_to_clean = self.activity_ids.filtered(lambda a: a.activity_type_id.id == quote_act_type.id)
-            if activities_to_clean:
-                activities_to_clean.action_feedback(feedback="Clôture automatique : Réparation terminée.")
+            to_clean = self.activity_ids.filtered(
+                lambda a: a.activity_type_id.id == quote_act_type.id
+            )
+            if to_clean:
+                to_clean.action_feedback(
+                    feedback="Clôture automatique : Réparation terminée."
+                )
 
-        pickup_type = self.env.ref('repair_custom.mail_act_repair_done', raise_if_not_found=True)
-        group_manager = self.env.ref('repair_custom.group_repair_manager', raise_if_not_found=True)
+        # Sub-project 3: drop the legacy per-manager "Appareil Prêt" fan-out.
+        # The new UX (batch-ready compute + notify dialog + fallback button)
+        # replaces it.
 
-        if pickup_type and group_manager:
-            repair_model = self.env['ir.model']._get('repair.order')
-            activities_to_create = []
-            for rec in self:
-                for manager_user in group_manager.users:
-                    activities_to_create.append({
-                        'res_model_id': repair_model.id,
-                        'res_model': 'repair.order',
-                        'res_id': rec.id,
-                        'activity_type_id': pickup_type.id,
-                        'user_id': manager_user.id,
-                        'summary': "Appareil Prêt",
-                        'note': f"L'appareil {rec.device_id_name} est réparé. À facturer et livrer.",
-                        'date_deadline': fields.Date.today(),
-                    })
-
-            if activities_to_create:
-                self.env['mail.activity'].create(activities_to_create)
+        self.env.flush_all()
+        self.mapped('batch_id').invalidate_recordset(
+            ['ready_for_pickup_notification']
+        )
+        ready_batches = self.mapped('batch_id').filtered(
+            'ready_for_pickup_notification'
+        )
+        # Only offer the dialog for single-record UI actions.
+        if (ready_batches
+                and not self.env.context.get('skip_pickup_notify_prompt')
+                and len(ready_batches) == 1
+                and len(self) == 1):
+            return {
+                'name': _("Dossier prêt pour retrait"),
+                'type': 'ir.actions.act_window',
+                'res_model': 'repair.pickup.notify.wizard',
+                'view_mode': 'form',
+                'target': 'new',
+                'context': {'default_batch_id': ready_batches.id},
+            }
 
         return res
 
@@ -689,8 +723,8 @@ class Repair(models.Model):
         for rec in self:
             if rec.delivery_state == 'abandoned':
                 errors.append(_("La réparation %s est abandonnée et ne peut pas être livrée.") % rec.name)
-            elif rec.state != 'done':
-                errors.append(_("La réparation %s doit être 'Terminée' avant d'être livrée.") % rec.name)
+            elif rec.state not in ('done', 'irreparable'):
+                errors.append(_("La réparation %s doit être 'Terminée' ou 'Irréparable' avant d'être livrée.") % rec.name)
             elif rec.delivery_state != 'none':
                 errors.append(_("La réparation %s est déjà sortie de l'atelier.") % rec.name)
 
@@ -713,12 +747,17 @@ class Repair(models.Model):
 
         sar_months = self._get_sar_warranty_months()
         for rec in self:
-            if rec.lot_id:
-                sar_expiry = fields.Date.today() + relativedelta(months=sar_months)
-                rec.lot_id.write({
-                    'last_delivered_repair_id': rec.id,
-                    'sar_expiry': sar_expiry,
-                })
+            if not rec.lot_id:
+                continue
+            if rec.state != 'done':
+                # Irreparable: no warranty to grant. Still track the delivery.
+                rec.lot_id.write({'last_delivered_repair_id': rec.id})
+                continue
+            sar_expiry = fields.Date.today() + relativedelta(months=sar_months)
+            rec.lot_id.write({
+                'last_delivered_repair_id': rec.id,
+                'sar_expiry': sar_expiry,
+            })
 
         pickup_type_id = self.env.ref('repair_custom.mail_act_repair_done').id
         for rec in self:
@@ -876,12 +915,23 @@ class Repair(models.Model):
     # --- CREATE WITH SEQUENCE ---
     @api.model_create_multi
     def create(self, vals_list):
+        Batch = self.env['repair.batch']
+        for vals in vals_list:
+            if not vals.get('batch_id') and vals.get('partner_id'):
+                batch = Batch.create({'partner_id': vals['partner_id']})
+                vals['batch_id'] = batch.id
         for vals in vals_list:
             if vals.get('name', 'New') == 'New':
                 vals['name'] = self.env['ir.sequence'].next_by_code('repair.order') or 'New'
         return super(Repair, self).create(vals_list)
 
     # --- CONSTRAINTS ---
+    @api.constrains('batch_id')
+    def _check_batch_id_required(self):
+        for rec in self:
+            if not rec.batch_id:
+                raise ValidationError(_("Un dossier de dépôt est obligatoire pour chaque réparation."))
+
     @api.constrains('lot_id', 'product_tmpl_id', 'variant_id', 'serial_number')
     def _check_unit_consistency(self):
         for rec in self:

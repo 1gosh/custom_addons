@@ -1,8 +1,10 @@
 from odoo import api, Command, fields, models, _
+from odoo.exceptions import UserError
 
 class RepairBatch(models.Model):
     _name = 'repair.batch'
     _description = "Dossier de Dépôt"
+    _inherit = ['mail.thread', 'mail.activity.mixin']
     _order = 'date desc'
     name = fields.Char("Réf. Dossier", required=True, copy=False, readonly=True, default='New')
     date = fields.Datetime(string="Date de création", default=lambda self: fields.Datetime.now())
@@ -38,6 +40,122 @@ class RepairBatch(models.Model):
             elif all(r.state == 'confirmed' for r in batch.repair_ids if r.state != 'cancel'): batch.state = 'confirmed'
             # Draft: fallback for mixed states or all draft
             else: batch.state = 'draft'
+
+    ready_for_pickup_notification = fields.Boolean(
+        string="Prêt à notifier",
+        compute='_compute_ready_for_pickup_notification',
+        store=True,
+    )
+
+    @api.depends(
+        'repair_ids.state',
+        'repair_ids.delivery_state',
+    )
+    def _compute_ready_for_pickup_notification(self):
+        for batch in self:
+            non_abandoned = batch.repair_ids.filtered(
+                lambda r: r.delivery_state != 'abandoned'
+            )
+            if not non_abandoned:
+                batch.ready_for_pickup_notification = False
+                continue
+            all_terminal = all(
+                r.state in ('done', 'irreparable') for r in non_abandoned
+            )
+            if not all_terminal:
+                batch.ready_for_pickup_notification = False
+                continue
+            current_apt = getattr(batch, 'current_appointment_id', False)
+            if current_apt and current_apt.notification_sent_at:
+                batch.ready_for_pickup_notification = False
+                continue
+            batch.ready_for_pickup_notification = True
+
+    def action_pickup_start(self):
+        """Counter entry point. Route to linked sale.order or open the
+        pricing wizard in invoice mode. Invoice creation happens wherever;
+        delivery transition is driven by the account.move post hook.
+        """
+        self.ensure_one()
+        eligible = self.repair_ids.filtered(
+            lambda r: r.delivery_state == 'none'
+            and r.state in ('done', 'irreparable')
+        )
+        if not eligible:
+            raise UserError(_(
+                "Aucune réparation en attente de livraison dans ce dossier."
+            ))
+
+        sale_orders = self.repair_ids.mapped('sale_order_id')
+        if sale_orders:
+            return {
+                'name': _("Devis / Bon de Commande"),
+                'type': 'ir.actions.act_window',
+                'res_model': 'sale.order',
+                'res_id': sale_orders[:1].id,
+                'view_mode': 'form',
+                'target': 'current',
+            }
+
+        return {
+            'name': _("Facturation Atelier"),
+            'type': 'ir.actions.act_window',
+            'res_model': 'repair.pricing.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_repair_id': eligible[:1].id,
+                'default_mode': 'invoice',
+            },
+        }
+
+    def action_mark_delivered(self):
+        """Per-batch UI, per-repair data.
+
+        Transitions all eligible (done/irreparable, non-abandoned, not yet
+        delivered) repairs to delivered, runs the side effects via
+        `action_repair_delivered`, marks the linked appointment done, and
+        posts a chatter note.
+        """
+        self.ensure_one()
+        to_deliver = self.repair_ids.filtered(
+            lambda r: r.delivery_state == 'none'
+            and r.state in ('done', 'irreparable')
+        )
+        if not to_deliver:
+            raise UserError(_(
+                "Aucune réparation à livrer dans ce dossier."
+            ))
+
+        to_deliver.action_repair_delivered()
+
+        if (self.current_appointment_id
+                and self.current_appointment_id.state == 'scheduled'):
+            self.current_appointment_id.action_mark_done()
+
+        self.message_post(body=_(
+            "Dossier livré : %d appareil(s) remis au client."
+        ) % len(to_deliver))
+        return True
+
+    def action_notify_client_ready(self):
+        """Trigger initial pickup-ready notification for this batch.
+
+        Delegates to repair_appointment's `action_create_pickup_appointment(notify=True)`.
+        Idempotent: if the batch already has a non-terminal appointment with
+        `notification_sent_at` stamped, return True without creating a new one.
+        Raises UserError if the batch is not yet ready for notification.
+        """
+        self.ensure_one()
+        current_apt = self.current_appointment_id
+        if current_apt and current_apt.notification_sent_at:
+            # Already notified — idempotent no-op.
+            return True
+        if not self.ready_for_pickup_notification:
+            raise UserError(_(
+                "Ce dossier n'est pas prêt pour une notification de retrait."
+            ))
+        return self.action_create_pickup_appointment(notify=True)
 
     @api.model_create_multi
     def create(self, vals_list):
