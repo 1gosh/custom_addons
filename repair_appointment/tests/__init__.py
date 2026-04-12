@@ -8,3 +8,4 @@ from . import test_escalation
 from . import test_reminder_cron
 from . import test_portal_controller
 from . import test_reschedule_notification
+from . import test_mail_template_pickup_ready

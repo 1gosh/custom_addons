@@ -8,14 +8,67 @@
             <field name="email_from">{{ (object.company_id.email or user.email) }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="body_html" type="html">
-                <div>
+                <div style="font-family: Arial, sans-serif; color: #222;">
                     <p>Bonjour <t t-out="object.partner_id.name or ''"/>,</p>
-                    <p>Bonne nouvelle : votre appareil est prêt à être récupéré.</p>
-                    <p>Pour choisir le créneau qui vous convient le mieux, cliquez sur
-                       le lien ci-dessous :</p>
-                    <p>
-                        <a t-att-href="object._portal_url()">Prendre rendez-vous</a>
+
+                    <p>Bonne nouvelle : votre dossier
+                        <strong t-out="object.batch_id.name or ''"/>
+                        est prêt pour le retrait.
                     </p>
+
+                    <h3>Récapitulatif de votre dépôt</h3>
+                    <ul>
+                        <li>
+                            <strong>Date de dépôt :</strong>
+                            <t t-out="object.batch_id.date and object.batch_id.date.strftime('%d/%m/%Y') or ''"/>
+                        </li>
+                        <li>
+                            <strong>Lieu de retrait :</strong>
+                            <t t-out="object.location_id.name or ''"/>
+                        </li>
+                    </ul>
+
+                    <h3>Appareils</h3>
+                    <t t-foreach="object.batch_id.repair_ids.filtered(lambda r: r.delivery_state != 'abandoned' and r.state in ('done', 'irreparable'))" t-as="repair">
+                        <div style="margin-bottom: 16px; padding: 12px; border-left: 3px solid #875A7B;">
+                            <p><strong t-out="repair.device_id_name or ''"/></p>
+
+                            <t t-if="repair.tag_ids">
+                                <p><em>Pannes constatées :</em>
+                                    <t t-out="', '.join(repair.tag_ids.mapped('name'))"/>
+                                </p>
+                            </t>
+
+                            <t t-if="repair.state == 'done' and repair.internal_notes">
+                                <p><em>Intervention :</em></p>
+                                <p t-out="repair.internal_notes or ''"/>
+                            </t>
+                            <t t-if="repair.state == 'irreparable'">
+                                <p><em>Diagnostic :</em> cet appareil n'a pas pu être réparé.</p>
+                                <t t-if="repair.internal_notes">
+                                    <p t-out="repair.internal_notes or ''"/>
+                                </t>
+                            </t>
+
+                            <t t-if="repair.notes">
+                                <p><em>Informations complémentaires :</em></p>
+                                <p t-out="repair.notes or ''"/>
+                            </t>
+                        </div>
+                    </t>
+
+                    <p>
+                        Pour choisir le créneau qui vous convient le mieux, cliquez sur
+                        le lien ci-dessous :
+                    </p>
+                    <p style="text-align: center; margin: 24px 0;">
+                        <a t-att-href="object._portal_url()"
+                           style="background-color: #875A7B; color: white; padding: 12px 24px;
+                                  text-decoration: none; border-radius: 4px; display: inline-block;">
+                            Prendre rendez-vous
+                        </a>
+                    </p>
+
                     <p>À très bientôt,<br/>L'équipe de réparation</p>
                 </div>
             </field>
