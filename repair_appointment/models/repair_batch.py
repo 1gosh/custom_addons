@@ -117,7 +117,7 @@ class RepairBatch(models.Model):
                 attachment_ids = self._build_pickup_quote_attachments()
                 email_values = None
                 if attachment_ids:
-                    email_values = {'attachment_ids': attachment_ids}
+                    email_values = {'attachment_ids': [(4, aid) for aid in attachment_ids]}
                 template.send_mail(apt.id, force_send=False, email_values=email_values)
                 apt.notification_sent_at = fields.Datetime.now()
         return apt

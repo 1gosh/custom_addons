@@ -80,11 +80,6 @@
                             string="Notifier client – dossier prêt"
                             class="btn-primary"
                             invisible="not ready_for_pickup_notification"/>
-                    <button name="action_pickup_start"
-                            type="object"
-                            string="Traiter le retrait"
-                            class="btn-primary"
-                            invisible="not ready_for_pickup_notification"/>
                     <field name="state" widget="statusbar"/>
                 </header>
                 <sheet>
@@ -149,7 +144,7 @@
                     decoration-success="activity_summary and 'Prêt' in activity_summary"
                     decoration-info="activity_summary and 'Contacter' in activity_summary"
                     decoration-muted="not activity_summary"/>
-                <field name="notes" optional="show"/>
+                <field name="notes" optional="hide"/>
             </tree>
         </field>
     </record>
@@ -180,11 +175,6 @@
                             string="Notifier client"
                             class="btn-secondary"
                             invisible="not batch_ready_for_pickup_notification"/>
-                    <button name="action_pickup_start"
-                            type="object"
-                            string="Traiter le retrait"
-                            class="btn-primary"
-                            invisible="delivery_state != 'none' or not batch_ready_for_pickup_notification"/>
                     <button name="action_repair_delivered" string="Livrer" type="object" class="btn-secondary" invisible="delivery_state != 'none' or state not in ['done', 'irreparable']"/>
                     <button name="action_open_abandon_wizard" string="Abandon" type="object" class="btn-warning" invisible="delivery_state != 'none' or state == 'draft'" groups="repair_custom.group_repair_manager"/>
                     <button name="action_repair_cancel_draft" groups="repair_custom.group_repair_manager" invisible="state in 'draft'" string="Marquer comme brouillon" type="object" data-hotkey="z"/>
@@ -286,7 +276,7 @@
                     </div>
                     <div class="oe_title">
                         <h4 invisible="not batch_id" class="text-muted">
-                            <i class="fa fa-folder-open"/> <span invisible="batch_count == 0"></span>(1/<span class="o_stat_value"><field name="batch_count"/></span>) Dossier : <field name="batch_id" readonly="1" class="oe_inline"/>
+                            <i class="fa fa-folder-open"/> <span invisible="batch_count == 0"></span>(1/<span class="o_stat_value"><field name="batch_count"/></span>) Dossier : <field name="batch_id" readonly="id" class="oe_inline"/>
                         </h4>
                         <label class="o_form_label" invisible="lot_id" for="entry_date"/>
                         <field name="entry_date" invisible="not lot_id" class="o_form_label" string="Date d'entrée" widget="datetime" options="{'show_time':false}" readonly="state not in 'draft'" />
@@ -391,7 +381,7 @@
                         <page string="Atelier">
                             <group>
                                 <group>
-                                    <field name="work_time" readonly="state in ('done', 'delivered')"/>
+                                    <field name="work_time"/>
                                     <field name="notes_template_id" 
                                         domain="['|', ('category_ids', '=', False), ('category_ids', 'parent_of', category_id)]" 
                                         placeholder="Ex: Protocole Ampli Vintage"/>

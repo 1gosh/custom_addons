@@ -22,7 +22,7 @@ class RepairPickupDeliverWizard(models.TransientModel):
         compute='_compute_repair_ids',
     )
 
-    @api.depends('batch_id.repair_ids.state', 'batch_id.repair_ids.delivery_state')
+    @api.depends('batch_id')
     def _compute_repair_ids(self):
         for wiz in self:
             wiz.repair_ids = wiz.batch_id.repair_ids.filtered(
