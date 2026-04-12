@@ -447,3 +447,57 @@ class TestLegacyActivityMigration(RepairQuoteCase):
         r.invalidate_recordset(['activity_ids'])
         self.assertFalse(r.activity_ids.filtered(
             lambda a: a.activity_type_id == act_type))
+
+
+@tagged('post_install', '-at_install', 'repair_completion_pickup')
+class TestEndToEndCompletionPickup(RepairQuoteCase):
+
+    def test_full_happy_path(self):
+        # 1. Tech creates a repair; batch auto-wraps
+        r = self._make_repair()
+        self.assertTrue(r.batch_id)
+
+        # 2. Validate + start + done (last in batch → returns notify wizard)
+        r.action_validate()
+        r.action_repair_start()
+        res = r.with_context(force_stop=True).action_repair_done()
+        self.assertEqual(res['res_model'], 'repair.pickup.notify.wizard')
+
+        # 3. Technician clicks "Envoyer la notification"
+        wiz = self.env['repair.pickup.notify.wizard'].create({
+            'batch_id': res['context']['default_batch_id'],
+        })
+        wiz.action_send()
+        self.assertTrue(r.batch_id.current_appointment_id)
+        self.assertTrue(r.batch_id.current_appointment_id.notification_sent_at)
+        self.assertFalse(r.batch_id.ready_for_pickup_notification)
+
+        # 4. Client walks in — staff clicks Traiter le retrait
+        pickup_action = r.batch_id.action_pickup_start()
+        self.assertEqual(pickup_action['res_model'], 'repair.pricing.wizard')
+
+        # 5. Create + post an invoice from the wizard (simulate via direct create)
+        invoice = self.env['account.move'].create({
+            'move_type': 'out_invoice',
+            'partner_id': self.partner.id,
+            'repair_id': r.id,
+            'invoice_line_ids': [(0, 0, {
+                'product_id': self.service_product.id,
+                'name': 'Réparation',
+                'quantity': 1,
+                'price_unit': 80.0,
+            })],
+        })
+        post_res = invoice.action_post()
+        self.assertEqual(post_res.get('res_model'), 'repair.pickup.deliver.wizard')
+
+        # 6. Confirm delivery
+        deliver_wiz = self.env['repair.pickup.deliver.wizard'].create({
+            'batch_id': post_res['context']['default_batch_id'],
+            'invoice_id': post_res['context']['default_invoice_id'],
+        })
+        deliver_wiz.action_confirm()
+
+        # 7. Final state
+        self.assertEqual(r.delivery_state, 'delivered')
+        self.assertEqual(invoice.state, 'posted')
