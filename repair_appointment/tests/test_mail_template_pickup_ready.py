@@ -38,3 +38,49 @@ class TestMailTemplatePickupReady(TransactionCase):
         self.assertIn("n'a pas pu être réparé", body)
         self.assertIn(self.partner.name, body)
         self.assertIn('Prendre rendez-vous', body)
+
+    def test_build_pickup_quote_attachments_empty_without_sale(self):
+        atts = self.batch._build_pickup_quote_attachments()
+        self.assertEqual(atts, [])
+
+    def _link_so_to_repair(self, repair, so):
+        """Set sale_order_id on a repair bypassing the write guard."""
+        self.env.cr.execute(
+            "UPDATE repair_order SET sale_order_id = %s WHERE id = %s",
+            (so.id, repair.id),
+        )
+        repair.invalidate_recordset(['sale_order_id'])
+
+    def test_build_pickup_quote_attachments_skips_draft_so(self):
+        so = self.env['sale.order'].create({
+            'partner_id': self.partner.id,
+            'order_line': [(0, 0, {
+                'product_id': self.env['product.product'].search([], limit=1).id,
+                'name': 'Test',
+                'product_uom_qty': 1,
+                'price_unit': 10.0,
+            })],
+        })
+        self._link_so_to_repair(self.repair_done, so)
+        atts = self.batch._build_pickup_quote_attachments()
+        self.assertEqual(atts, [])
+
+    def test_build_pickup_quote_attachments_with_confirmed_so(self):
+        product = self.env['product.product'].search([], limit=1)
+        so = self.env['sale.order'].create({
+            'partner_id': self.partner.id,
+            'order_line': [(0, 0, {
+                'product_id': product.id,
+                'name': 'Test',
+                'product_uom_qty': 1,
+                'price_unit': 10.0,
+            })],
+        })
+        self._link_so_to_repair(self.repair_done, so)
+        so.action_confirm()
+        self.assertEqual(so.state, 'sale')
+        atts = self.batch._build_pickup_quote_attachments()
+        self.assertEqual(len(atts), 1)
+        attach = self.env['ir.attachment'].browse(atts[0])
+        self.assertTrue(attach.exists())
+        self.assertEqual(attach.mimetype, 'application/pdf')
