@@ -723,8 +723,8 @@ class Repair(models.Model):
         for rec in self:
             if rec.delivery_state == 'abandoned':
                 errors.append(_("La réparation %s est abandonnée et ne peut pas être livrée.") % rec.name)
-            elif rec.state != 'done':
-                errors.append(_("La réparation %s doit être 'Terminée' avant d'être livrée.") % rec.name)
+            elif rec.state not in ('done', 'irreparable'):
+                errors.append(_("La réparation %s doit être 'Terminée' ou 'Irréparable' avant d'être livrée.") % rec.name)
             elif rec.delivery_state != 'none':
                 errors.append(_("La réparation %s est déjà sortie de l'atelier.") % rec.name)
 
@@ -747,12 +747,17 @@ class Repair(models.Model):
 
         sar_months = self._get_sar_warranty_months()
         for rec in self:
-            if rec.lot_id:
-                sar_expiry = fields.Date.today() + relativedelta(months=sar_months)
-                rec.lot_id.write({
-                    'last_delivered_repair_id': rec.id,
-                    'sar_expiry': sar_expiry,
-                })
+            if not rec.lot_id:
+                continue
+            if rec.state != 'done':
+                # Irreparable: no warranty to grant. Still track the delivery.
+                rec.lot_id.write({'last_delivered_repair_id': rec.id})
+                continue
+            sar_expiry = fields.Date.today() + relativedelta(months=sar_months)
+            rec.lot_id.write({
+                'last_delivered_repair_id': rec.id,
+                'sar_expiry': sar_expiry,
+            })
 
         pickup_type_id = self.env.ref('repair_custom.mail_act_repair_done').id
         for rec in self:

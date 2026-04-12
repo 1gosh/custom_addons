@@ -241,3 +241,59 @@ class TestActionPickupStart(RepairQuoteCase):
         r = self._done_repair()
         res = r.action_pickup_start()
         self.assertEqual(res['res_model'], 'repair.pricing.wizard')
+
+
+@tagged('post_install', '-at_install', 'repair_completion_pickup')
+class TestActionMarkDelivered(RepairQuoteCase):
+
+    def _done_with_lot(self):
+        """Create a repair tied to a lot (needed to exercise SAR + picking)."""
+        product = self.env['product.product'].create({
+            'name': 'Amp X',
+            'type': 'product',
+            'tracking': 'serial',
+        })
+        lot = self.env['stock.lot'].create({
+            'product_id': product.id,
+            'company_id': self.env.company.id,
+            'name': 'AMPX-0001',
+        })
+        r = self.Repair.create({
+            'partner_id': self.partner.id,
+            'internal_notes': 'with lot',
+            'lot_id': lot.id,
+        })
+        r.action_validate()
+        r.action_repair_start()
+        r.with_context(force_stop=True, skip_pickup_notify_prompt=True).action_repair_done()
+        return r, lot
+
+    def test_mark_delivered_stamps_sar_for_done(self):
+        r, lot = self._done_with_lot()
+        r.batch_id.action_mark_delivered()
+        self.assertEqual(r.delivery_state, 'delivered')
+        self.assertEqual(lot.last_delivered_repair_id, r)
+        self.assertTrue(lot.sar_expiry)
+
+    def test_irreparable_updates_lot_history_but_no_sar(self):
+        r, lot = self._done_with_lot()
+        r.write({'state': 'irreparable'})
+        lot.sar_expiry = False
+        r.batch_id.action_mark_delivered()
+        self.assertEqual(r.delivery_state, 'delivered')
+        self.assertEqual(lot.last_delivered_repair_id, r)
+        self.assertFalse(lot.sar_expiry, "Irreparable should not stamp SAR")
+
+    def test_mark_delivered_skips_abandoned(self):
+        r1, _lot1 = self._done_with_lot()
+        r2 = self._make_repair()
+        r2.batch_id = r1.batch_id
+        r2.delivery_state = 'abandoned'
+        r1.batch_id.action_mark_delivered()
+        self.assertEqual(r1.delivery_state, 'delivered')
+        self.assertEqual(r2.delivery_state, 'abandoned')
+
+    def test_mark_delivered_without_eligible_raises(self):
+        batch = self.env['repair.batch'].create({'partner_id': self.partner.id})
+        with self.assertRaises(UserError):
+            batch.action_mark_delivered()
