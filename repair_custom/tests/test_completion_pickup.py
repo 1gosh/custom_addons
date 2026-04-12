@@ -297,3 +297,57 @@ class TestActionMarkDelivered(RepairQuoteCase):
         batch = self.env['repair.batch'].create({'partner_id': self.partner.id})
         with self.assertRaises(UserError):
             batch.action_mark_delivered()
+
+
+@tagged('post_install', '-at_install', 'repair_completion_pickup')
+class TestPickupDeliverWizard(RepairQuoteCase):
+
+    def _done_repair(self):
+        r = self._make_repair()
+        r.action_validate()
+        r.action_repair_start()
+        r.with_context(force_stop=True, skip_pickup_notify_prompt=True).action_repair_done()
+        return r
+
+    def test_wizard_computes_eligible_repairs(self):
+        r = self._done_repair()
+        so = self._make_sale_order_linked(r)
+        invoice = self.env['account.move'].create({
+            'move_type': 'out_invoice',
+            'partner_id': self.partner.id,
+            'repair_id': r.id,
+        })
+        wiz = self.env['repair.pickup.deliver.wizard'].create({
+            'batch_id': r.batch_id.id,
+            'invoice_id': invoice.id,
+        })
+        self.assertIn(r, wiz.repair_ids)
+
+    def test_wizard_action_confirm_marks_delivered(self):
+        r = self._done_repair()
+        invoice = self.env['account.move'].create({
+            'move_type': 'out_invoice',
+            'partner_id': self.partner.id,
+            'repair_id': r.id,
+        })
+        wiz = self.env['repair.pickup.deliver.wizard'].create({
+            'batch_id': r.batch_id.id,
+            'invoice_id': invoice.id,
+        })
+        wiz.action_confirm()
+        self.assertEqual(r.delivery_state, 'delivered')
+
+    def test_wizard_action_dismiss_noop(self):
+        r = self._done_repair()
+        invoice = self.env['account.move'].create({
+            'move_type': 'out_invoice',
+            'partner_id': self.partner.id,
+            'repair_id': r.id,
+        })
+        wiz = self.env['repair.pickup.deliver.wizard'].create({
+            'batch_id': r.batch_id.id,
+            'invoice_id': invoice.id,
+        })
+        res = wiz.action_dismiss()
+        self.assertEqual(r.delivery_state, 'none')
+        self.assertEqual(res.get('type'), 'ir.actions.act_window_close')
