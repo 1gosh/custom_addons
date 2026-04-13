@@ -67,6 +67,10 @@ class StockLot(models.Model):
     # SAR warranty (repair)
     last_delivered_repair_id = fields.Many2one('repair.order', string="Dernière réparation livrée", readonly=True, copy=False)
     sar_expiry = fields.Date("Expiration SAR", readonly=True, copy=False)
+    last_technician_id = fields.Many2one(
+        'hr.employee', string="Dernier technicien",
+        readonly=True, copy=False,
+    )
 
     # Computed warranty info (SAV priority over SAR)
     warranty_type = fields.Selection([

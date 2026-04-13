@@ -748,11 +748,15 @@ class Repair(models.Model):
                 continue
             if rec.state != 'done':
                 # Irreparable: no warranty to grant. Still track the delivery.
-                rec.lot_id.write({'last_delivered_repair_id': rec.id})
+                rec.lot_id.write({
+                    'last_delivered_repair_id': rec.id,
+                    'last_technician_id': rec.technician_employee_id.id,
+                })
                 continue
             sar_expiry = fields.Date.today() + relativedelta(months=sar_months)
             rec.lot_id.write({
                 'last_delivered_repair_id': rec.id,
+                'last_technician_id': rec.technician_employee_id.id,
                 'sar_expiry': sar_expiry,
             })
 

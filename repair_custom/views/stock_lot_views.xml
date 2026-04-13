@@ -115,6 +115,7 @@
                             <field name="sav_expiry" invisible="not sav_expiry"/>
                             <field name="sale_order_id" invisible="not sale_order_id"/>
                             <field name="last_delivered_repair_id" invisible="not last_delivered_repair_id"/>
+                            <field name="last_technician_id" invisible="not last_technician_id"/>
                             <field name="sar_expiry" invisible="not sar_expiry"/>
                         </group>
                     </group>

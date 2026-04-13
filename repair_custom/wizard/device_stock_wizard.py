@@ -207,6 +207,7 @@ class DeviceStockWizard(models.TransientModel):
             'sale_order_id': False,
             'last_delivered_repair_id': False,
             'sar_expiry': False,
+            'last_technician_id': False,
         })
 
         partner_name = self.previous_owner_id.name if self.previous_owner_id else 'Inconnu'
