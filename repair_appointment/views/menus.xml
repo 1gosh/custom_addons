@@ -3,7 +3,7 @@
     <menuitem id="menu_repair_appointment_root"
               name="Rendez-vous"
               parent="repair_custom.menu_repair_order"
-              sequence="25"/>
+              sequence="45"/>
 
     <menuitem id="menu_repair_appointment_calendar"
               name="Calendrier des retraits"

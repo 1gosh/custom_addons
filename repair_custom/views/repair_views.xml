@@ -841,10 +841,13 @@
         <field name="arch" type="xml">
             
             <xpath expr="//tree" position="attributes">
-                <attribute name="default_order">write_date desc</attribute>
+                <attribute name="default_order">last_action_time desc</attribute>
+            </xpath>
+            <xpath expr="//field[@name='waiting_time']" position="attributes">
+                <attribute name="optional">hide</attribute>
             </xpath>
 
-            <field name="entry_date" position="after">
+            <field name="entry_date" position="before">
                 <field name="last_action_time" string="Dernière Modification" decoration-bf="1" optional="show"/>
             </field>
 
@@ -1206,7 +1209,7 @@
 
     <menuitem id="repair_menu_reporting" name="Reporting" parent="menu_repair_order" groups="repair_custom.group_repair_manager"/>
 
-    <menuitem id="repair_menu_config" sequence="40" name="Configuration" parent="menu_repair_order" groups="repair_custom.group_repair_manager"/>
+    <menuitem id="repair_menu_config" sequence="100" name="Configuration" parent="menu_repair_order" groups="repair_custom.group_repair_manager"/>
 
     <menuitem id="menu_repair_pickup_location" name="Lieux" parent="repair_menu_config" action="action_repair_pickup_location"/>
 
@@ -1220,7 +1223,7 @@
             sequence="10"/>
 
     <!-- Commerce: Ventes Équipement & Locations -->
-    <menuitem id="repair_menu_commerce" sequence="35" name="Commerce" parent="menu_repair_order" groups="repair_custom.group_repair_manager"/>
+    <menuitem id="repair_menu_commerce" sequence="50" name="Commerce" parent="menu_repair_order" groups="repair_custom.group_repair_manager"/>
 
     <record id="action_equipment_sales" model="ir.actions.act_window">
         <field name="name">Ventes Équipement</field>

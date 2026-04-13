@@ -101,7 +101,7 @@
         <menuitem id="menu_repair_quote"
                   name="Devis"
                   parent="menu_repair_order"
-                  sequence="25"
+                  sequence="35"
                   groups="repair_custom.group_repair_manager"/>
 
         <menuitem id="menu_repair_quote_queue"

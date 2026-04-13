@@ -351,6 +351,16 @@ class Repair(models.Model):
 
     # --- DEVICE FIELDS ---
     category_id = fields.Many2one('product.category', string="Catégorie")
+    category_short_name = fields.Char(compute='_compute_category_short_name')
+
+    @api.depends('category_id', 'category_id.complete_name')
+    def _compute_category_short_name(self):
+        for rec in self:
+            if rec.category_id and rec.category_id.complete_name:
+                parts = rec.category_id.complete_name.split(' / ')
+                rec.category_short_name = ' / '.join(parts[-2:]) if len(parts) >= 2 else parts[-1]
+            else:
+                rec.category_short_name = False
     product_tmpl_id = fields.Many2one('product.template', string="Modèle")
     variant_id = fields.Many2one('repair.device.variant', string="Variante")
     variant_ids_available = fields.Many2many('repair.device.variant', compute='_compute_variant_ids_available', store=False)
@@ -471,7 +481,6 @@ class Repair(models.Model):
     batch_id = fields.Many2one(
         'repair.batch', string="Dossier de Dépôt",
         readonly=True, index=True, ondelete='restrict',
-        required=True,
     )
     batch_ready_for_pickup_notification = fields.Boolean(
         related='batch_id.ready_for_pickup_notification',

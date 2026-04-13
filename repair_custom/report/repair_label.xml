@@ -1,60 +1,165 @@
 <odoo>
     <template id="repair_custom.report_repair_label">
+        <t t-set="full_width" t-value="True"/>
         <t t-call="web.html_container">
             <meta charset="utf-8"/>
+            <style>
+                body, body.container-fluid, #wrapwrap, main {
+                    padding: 0 !important;
+                    margin: 0 !important;
+                }
+                .label-page {
+                    width: 68mm;
+                    padding: 0;
+                    font-family: 'Arial', sans-serif;
+                    color: #000;
+                    position: relative;
+                }
+                .label-page table {
+                    width: 100%;
+                    table-layout: fixed;
+                    border-collapse: collapse;
+                }
+                .warranty-watermark {
+                    position: absolute;
+                    right: 0;
+                    bottom: 0;
+                    z-index: -1;
+                    font-weight: bold;
+                    font-size: 25mm;
+                    line-height: 1;
+                    color: rgb(230, 230, 230);
+                    transform: scaleY(1.5);
+                }
+                .sar-info {
+                    font-size: 8px;
+                    margin-bottom: 1mm;
+                }
+                .customer-name {
+                    font-size: 19px;
+                    font-weight: 900;
+                    line-height: 0.8;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+                .customer-phone {
+                    font-size: 9px;
+                }
+                .entry-date {
+                    font-size: 27px;
+                    font-weight: 900;
+                    letter-spacing: -1px;
+                    line-height: 0.8;
+                }
+                .device-name {
+                    line-height: 0.9;
+                    font-size: 14px;
+                    font-weight: bold;
+                    word-wrap: break-word;
+                }
+                .device-details {
+                    font-size: 8px;
+                    overflow: hidden;
+                    white-space: nowrap;
+                }
+                .device-notes {
+                    font-size: 8px;
+                    margin-top: 1mm;
+                }
+                .quote-box {
+                    margin-bottom: 1mm;
+                    font-weight: bold;
+                    font-size: 10px;
+                    border: 1px solid black;
+                    padding: 1px;
+                    text-align: center;
+                }
+                .tag-list {
+                    font-size: 12px;
+                    margin-top: -1px;
+                    margin-left: 2mm;
+                    word-wrap: break-word;
+                    line-height: 1;
+                }
+                .tag-list-empty {
+                    font-style: italic;
+                    font-weight: normal;
+                    font-size: 10px;
+                }
+                .label-meta {
+                    font-size: 8px;
+                    margin-top: 1mm;
+                    overflow: hidden;
+                    white-space: nowrap;
+                }
+                .checkbox-row {
+                    margin-top: 1.5mm;
+                    font-size: 8px;
+                    line-height: 1.5;
+                }
+                .checkbox-row td {
+                    padding: 0.5mm 0;
+                }
+                .checkbox {
+                    display: inline-block;
+                    width: 3mm;
+                    height: 3mm;
+                    border: 1px solid #000;
+                    vertical-align: -1.2mm;
+                    margin-right: 1mm;
+                }
+            </style>
+
             <t t-foreach="docs" t-as="o">
-                
-                <div class="page" style="width: 68mm; margin-left: -2.5mm !important; margin-top: 0 !important; padding: 0 !important; font-family: 'Arial', sans-serif; color: #000;">
-                    <div style="font-size: 8px; margin-bottom: 1mm;" t-if="o.repair_warranty == 'sar'">
+                <div class="label-page">
+                    <!-- Warranty watermark (behind content) -->
+                    <t t-if="o.repair_warranty != 'aucune'">
+                        <span class="warranty-watermark" t-field="o.repair_warranty"/>
+                    </t>
+
+                    <!-- SAR previous technician info -->
+                    <div class="sar-info" t-if="o.repair_warranty == 'sar'">
                         ℹ Vu par <span style="font-weight:bold;" t-field="o.previous_technician_id.name"/> le <span t-field="o.previous_end_date" t-options='{"widget": "date"}'/>
                     </div>
-                    <div t-if="o.repair_warranty != 'aucune'" style="vertical-align: bottom;">
-                        <span style="right: 0; transform: scaleY(1.5); position: absolute; z-index: -1; font-weight: bold; font-size: 25mm; color: rgb(230, 230, 230);" t-field="o.repair_warranty"/>
-                    </div>
-                    <table style="width: 100%; table-layout: fixed; border-collapse: collapse; margin-bottom: 1mm;">
+
+                    <!-- Row 1: Customer name + entry date -->
+                    <table style="margin-bottom: 1mm;">
                         <tr>
-                            <td style="width: 72%; vertical-align: top; overflow: hidden">
-                                <div style="font-size: 19px; font-weight: 900; line-height: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            <td style="width: 72%; vertical-align: top; overflow: hidden;">
+                                <div class="customer-name">
                                     <span t-field="o.partner_id.name"/>
                                 </div>
-                                <div style="font-size: 9px;">
+                                <div class="customer-phone">
                                     <span t-field="o.partner_id.phone"/>
                                 </div>
                             </td>
-                            
                             <td style="width: 28%; text-align: right; vertical-align: top; white-space: nowrap;">
-                                <div style="font-size: 27px; font-weight: 900; letter-spacing: -1px; line-height: 0.8;" t-field="o.entry_date" t-options='{"widget": "date", "format": "dd/MM"}'/>
+                                <div class="entry-date" t-field="o.entry_date" t-options='{"widget": "date", "format": "dd/MM"}'/>
                             </td>
                         </tr>
                     </table>
 
-                    <table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
+                    <!-- Row 2: Device info + tags -->
+                    <table>
                         <tr>
                             <td style="width: 45%; vertical-align: top;">
-                                
-                                <div style="line-height: 0.9; font-size: 14px; font-weight: bold; word-wrap: break-word;">
-                                        <span t-field="o.device_id_name"/>
+                                <div class="device-name">
+                                    <span t-field="o.device_id_name"/>
                                 </div>
-                                <table style="width: 100%; border-collapse: collapse; margin: 0; margin-top:1mm; padding: 0;">
+                                <table style="margin-top: 1mm;">
                                     <tr>
                                         <td style="vertical-align: middle; padding: 0;">
-                                            <div style="font-size:8px; overflow: hidden; white-space: nowrap;">
-                                                <a>S/N: </a><span t-field="o.serial_number"/>
+                                            <div class="device-details">
+                                                <span>S/N: </span><span t-field="o.serial_number"/>
                                             </div>
-                                            <div style="font-size:8px; overflow: hidden; white-space: nowrap;">
-                                                <a>Réf: </a><span t-field="o.name"/>
+                                            <div class="device-details">
+                                                <span>Réf: </span><span t-field="o.name"/>
                                             </div>
                                         </td>
-                                        <!-- <td style="vertical-align: middle; text-align: right; white-space: nowrap;">
-                                            <t t-if="o.repair_warranty != 'aucune'">
-                                                <span style="background-color: #000; color: #fff; font-size: 12px; font-weight: bold; padding: 0 2px; margin-right: 1px;">
-                                                    <span t-field="o.repair_warranty"/>
-                                                </span>
-                                            </t>
-                                        </td> -->
                                     </tr>
                                 </table>
-                                <div style="font-size: 8px; margin-top:1mm; padding: 0;">
+                                <div class="device-notes">
                                     <t t-if="o.notes">
                                         <i><span t-field="o.notes"/></i>
                                     </t>
@@ -62,21 +167,52 @@
                             </td>
 
                             <td style="width: 55%; vertical-align: top;">
-                                <div t-if="o.quote_required" style="margin-bottom: 1mm; font-weight: bold; font-size: 10px; border: 1px solid black; padding: 1px; text-align: center;">
+                                <div t-if="o.quote_required" class="quote-box">
                                     <t t-if="o.quote_threshold > 0">
-                                        Devis &gt; <span t-field="o.quote_threshold" 
+                                        Devis &gt; <span t-field="o.quote_threshold"
                                                         t-options='{"widget": "monetary", "display_currency": o.company_id.currency_id}'/>
-                                    </t>    
+                                    </t>
                                     <t t-else="">
                                         Devis Exigé
                                     </t>
                                 </div>
-                                <div style="font-size: 12px; margin-top: -1px; margin-left: 2mm; word-wrap: break-word; line-height: 1;">
+                                <div class="tag-list">
                                     <t t-foreach="o.tag_ids" t-as="tag">
                                         - <span t-field="tag.name"/><br/>
                                     </t>
-                                    <span t-if="not o.tag_ids" style="font-style: italic; font-weight: normal; font-size: 10px;">RAS</span>
+                                    <span t-if="not o.tag_ids" class="tag-list-empty">RAS</span>
                                 </div>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <!-- Category + Location -->
+                    <div class="label-meta">
+                        <t t-if="o.category_short_name">
+                            <span t-field="o.category_short_name"/>
+                        </t>
+                        <t t-if="o.category_short_name and o.pickup_location_id"> · </t>
+                        <t t-if="o.pickup_location_id">
+                                <span t-field="o.pickup_location_id.name"/>
+                        </t>
+                    </div>
+
+                    <!-- Tracking checkboxes -->
+                    <table class="checkbox-row">
+                        <tr>
+                            <td>
+                                <span class="checkbox"/> Att. pièces
+                            </td>
+                            <td>
+                                <span class="checkbox"/> Pièces reçues
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="width: 50%;">
+                                <span class="checkbox"/> Diag/Devis
+                            </td>
+                            <td style="width: 50%;">
+                                <span class="checkbox"/> Réparé
                             </td>
                         </tr>
                     </table>
