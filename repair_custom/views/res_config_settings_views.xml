@@ -23,6 +23,22 @@
                             <field name="quote_escalation_delay_days"/>
                         </setting>
                     </block>
+                    <block title="Garantie">
+                        <setting string="Durée garantie SAR"
+                                 help="Durée de la garantie SAR (Service Après Réparation) accordée après chaque réparation livrée.">
+                            <field name="sar_warranty_months"/>
+                        </setting>
+                        <setting string="Durée garantie SAV"
+                                 help="Durée de la garantie SAV (Service Après Vente) accordée lors d'une vente d'équipement.">
+                            <field name="sav_warranty_months"/>
+                        </setting>
+                    </block>
+                    <block title="Ventes Équipement">
+                        <setting string="Validation automatique des livraisons"
+                                 help="Valider automatiquement les bons de livraison lors de la confirmation d'une vente d'équipement.">
+                            <field name="auto_validate_equipment_sale"/>
+                        </setting>
+                    </block>
                 </app>
             </xpath>
         </field>
