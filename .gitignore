@@ -35,3 +35,6 @@ plans/
 .claude
 CLAUDE.md
 AGENTS.md
+
+# Worktrees
+.worktrees/
