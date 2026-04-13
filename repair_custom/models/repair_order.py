@@ -299,9 +299,8 @@ class Repair(models.Model):
             expiry_str = lot.warranty_expiry.strftime('%d/%m/%Y') if lot.warranty_expiry else '?'
             return {'warning': {
                 'title': _("Garantie SAV"),
-                'message': _("ℹ INFO : Garantie SAV jusqu'au %s.\n(Vendu le %s)") % (
-                    expiry_str, sale_date_str
-                )
+                'message': _("Garantie SAV jusqu'au %s (Vendu le %s)") % (expiry_str, sale_date_str),
+                'warning_type': 'notification',
             }}
         elif lot.warranty_state == 'active' and lot.warranty_type == 'sar':
             prev_repair = lot.last_delivered_repair_id or self.previous_repair_id
@@ -310,9 +309,8 @@ class Repair(models.Model):
             prev_date_str = (prev_repair.end_date or prev_repair.write_date).strftime('%d/%m/%Y')
             return {'warning': {
                 'title': _("Retour Garantie (SAR)"),
-                'message': _("ℹ INFO : Appareil sous garantie jusqu'au %s.\n(Réparé par %s, le %s)") % (
-                    expiry_str, tech_name, prev_date_str
-                )
+                'message': _("Appareil sous garantie jusqu'au %s (Réparé par %s, le %s)") % (expiry_str, tech_name, prev_date_str),
+                'warning_type': 'notification',
             }}
         elif self.previous_repair_id:
             prev_repair = self.previous_repair_id
@@ -320,9 +318,8 @@ class Repair(models.Model):
             prev_date_str = (prev_repair.end_date or prev_repair.write_date).strftime('%d/%m/%Y')
             return {'warning': {
                 'title': _("Hors Garantie"),
-                'message': _("ℹ INFO : Cet appareil a déjà été réparé par %s le %s.\n(Garantie expirée)") % (
-                    tech_name, prev_date_str
-                )
+                'message': _("Cet appareil a déjà été réparé par %s le %s (Garantie expirée)") % (tech_name, prev_date_str),
+                'warning_type': 'notification',
             }}
 
     previous_technician_id = fields.Many2one(
