@@ -260,6 +260,18 @@ class Repair(models.Model):
             suggested = 'aucune'
             if rec.lot_id and rec.lot_id.warranty_state == 'active':
                 suggested = rec.lot_id.warranty_type
+            # LEGACY FALLBACK — safe to remove once all historical repairs
+            # have been migrated (lot.sar_expiry populated for all past repairs).
+            #
+            # To remove:
+            # 1. Run check query to verify no lots with repair history lack sar_expiry:
+            #    SELECT sl.id, sl.name FROM stock_lot sl
+            #    JOIN repair_order ro ON ro.lot_id = sl.id
+            #    WHERE ro.state = 'done' AND sl.sar_expiry IS NULL;
+            # 2. If results: backfill sar_expiry from last delivered repair's
+            #    end_date + 3 months
+            # 3. Once clean, delete this elif branch — suggested_warranty
+            #    then only needs to check lot_id.warranty_state
             elif rec.previous_repair_id:
                 prev_repair = rec.previous_repair_id
                 ref_date = prev_repair.end_date or prev_repair.write_date
