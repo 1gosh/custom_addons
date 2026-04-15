@@ -353,14 +353,25 @@ class Repair(models.Model):
     category_id = fields.Many2one('product.category', string="Catégorie")
     category_short_name = fields.Char(compute='_compute_category_short_name')
 
-    @api.depends('category_id', 'category_id.complete_name')
+    @api.depends(
+        'category_id',
+        'category_id.name',
+        'category_id.short_name',
+        'category_id.parent_id',
+        'category_id.parent_id.name',
+        'category_id.parent_id.short_name',
+    )
     def _compute_category_short_name(self):
         for rec in self:
-            if rec.category_id and rec.category_id.complete_name:
-                parts = rec.category_id.complete_name.split(' / ')
-                rec.category_short_name = ' / '.join(parts[-2:]) if len(parts) >= 2 else parts[-1]
-            else:
+            category = rec.category_id
+            if not category:
                 rec.category_short_name = False
+                continue
+            segments = []
+            if category.parent_id:
+                segments.append(category.parent_id.short_name or category.parent_id.name)
+            segments.append(category.short_name or category.name)
+            rec.category_short_name = ' / '.join(segments)
     product_tmpl_id = fields.Many2one('product.template', string="Modèle")
     variant_id = fields.Many2one('repair.device.variant', string="Variante")
     variant_ids_available = fields.Many2many('repair.device.variant', compute='_compute_variant_ids_available', store=False)
