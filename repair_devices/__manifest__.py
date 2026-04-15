@@ -14,6 +14,7 @@
         'data/product_category_data.xml',
         "views/device_views.xml",
         "views/product_template_views.xml",
+        "views/product_category_views.xml",
         "views/stock_lot_views.xml",
         "views/menu.xml",
         "views/repair_device_reclassify_views.xml",
