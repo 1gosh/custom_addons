@@ -87,12 +87,16 @@ class RepairQuoteCase(TransactionCase):
     @classmethod
     def _make_repair(cls, tech=None, internal_notes='Notes de diagnostic', quote_required=True):
         tech = tech or cls.tech_with_user
-        return cls.Repair.create({
+        repair = cls.Repair.create({
             'partner_id': cls.partner.id,
             'internal_notes': internal_notes,
             'quote_required': quote_required,
             'technician_employee_id': tech.id,
         })
+        # Sub-project 3 deferred batch creation to confirmation — confirm so
+        # downstream tests still observe a batched repair.
+        repair._action_repair_confirm()
+        return repair
 
     @classmethod
     def _make_sale_order_linked(cls, repair):

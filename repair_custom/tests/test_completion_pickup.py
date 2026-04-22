@@ -11,13 +11,15 @@ from .common import RepairQuoteCase
 @tagged('post_install', '-at_install', 'repair_completion_pickup')
 class TestMandatoryBatches(RepairQuoteCase):
 
-    def test_create_repair_auto_wraps_batch(self):
-        """A repair created without explicit batch_id gets a singleton batch."""
+    def test_confirm_creates_batch_when_missing(self):
+        """A draft repair has no batch; confirmation wraps it in a singleton batch."""
         repair = self.Repair.create({
             'partner_id': self.partner.id,
             'internal_notes': 'auto-wrap test',
         })
-        self.assertTrue(repair.batch_id, "batch_id should be populated on create")
+        self.assertFalse(repair.batch_id, "draft repair should have no batch yet")
+        repair._action_repair_confirm()
+        self.assertTrue(repair.batch_id, "batch_id should be populated after confirm")
         self.assertEqual(repair.batch_id.partner_id, self.partner)
         self.assertEqual(repair.batch_id.repair_ids, repair)
 
@@ -52,11 +54,16 @@ class TestMandatoryBatches(RepairQuoteCase):
         import os
         from odoo.modules.module import get_module_path
 
-        repair = self._make_repair()
-        # In the running DB the column already has NOT NULL (enforced by the
-        # required=True we just added). Drop it locally inside this transaction
-        # so we can simulate the pre-upgrade state. The test transaction rolls
-        # back at teardown, so this is isolated.
+        # Create a bare draft repair (no confirm → no batch) to simulate
+        # pre-upgrade state where historical rows could have batch_id = NULL.
+        repair = self.Repair.create({
+            'partner_id': self.partner.id,
+            'internal_notes': 'pre-migration test',
+        })
+        # In the running DB the column may still have NOT NULL (from an
+        # earlier required=True migration). Drop it locally inside this
+        # transaction to match the pre-upgrade state; the test transaction
+        # rolls back at teardown, so this is isolated.
         self.env.cr.execute(
             "ALTER TABLE repair_order ALTER COLUMN batch_id DROP NOT NULL"
         )

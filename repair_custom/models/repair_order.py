@@ -96,6 +96,7 @@ class Repair(models.Model):
             rec.tracking_url = f"{base_url}/repair/tracking/{rec.tracking_token}" if rec.tracking_token else False
 
     name = fields.Char('Référence', default='New', index='trigram', copy=False, required=True, readonly=True)
+    active = fields.Boolean(default=True)
     company_id = fields.Many2one('res.company', 'Company', readonly=True, required=True, index=True, default=lambda self: self.env.company)
 
     state = fields.Selection([
@@ -109,7 +110,7 @@ class Repair(models.Model):
 
     quote_state = fields.Selection([
         ('none', 'Pas de devis'),
-        ('pending', 'En préparation manager'),
+        ('pending', 'En préparation'),
         ('sent', 'Envoyé au client'),
         ('approved', 'Validé'),
         ('refused', 'Refusé')
@@ -228,7 +229,7 @@ class Repair(models.Model):
         if current_repair_ids:
             domain.append(('id', 'not in', current_repair_ids))
 
-        all_repairs = self.env['repair.order'].search(domain, order='lot_id, end_date desc, write_date desc')
+        all_repairs = self.env['repair.order'].with_context(active_test=False).search(domain, order='lot_id, end_date desc, write_date desc')
 
         repairs_by_lot = {}
         for repair in all_repairs:
@@ -499,6 +500,35 @@ class Repair(models.Model):
         string="Dossier prêt à notifier",
     )
     batch_count = fields.Integer(compute='_compute_batch_count', string="Autres appareils")
+    sibling_repair_ids = fields.Many2many(
+        'repair.order',
+        string="Autres réparations du dossier",
+        compute='_compute_sibling_repair_ids',
+    )
+    has_siblings = fields.Boolean(
+        compute='_compute_sibling_repair_ids',
+    )
+    batch_sibling_count = fields.Integer(
+        compute='_compute_batch_sibling_count',
+        string="Réparations dans le dossier",
+    )
+
+    @api.depends('batch_id.repair_ids')
+    def _compute_batch_sibling_count(self):
+        for rec in self:
+            rec.batch_sibling_count = len(rec.batch_id.repair_ids) if rec.batch_id else 0
+
+    def action_open_batch(self):
+        self.ensure_one()
+        if not self.batch_id:
+            raise UserError(_("Cette réparation n'est pas liée à un dossier."))
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'repair.batch',
+            'res_id': self.batch_id.id,
+            'view_mode': 'form',
+            'target': 'current',
+        }
 
     @api.depends('batch_id')
     def _compute_batch_count(self):
@@ -508,6 +538,17 @@ class Repair(models.Model):
                 rec.batch_count = self.env['repair.order'].search_count(domain)
             else:
                 rec.batch_count = 0
+
+    @api.depends('batch_id', 'batch_id.repair_ids')
+    def _compute_sibling_repair_ids(self):
+        for rec in self:
+            if not rec.batch_id:
+                rec.sibling_repair_ids = False
+                rec.has_siblings = False
+                continue
+            peers = rec.batch_id.repair_ids - rec
+            rec.sibling_repair_ids = peers
+            rec.has_siblings = bool(peers)
 
     def action_add_device_to_batch(self):
         self.ensure_one()
@@ -560,7 +601,25 @@ class Repair(models.Model):
             vals = dict(vals)
             vals.update({'technician_user_id': False, 'technician_employee_id': False})
 
-        return super(Repair, self).write(vals)
+        res = super(Repair, self).write(vals)
+        if 'active' in vals:
+            batches = self.mapped('batch_id').exists()
+            for batch in batches:
+                all_children = batch.with_context(active_test=False).repair_ids
+                active_children = all_children.filtered('active')
+                if vals['active'] is False and not active_children and batch.active:
+                    batch.active = False
+                elif vals['active'] is True and active_children and not batch.active:
+                    batch.active = True
+        return res
+
+    def unlink(self):
+        batches = self.mapped('batch_id')
+        res = super().unlink()
+        for batch in batches.exists():
+            if not batch.with_context(active_test=False).repair_ids.filtered('active'):
+                batch.active = False
+        return res
 
     @api.ondelete(at_uninstall=False)
     def _unlink_except_confirmed(self):
@@ -809,6 +868,16 @@ class Repair(models.Model):
     def _action_repair_confirm(self):
         if self.delivery_state == 'abandoned':
             raise UserError(_("Impossible de modifier l'état d'une réparation abandonnée."))
+        Batch = self.env['repair.batch']
+        for rec in self:
+            if not rec.partner_id:
+                raise UserError(_("Veuillez renseigner un client avant de confirmer la réparation."))
+            if not rec.batch_id:
+                rec.batch_id = Batch.create({
+                    'partner_id': rec.partner_id.id,
+                    'date': rec.entry_date or fields.Datetime.now(),
+                    'company_id': rec.company_id.id,
+                })
         return self.write({'state': 'confirmed'})
 
     def action_generate_serial(self):
@@ -948,22 +1017,19 @@ class Repair(models.Model):
     # --- CREATE WITH SEQUENCE ---
     @api.model_create_multi
     def create(self, vals_list):
-        Batch = self.env['repair.batch']
-        for vals in vals_list:
-            if not vals.get('batch_id') and vals.get('partner_id'):
-                batch = Batch.create({'partner_id': vals['partner_id']})
-                vals['batch_id'] = batch.id
         for vals in vals_list:
             if vals.get('name', 'New') == 'New':
                 vals['name'] = self.env['ir.sequence'].next_by_code('repair.order') or 'New'
         return super(Repair, self).create(vals_list)
 
     # --- CONSTRAINTS ---
-    @api.constrains('batch_id')
+    @api.constrains('batch_id', 'state')
     def _check_batch_id_required(self):
         for rec in self:
-            if not rec.batch_id:
-                raise ValidationError(_("Un dossier de dépôt est obligatoire pour chaque réparation."))
+            if rec.state != 'draft' and not rec.batch_id:
+                raise ValidationError(_(
+                    "Un dossier de dépôt est obligatoire une fois la réparation confirmée."
+                ))
 
     @api.constrains('lot_id', 'product_tmpl_id', 'variant_id', 'serial_number')
     def _check_unit_consistency(self):

@@ -116,7 +116,7 @@ class StockLot(models.Model):
 
     def _compute_repair_order_count(self):
         for rec in self:
-            rec.repair_order_count = self.env['repair.order'].search_count([('lot_id', '=', rec.id)])
+            rec.repair_order_count = self.env['repair.order'].with_context(active_test=False).search_count([('lot_id', '=', rec.id)])
 
     @api.depends('repair_order_ids.state')
     def _compute_functional_state(self):
