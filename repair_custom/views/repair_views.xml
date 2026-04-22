@@ -41,7 +41,7 @@
                 <field name="partner_id" widget="res_partner_many2one"/>
                 
                 <field name="repair_count" string="Nb Appareils"/>
-                <field name="delivery_state"/>
+                <field name="delivery_state" optional="show"/>
             </tree>
         </field>
     </record>
