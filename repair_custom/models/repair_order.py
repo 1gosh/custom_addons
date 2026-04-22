@@ -1020,21 +1020,6 @@ class Repair(models.Model):
             },
         }
 
-    def action_open_pricing_wizard(self):
-        self.ensure_one()
-        device_categ_id = self.product_tmpl_id.categ_id.id if self.product_tmpl_id else False
-        return {
-            'name': _("Facturation Atelier"),
-            'type': 'ir.actions.act_window',
-            'res_model': 'repair.pricing.wizard',
-            'view_mode': 'form',
-            'target': 'new',
-            'context': {
-                'default_repair_id': self.id,
-                'default_device_categ_id': device_categ_id,
-            },
-        }
-
     # --- CREATE WITH SEQUENCE ---
     @api.model_create_multi
     def create(self, vals_list):
@@ -1149,7 +1134,6 @@ class Repair(models.Model):
             'context': {
                 'default_repair_id': self.id,
                 'default_device_categ_id': device_categ_id,
-                'default_generation_type': 'quote',
             },
         }
 

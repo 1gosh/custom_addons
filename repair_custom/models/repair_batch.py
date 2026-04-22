@@ -131,14 +131,13 @@ class RepairBatch(models.Model):
             }
 
         return {
-            'name': _("Facturation Atelier"),
+            'name': _("Création du Devis"),
             'type': 'ir.actions.act_window',
             'res_model': 'repair.pricing.wizard',
             'view_mode': 'form',
             'target': 'new',
             'context': {
                 'default_repair_id': eligible[:1].id,
-                'default_mode': 'invoice',
             },
         }
 

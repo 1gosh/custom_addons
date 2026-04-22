@@ -202,7 +202,9 @@
                     <button name="action_repair_cancel" groups="repair_custom.group_repair_manager" string="Annuler" type="object" invisible="state in ('done', 'cancel')" data-hotkey="l" class="btn-danger"/>
                     <button name="action_print_repair_order" string="Bon" type="object" icon="fa-regular fa-print" invisible="state in 'draft, done, delivered'" class="btn-info"/>
                     <button name="%(action_report_repair_label)d" string="Etiquette" type="action" icon="fa-regular fa-print" invisible="state in 'draft, done, delivered'" class="btn-info"/>
-                    <button name="action_open_pricing_wizard" icon="fa-file" invisible="state in 'draft'" string="Devis/Facture" type="object"/>
+                    <button name="action_create_quotation_wizard" icon="fa-file"
+                            string="Devis" type="object"
+                            invisible="state == 'draft' or sale_order_id"/>
                     <button name="action_invoice_repair_quote"
                             type="object"
                             string="Facturer le devis"

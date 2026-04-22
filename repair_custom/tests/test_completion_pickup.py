@@ -238,7 +238,7 @@ class TestActionPickupStart(RepairQuoteCase):
         res = r.batch_id.action_pickup_start()
         self.assertEqual(res['res_model'], 'repair.pricing.wizard')
         self.assertEqual(res['context']['default_repair_id'], r.id)
-        self.assertEqual(res['context'].get('default_mode'), 'invoice')
+        self.assertNotIn('default_mode', res['context'])
 
     def test_pickup_start_no_eligible_raises(self):
         batch = self.env['repair.batch'].create({'partner_id': self.partner.id})
