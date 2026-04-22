@@ -20,6 +20,9 @@
                     table-layout: fixed;
                     border-collapse: collapse;
                 }
+                .body {
+                    -webkit-text-stroke: 2px white;
+                }
                 .warranty-watermark {
                     position: absolute;
                     right: 0;
@@ -28,7 +31,7 @@
                     font-weight: bold;
                     font-size: 25mm;
                     line-height: 1;
-                    color: rgb(230, 230, 230);
+                    color: rgb(228, 228, 228);
                     transform: scaleY(1.5);
                 }
                 .sar-info {
@@ -96,7 +99,7 @@
                 .checkbox-row {
                     margin-top: 1.5mm;
                     font-size: 8px;
-                    line-height: 1.5;
+                    line-height: 2;
                 }
                 .checkbox-row td {
                     padding: 0.5mm 0;
@@ -141,7 +144,7 @@
                     </table>
 
                     <!-- Row 2: Device info + tags -->
-                    <table>
+                    <table class="body">
                         <tr>
                             <td style="width: 45%; vertical-align: top;">
                                 <div class="device-name">
@@ -150,6 +153,9 @@
                                 <table style="margin-top: 1mm;">
                                     <tr>
                                         <td style="vertical-align: middle; padding: 0;">
+                                            <t t-if="o.category_short_name">
+                                                <span class="device-details" t-field="o.category_short_name"/>
+                                            </t>
                                             <div class="device-details">
                                                 <span>S/N: </span><span t-field="o.serial_number"/>
                                             </div>
@@ -188,12 +194,8 @@
 
                     <!-- Category + Location -->
                     <div class="label-meta">
-                        <t t-if="o.category_short_name">
-                            <span t-field="o.category_short_name"/>
-                        </t>
-                        <t t-if="o.category_short_name and o.pickup_location_id"> · </t>
                         <t t-if="o.pickup_location_id">
-                                <span t-field="o.pickup_location_id.name"/>
+                            ⚲ <span t-field="o.pickup_location_id.name"/>
                         </t>
                     </div>
 
