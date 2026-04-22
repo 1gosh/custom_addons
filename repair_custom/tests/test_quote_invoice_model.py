@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from odoo.tests.common import TransactionCase
+from odoo.tests import tagged
 from .common import RepairQuoteCase
 
 
@@ -245,6 +246,54 @@ class TestBatchInvoiceAction(RepairQuoteCase):
         from odoo.exceptions import UserError
         with self.assertRaises(UserError):
             self.batch.action_invoice_approved_quotes()
+
+
+@tagged('post_install', '-at_install', 'repair_custom')
+class TestPartialAcceptancePickup(RepairQuoteCase):
+
+    def setUp(self):
+        super().setUp()
+        self.repair_ok = self._make_repair()
+        self.repair_refused = self.Repair.create({
+            'partner_id': self.partner.id,
+            'internal_notes': 'Refused',
+            'quote_required': True,
+            'technician_employee_id': self.tech_with_user.id,
+            'batch_id': self.repair_ok.batch_id.id,
+        })
+        self.repair_refused._action_repair_confirm()
+
+        # Approve repair_ok's quote, refuse repair_refused's quote
+        so_ok = self._make_sale_order_linked(self.repair_ok)
+        so_ok.action_confirm()
+        self.repair_ok.state = 'done'
+
+        so_refused = self._make_sale_order_linked(self.repair_refused)
+        so_refused.action_cancel()
+        self.assertEqual(self.repair_refused.quote_state, 'refused')
+
+        self.batch = self.repair_ok.batch_id
+
+    def test_livrer_includes_refused_quote_repairs(self):
+        self.batch.action_mark_delivered()
+        self.assertEqual(self.repair_ok.delivery_state, 'delivered')
+        self.assertEqual(self.repair_refused.delivery_state, 'delivered',
+                         "Refused-quote repair picked up un-repaired")
+
+    def test_refused_delivery_cancels_repair_state(self):
+        self.batch.action_mark_delivered()
+        self.assertEqual(self.repair_refused.state, 'cancel',
+                         "Silent side effect: state -> cancel for refused pickup")
+
+    def test_refused_delivery_leaves_approved_state_alone(self):
+        self.batch.action_mark_delivered()
+        self.assertEqual(self.repair_ok.state, 'done',
+                         "Approved+done repair's state unchanged")
+
+    def test_batch_delivery_state_reaches_delivered(self):
+        self.batch.action_mark_delivered()
+        self.batch.invalidate_recordset(['delivery_state'])
+        self.assertEqual(self.batch.delivery_state, 'delivered')
 
 
 class TestSaleOrderButtonReplacement(RepairQuoteCase):
