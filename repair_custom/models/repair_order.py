@@ -959,11 +959,24 @@ class Repair(models.Model):
     # --- SALE ORDERS ---
     sale_order_id = fields.Many2one('sale.order', 'Sale Order', check_company=True, readonly=True)
     sale_order_count = fields.Integer(string="Nombre de devis/BC", compute='_compute_sale_order_count')
+    is_quote_invoiceable = fields.Boolean(
+        compute='_compute_is_quote_invoiceable',
+        string="Devis facturable",
+    )
 
     @api.depends('sale_order_id')
     def _compute_sale_order_count(self):
         for rec in self:
             rec.sale_order_count = 1 if rec.sale_order_id else 0
+
+    @api.depends('quote_state', 'sale_order_id.invoice_status')
+    def _compute_is_quote_invoiceable(self):
+        for rec in self:
+            rec.is_quote_invoiceable = (
+                rec.quote_state == 'approved'
+                and bool(rec.sale_order_id)
+                and rec.sale_order_id.invoice_status in ('to invoice', 'upselling')
+            )
 
     def action_view_sale_order(self):
         self.ensure_one()

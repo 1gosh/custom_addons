@@ -154,3 +154,34 @@ class TestInvoiceApprovedQuotes(RepairQuoteCase):
         self.assertEqual(move.repair_id, self.repair_a,
                          "Singleton invoice stamps repair_id (via auto-stamp)")
         self.assertEqual(move.batch_id, self.batch)
+
+
+class TestIsQuoteInvoiceable(RepairQuoteCase):
+    """is_quote_invoiceable gates the repair-form 'Facturer le devis' button."""
+
+    def setUp(self):
+        super().setUp()
+        self.repair = self._make_repair()
+
+    def test_false_when_no_sale_order(self):
+        self.assertFalse(self.repair.is_quote_invoiceable)
+
+    def test_false_when_quote_state_not_approved(self):
+        self._make_sale_order_linked(self.repair)
+        self.repair.quote_state = 'sent'
+        self.assertFalse(self.repair.is_quote_invoiceable)
+
+    def test_true_when_approved_and_to_invoice(self):
+        so = self._make_sale_order_linked(self.repair)
+        so.action_confirm()  # state=sale → sync to quote_state=approved
+        # After action_confirm, invoice_status transitions to 'to invoice'
+        self.assertEqual(self.repair.quote_state, 'approved')
+        self.assertIn(so.invoice_status, ('to invoice', 'upselling'))
+        self.assertTrue(self.repair.is_quote_invoiceable)
+
+    def test_false_after_invoice_generated(self):
+        so = self._make_sale_order_linked(self.repair)
+        so.action_confirm()
+        so._create_invoices()
+        self.assertEqual(so.invoice_status, 'invoiced')
+        self.assertFalse(self.repair.is_quote_invoiceable)
