@@ -133,6 +133,25 @@ class TestArchiveCascade(RepairBatchUxCommon):
         r1.active = False
         self.assertTrue(batch.active, "Batch stays active while any sibling is active")
 
+    def test_archived_repair_still_counted_on_lot(self):
+        """Regression: archived repairs must remain visible to lot.repair_order_count
+        so the Fiche Appareil smart button keeps its historical count."""
+        repair = self._confirmed()
+        lot = self.env['stock.lot'].create({
+            'product_id': self.env['product.product'].search([
+                ('product_tmpl_id', '=', self.product_tmpl.id)
+            ], limit=1).id,
+            'name': 'SN-TEST-ARCHIVE',
+            'company_id': self.env.company.id,
+        })
+        repair.lot_id = lot.id
+        before = lot.repair_order_count
+        repair.active = False
+        self.assertEqual(
+            lot.repair_order_count, before,
+            "Archived repairs must still count on the lot",
+        )
+
 
 @tagged('-at_install', 'post_install', 'repair_custom')
 class TestBatchDeliveryState(RepairBatchUxCommon):

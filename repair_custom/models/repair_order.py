@@ -229,7 +229,7 @@ class Repair(models.Model):
         if current_repair_ids:
             domain.append(('id', 'not in', current_repair_ids))
 
-        all_repairs = self.env['repair.order'].search(domain, order='lot_id, end_date desc, write_date desc')
+        all_repairs = self.env['repair.order'].with_context(active_test=False).search(domain, order='lot_id, end_date desc, write_date desc')
 
         repairs_by_lot = {}
         for repair in all_repairs:
@@ -617,7 +617,7 @@ class Repair(models.Model):
         batches = self.mapped('batch_id')
         res = super().unlink()
         for batch in batches.exists():
-            if not batch.repair_ids.filtered('active'):
+            if not batch.with_context(active_test=False).repair_ids.filtered('active'):
                 batch.active = False
         return res
 
