@@ -105,9 +105,11 @@ class RepairBatch(models.Model):
             batch.ready_for_pickup_notification = True
 
     def action_pickup_start(self):
-        """Counter entry point. Route to linked sale.order or open the
-        pricing wizard in invoice mode. Invoice creation happens wherever;
-        delivery transition is driven by the account.move post hook.
+        """Counter entry point. Route to linked sale.order if one exists;
+        otherwise open the pricing wizard (quote-only) pre-filled with the
+        first eligible repair. Invoice creation happens via the 'Facturer le
+        devis' flow after the quote is approved; delivery transitions via
+        the account.move post hook or the batch Livrer button.
         """
         self.ensure_one()
         eligible = self.repair_ids.filtered(
@@ -131,44 +133,62 @@ class RepairBatch(models.Model):
             }
 
         return {
-            'name': _("Facturation Atelier"),
+            'name': _("Création du Devis"),
             'type': 'ir.actions.act_window',
             'res_model': 'repair.pricing.wizard',
             'view_mode': 'form',
             'target': 'new',
             'context': {
                 'default_repair_id': eligible[:1].id,
-                'default_mode': 'invoice',
             },
         }
 
     def action_mark_delivered(self):
         """Per-batch UI, per-repair data.
 
-        Transitions all eligible (done/irreparable, non-abandoned, not yet
-        delivered) repairs to delivered, runs the side effects via
-        `action_repair_delivered`, marks the linked appointment done, and
-        posts a chatter note.
+        Transitions all eligible repairs to delivered:
+        - repairs in state {done, irreparable} with delivery_state='none'
+        - repairs with quote_state='refused' and delivery_state='none'
+          (client takes un-repaired device back; state silently set to cancel)
+
+        Runs side effects via `action_repair_delivered`, marks the linked
+        appointment done, and posts a chatter note.
         """
         self.ensure_one()
-        to_deliver = self.repair_ids.filtered(
+        eligible = self.repair_ids.filtered(
             lambda r: r.delivery_state == 'none'
-            and r.state in ('done', 'irreparable')
+            and (r.state in ('done', 'irreparable')
+                 or r.quote_state == 'refused')
         )
-        if not to_deliver:
+        if not eligible:
             raise UserError(_(
                 "Aucune réparation à livrer dans ce dossier."
             ))
 
-        to_deliver.action_repair_delivered()
+        # Partial-acceptance branch: refused-quote repairs go out un-repaired.
+        # Silent state='cancel' side effect + delivery_state='delivered';
+        # no SAR, no invoice (no approved SO to invoice from).
+        refused_pickup = eligible.filtered(lambda r: r.quote_state == 'refused')
+        # Silent state='cancel' only for refused repairs not already in a
+        # terminal state; state='cancel' / 'irreparable' stays as-is.
+        refused_to_cancel = refused_pickup.filtered(
+            lambda r: r.state not in ('cancel', 'irreparable')
+        )
+        for rec in refused_to_cancel:
+            rec.state = 'cancel'
+        refused_pickup.write({'delivery_state': 'delivered'})
 
-        if (self.current_appointment_id
-                and self.current_appointment_id.state == 'scheduled'):
-            self.current_appointment_id.action_mark_done()
+        normal_pickup = eligible - refused_pickup
+        if normal_pickup:
+            normal_pickup.action_repair_delivered()
+
+        current_apt = getattr(self, 'current_appointment_id', None)
+        if current_apt and current_apt.state == 'scheduled':
+            current_apt.action_mark_done()
 
         self.message_post(body=_(
             "Dossier livré : %d appareil(s) remis au client."
-        ) % len(to_deliver))
+        ) % len(eligible))
         return True
 
     def action_notify_client_ready(self):
@@ -189,6 +209,104 @@ class RepairBatch(models.Model):
                 "Ce dossier n'est pas prêt pour une notification de retrait."
             ))
         return self.action_create_pickup_appointment(notify=True)
+
+    has_invoiceable_quotes = fields.Boolean(
+        compute='_compute_has_invoiceable_quotes',
+        string="Devis à facturer",
+    )
+
+    @api.depends('repair_ids.is_quote_invoiceable')
+    def _compute_has_invoiceable_quotes(self):
+        for batch in self:
+            batch.has_invoiceable_quotes = any(
+                r.is_quote_invoiceable for r in batch.repair_ids
+            )
+
+    def action_invoice_approved_quotes(self):
+        """Batch-form button: consolidate all eligible approved quotes into
+        one account.move."""
+        self.ensure_one()
+        eligible = self.repair_ids.filtered('is_quote_invoiceable')
+        if not eligible:
+            raise UserError(_(
+                "Aucun devis accepté à facturer dans ce dossier."
+            ))
+        return self._invoice_approved_quotes(eligible)
+
+    def _invoice_approved_quotes(self, repairs):
+        """Core helper: consolidate sale.orders of `repairs` into one
+        account.move with per-repair section headers. Shared by the repair-
+        form button, the batch-form button, and the sale.order replacement
+        button."""
+        self.ensure_one()
+        if not repairs:
+            raise UserError(_("Aucune réparation sélectionnée."))
+        sale_orders = repairs.mapped('sale_order_id')
+        if not sale_orders:
+            raise UserError(_("Aucun devis lié aux réparations sélectionnées."))
+
+        moves = sale_orders._create_invoices()
+        for move in moves:
+            self._inject_repair_section_headers(move)
+            if not move.batch_id:
+                move.batch_id = self.id
+            # repair_id auto-stamped via account.move.create override when unique
+
+        if len(moves) == 1:
+            return {
+                'name': _("Facture Générée"),
+                'type': 'ir.actions.act_window',
+                'res_model': 'account.move',
+                'res_id': moves.id,
+                'view_mode': 'form',
+            }
+        return {
+            'name': _("Factures Générées"),
+            'type': 'ir.actions.act_window',
+            'res_model': 'account.move',
+            'view_mode': 'tree,form',
+            'domain': [('id', 'in', moves.ids)],
+        }
+
+    def _inject_repair_section_headers(self, move):
+        """Insert a display_type='line_section' header before each source SO's
+        lines on a consolidated invoice. Labels mirror today's wizard format.
+
+        Legacy SOs (linked to N repairs) fall back to the SO name — forward
+        decision: no post-migration split, handle gracefully at read time."""
+        self.ensure_one()
+        lines_by_so = {}
+        for line in move.invoice_line_ids.sorted('sequence'):
+            if line.display_type in ('line_section', 'line_note'):
+                continue
+            sos = line.sale_line_ids.mapped('order_id')
+            if not sos:
+                continue
+            so = sos[:1]
+            lines_by_so.setdefault(so.id, []).append(line)
+
+        seq = 0
+        AccountMoveLine = self.env['account.move.line']
+        for so_id, lines in lines_by_so.items():
+            so = self.env['sale.order'].browse(so_id)
+            if len(so.repair_order_ids) == 1:
+                repair = so.repair_order_ids
+                label = _("Réparation : %s") % (repair.device_id_name or so.name)
+                if repair.serial_number:
+                    label += _(" (S/N: %s)") % repair.serial_number
+            else:
+                label = _("Devis : %s") % so.name
+
+            seq += 1
+            AccountMoveLine.create({
+                'move_id': move.id,
+                'display_type': 'line_section',
+                'name': label,
+                'sequence': seq,
+            })
+            for line in lines:
+                seq += 1
+                line.sequence = seq
 
     @api.model_create_multi
     def create(self, vals_list):

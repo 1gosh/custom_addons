@@ -41,7 +41,7 @@
                 <field name="partner_id" widget="res_partner_many2one"/>
                 
                 <field name="repair_count" string="Nb Appareils"/>
-                <field name="delivery_state" optional="show"/>
+                <field name="delivery_state" optional="hide"/>
             </tree>
         </field>
     </record>
@@ -75,8 +75,12 @@
         <field name="arch" type="xml">
             <form string="Dossier de Prise en Charge">
                 <header>
-                    <button name="%(action_repair_pricing_wizard)d" icon="fa-file" string="Devis/Facture" type="action" invisible="state in 'draft'"/>
                     <field name="ready_for_pickup_notification" invisible="1"/>
+                    <button name="action_invoice_approved_quotes"
+                            type="object"
+                            string="Facturer les devis acceptés"
+                            class="btn-primary"
+                            invisible="not has_invoiceable_quotes"/>
                     <button name="action_mark_delivered"
                             type="object"
                             string="Livrer"
@@ -86,14 +90,15 @@
                             type="object"
                             string="Notifier client – dossier prêt"
                             class="btn-primary"
-                            invisible="not ready_for_pickup_notification"/>
+                            invisible="not ready_for_pickup_notification or delivery_state == 'delivered'"/>
                     <field name="state" widget="statusbar"/>
                 </header>
                 <sheet>
+                    <field name="has_invoiceable_quotes" invisible="1"/>
                     <div class="oe_button_box" name="button_box">
-                        <button name="%(action_repair_order_tree)d" 
-                                type="action" 
-                                class="oe_stat_button" 
+                        <button name="%(action_repair_order_tree)d"
+                                type="action"
+                                class="oe_stat_button"
                                 icon="fa-wrench"
                                 context="{'search_default_batch_id': id}">
                             <field name="repair_count" widget="statinfo" string="Réparations"/>
@@ -157,7 +162,7 @@
                     decoration-info="activity_summary and 'Contacter' in activity_summary"
                     decoration-muted="not activity_summary"/>
                 <field name="notes" optional="hide"/>
-                <field name="delivery_state" optional="show"/>
+                <field name="delivery_state" optional="hide"/>
             </tree>
         </field>
     </record>
@@ -178,24 +183,33 @@
                 <field name="quote_state" invisible="1"/>
                 <field name="delivery_state" invisible="1"/>
                 <field name="has_siblings" invisible="1"/>
+                <field name="is_quote_invoiceable" invisible="1"/>
                 <header>
                     <button name="action_validate" groups="repair_custom.group_repair_manager" invisible="state not in 'draft'" type="object" string="Confirmer la réparation" class="oe_highlight" data-hotkey="v"/>
                     <button name="action_repair_start" invisible="state not in 'confirmed'" type="object" string="Commencer" class="oe_highlight" data-hotkey="q"/>
                     <button name="action_repair_end" invisible="state not in 'under_repair'" type="object" string="Terminer la réparation" class="btn-success" data-hotkey="x"/>
                     <button name="action_set_irreparable" string="Non Réparable" type="object" class="btn-danger" invisible="state not in ['under_repair']"/>
                     <field name="batch_ready_for_pickup_notification" invisible="1"/>
+                    <field name="batch_delivery_state" invisible="1"/>
                     <button name="action_notify_client_ready_from_repair"
                             type="object"
                             string="Notifier client"
                             class="btn-secondary"
-                            invisible="not batch_ready_for_pickup_notification"/>
+                            invisible="not batch_ready_for_pickup_notification or batch_delivery_state == 'delivered'"/>
                     <button name="action_repair_delivered" string="Livrer" type="object" class="btn-secondary" invisible="delivery_state != 'none' or state not in ['done', 'irreparable']"/>
                     <button name="action_open_abandon_wizard" string="Abandon" type="object" class="btn-warning" invisible="delivery_state != 'none' or state in ['draft', 'confirmed']" groups="repair_custom.group_repair_manager"/>
                     <button name="action_repair_cancel_draft" groups="repair_custom.group_repair_manager" invisible="state in 'draft'" string="Marquer comme brouillon" type="object" data-hotkey="z"/>
                     <button name="action_repair_cancel" groups="repair_custom.group_repair_manager" string="Annuler" type="object" invisible="state in ('done', 'cancel')" data-hotkey="l" class="btn-danger"/>
                     <button name="action_print_repair_order" string="Bon" type="object" icon="fa-regular fa-print" invisible="state in 'draft, done, delivered'" class="btn-info"/>
                     <button name="%(action_report_repair_label)d" string="Etiquette" type="action" icon="fa-regular fa-print" invisible="state in 'draft, done, delivered'" class="btn-info"/>
-                    <button name="action_open_pricing_wizard" icon="fa-file" invisible="state in 'draft'" string="Devis/Facture" type="object"/>
+                    <button name="action_create_quotation_wizard" icon="fa-file"
+                            string="Devis" type="object"
+                            invisible="state == 'draft' or sale_order_id"/>
+                    <button name="action_invoice_repair_quote"
+                            type="object"
+                            string="Facturer le devis"
+                            class="btn-primary"
+                            invisible="not is_quote_invoiceable"/>
                     <button name="action_add_device_to_batch" string="Ajouter appareil" type="object" class="btn-secondary" icon="fa-plus-square" invisible="state not in 'confirmed'"/>
 
                     <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,under_repair,done" readonly="delivery_state == 'abandoned'" onchange="1"/>
@@ -306,7 +320,7 @@
                     </div>
                     <div class="oe_title">
                         <h4 invisible="not batch_id" class="text-muted">
-                            <i class="fa fa-folder-open"/> <span invisible="batch_count == 0"></span>(1/<span class="o_stat_value"><field name="batch_count"/></span>) Dossier : <field name="batch_id" readonly="id" class="oe_inline"/>
+                            <i class="fa fa-folder-open"/> <span invisible="batch_count == 0"></span>(1/<span class="o_stat_value"><field name="batch_count"/></span>) Dossier : <field name="batch_id" readonly="1" class="oe_inline"/>
                         </h4>
                         <label class="o_form_label" invisible="lot_id" for="entry_date"/>
                         <field name="entry_date" invisible="not lot_id" class="o_form_label" string="Date d'entrée" widget="datetime" options="{'show_time':false}" readonly="state not in 'draft'" />
@@ -939,8 +953,12 @@
                     <button name="action_repair_end" string="Terminer" type="object" class="btn-success" invisible="state != 'under_repair'"/>
                     <button name="action_repair_delivered" string="Livrer" type="object" class="oe_highlight" invisible="state != 'done'"/>
                     <button name="action_atelier_abort" string="Abandonner" type="object" class="btn-danger" invisible="state not in ('under_repair', 'done')"/>
+                    <button name="action_invoice_repair_quote"
+                            type="object"
+                            string="Facturer le devis"
+                            class="btn-primary"
+                            invisible="not is_quote_invoiceable"/>
                     <button name="action_atelier_request_quote" string="Établir un devis" type="object" class="btn-warning" invisible="state not in 'under_repair' or quote_state != 'none'"/>
-                    <button name="action_manager_validate_quote" string="Valider le devis" type="object" class="btn-info" groups="repair_custom.group_repair_manager" invisible="state not in 'under_repair' or quote_state != 'pending'"/>
                     <button name="action_quote_contacted" string="Contacté" type="object" class="btn-primary" groups="repair_custom.group_repair_manager" invisible="not has_open_escalation"/>
                     <button name="action_atelier_parts_toggle" string="Commande de pièces" type="object" class="btn-secondary" invisible="state != 'under_repair' or parts_waiting"/>
                     <button name="action_atelier_parts_toggle" string="Pièces reçues" type="object" class="btn-secondary" invisible="state != 'under_repair' or not parts_waiting"/>
@@ -949,6 +967,7 @@
 
                     <field name="quote_required" invisible="1"/>
                     <field name="quote_state" invisible="1"/>
+                    <field name="is_quote_invoiceable" invisible="1"/>
                     <field name="has_open_escalation" invisible="1"/>
                     <field name="parts_waiting" invisible="1"/>
                     <field name="category_id" invisible="1"/>

@@ -499,6 +499,11 @@ class Repair(models.Model):
         store=False,
         string="Dossier prêt à notifier",
     )
+    batch_delivery_state = fields.Selection(
+        related='batch_id.delivery_state',
+        store=False,
+        string="État livraison dossier",
+    )
     batch_count = fields.Integer(compute='_compute_batch_count', string="Autres appareils")
     sibling_repair_ids = fields.Many2many(
         'repair.order',
@@ -796,7 +801,7 @@ class Repair(models.Model):
         return self.write({'state': 'irreparable', 'end_date': fields.Datetime.now()})
 
     def action_repair_delivered(self):
-        if self.delivery_state == 'abandoned':
+        if self.filtered(lambda r: r.delivery_state == 'abandoned'):
             raise UserError(_("Impossible de livrer une réparation abandonnée. L'appareil est désormais propriété de l'atelier."))
 
         for rec in self:
@@ -959,11 +964,32 @@ class Repair(models.Model):
     # --- SALE ORDERS ---
     sale_order_id = fields.Many2one('sale.order', 'Sale Order', check_company=True, readonly=True)
     sale_order_count = fields.Integer(string="Nombre de devis/BC", compute='_compute_sale_order_count')
+    is_quote_invoiceable = fields.Boolean(
+        compute='_compute_is_quote_invoiceable',
+        string="Devis facturable",
+    )
 
     @api.depends('sale_order_id')
     def _compute_sale_order_count(self):
         for rec in self:
             rec.sale_order_count = 1 if rec.sale_order_id else 0
+
+    @api.depends('quote_state', 'sale_order_id.invoice_status')
+    def _compute_is_quote_invoiceable(self):
+        for rec in self:
+            rec.is_quote_invoiceable = (
+                rec.quote_state == 'approved'
+                and bool(rec.sale_order_id)
+                and rec.sale_order_id.invoice_status in ('to invoice', 'upselling')
+            )
+
+    def action_invoice_repair_quote(self):
+        """Per-repair invoicing. Delegates to the batch helper with self as
+        the singleton repair set."""
+        self.ensure_one()
+        if not self.batch_id:
+            raise UserError(_("Cette réparation n'est rattachée à aucun dossier."))
+        return self.batch_id._invoice_approved_quotes(self)
 
     def action_view_sale_order(self):
         self.ensure_one()
@@ -996,21 +1022,6 @@ class Repair(models.Model):
             'context': {
                 'default_lot_id': self.lot_id.id,
                 'default_repair_id': self.id,
-            },
-        }
-
-    def action_open_pricing_wizard(self):
-        self.ensure_one()
-        device_categ_id = self.product_tmpl_id.categ_id.id if self.product_tmpl_id else False
-        return {
-            'name': _("Facturation Atelier"),
-            'type': 'ir.actions.act_window',
-            'res_model': 'repair.pricing.wizard',
-            'view_mode': 'form',
-            'target': 'new',
-            'context': {
-                'default_repair_id': self.id,
-                'default_device_categ_id': device_categ_id,
             },
         }
 
@@ -1128,7 +1139,6 @@ class Repair(models.Model):
             'context': {
                 'default_repair_id': self.id,
                 'default_device_categ_id': device_categ_id,
-                'default_generation_type': 'quote',
             },
         }
 

@@ -185,6 +185,35 @@ class AccountMove(models.Model):
     batch_id = fields.Many2one('repair.batch', string="Dossier de réparation d'origine", readonly=True)
     repair_notes = fields.Text(related='repair_id.internal_notes', string="Notes de l'atelier", readonly=True)
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        moves = super().create(vals_list)
+        moves._auto_stamp_repair_metadata()
+        return moves
+
+    def _auto_stamp_repair_metadata(self):
+        """Defensively populate repair_id / batch_id on repair-linked invoices
+        regardless of origin (our button, native sale.order button, list-view
+        bulk, scripted creation)."""
+        for move in self:
+            if move.move_type != 'out_invoice':
+                continue
+            if move.repair_id and move.batch_id:
+                continue
+            repairs = move.invoice_line_ids.mapped(
+                'sale_line_ids.order_id.repair_order_ids'
+            )
+            if not repairs:
+                continue
+            batches = repairs.mapped('batch_id')
+            vals = {}
+            if not move.batch_id and len(batches) == 1:
+                vals['batch_id'] = batches.id
+            if not move.repair_id and len(repairs) == 1:
+                vals['repair_id'] = repairs.id
+            if vals:
+                move.write(vals)
+
     def _is_equipment_sale_invoice(self):
         self.ensure_one()
         equipment_fp = self.env.ref(
@@ -342,6 +371,21 @@ class SaleOrder(models.Model):
                 continue
             for repair in order.repair_order_ids:
                 repair._apply_quote_state_transition(target, from_sale_order=True)
+
+    def action_invoice_repair_quote(self):
+        """Per-SO invoicing (C.1): invoices only this SO regardless of batch
+        siblings. Routes through the batch consolidation helper with the SO's
+        own repair_order_ids."""
+        self.ensure_one()
+        repairs = self.repair_order_ids
+        if not repairs:
+            raise UserError(_("Ce devis n'est lié à aucune réparation."))
+        batch = repairs[:1].batch_id
+        if not batch:
+            raise UserError(_(
+                "Ce devis n'est rattaché à aucun dossier de dépôt."
+            ))
+        return batch._invoice_approved_quotes(repairs)
 
     def action_show_repair(self):
         self.ensure_one()

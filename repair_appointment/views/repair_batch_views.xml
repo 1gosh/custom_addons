@@ -27,7 +27,7 @@
                             type="object"
                             string="Créer un RDV manuellement"
                             class="btn-secondary"
-                            invisible="current_appointment_id"/>
+                            invisible="current_appointment_id or delivery_state == 'delivered'"/>
             </xpath>
         </field>
     </record>
