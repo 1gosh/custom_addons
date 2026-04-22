@@ -132,3 +132,50 @@ class TestArchiveCascade(RepairBatchUxCommon):
         r2._action_repair_confirm()
         r1.active = False
         self.assertTrue(batch.active, "Batch stays active while any sibling is active")
+
+
+@tagged('-at_install', 'post_install', 'repair_custom')
+class TestBatchDeliveryState(RepairBatchUxCommon):
+    def _confirmed(self, **overrides):
+        r = self._new_draft_repair(**overrides)
+        r._action_repair_confirm()
+        return r
+
+    def _make_batch_with_repairs(self, n=2):
+        r1 = self._confirmed()
+        batch = r1.batch_id
+        repairs = r1
+        for _ in range(n - 1):
+            r = self.Repair.create({
+                'partner_id': self.partner.id,
+                'product_tmpl_id': self.product_tmpl.id,
+                'batch_id': batch.id,
+            })
+            r._action_repair_confirm()
+            repairs |= r
+        return batch, repairs
+
+    def test_delivery_state_none_default(self):
+        batch, _ = self._make_batch_with_repairs(2)
+        self.assertEqual(batch.delivery_state, 'none')
+
+    def test_delivery_state_all_delivered(self):
+        batch, repairs = self._make_batch_with_repairs(2)
+        repairs.write({'delivery_state': 'delivered'})
+        self.assertEqual(batch.delivery_state, 'delivered')
+
+    def test_delivery_state_partial(self):
+        batch, repairs = self._make_batch_with_repairs(2)
+        repairs[0].delivery_state = 'delivered'
+        self.assertEqual(batch.delivery_state, 'partial')
+
+    def test_delivery_state_all_abandoned(self):
+        batch, repairs = self._make_batch_with_repairs(2)
+        repairs.write({'delivery_state': 'abandoned'})
+        self.assertEqual(batch.delivery_state, 'abandoned')
+
+    def test_delivery_state_ignores_abandoned_for_delivered_check(self):
+        batch, repairs = self._make_batch_with_repairs(2)
+        repairs[0].delivery_state = 'abandoned'
+        repairs[1].delivery_state = 'delivered'
+        self.assertEqual(batch.delivery_state, 'delivered')

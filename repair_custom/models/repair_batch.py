@@ -42,6 +42,38 @@ class RepairBatch(models.Model):
             # Draft: fallback for mixed states or all draft
             else: batch.state = 'draft'
 
+    delivery_state = fields.Selection(
+        [
+            ('none', "Aucune livraison"),
+            ('partial', "Partiellement livré"),
+            ('delivered', "Livré"),
+            ('abandoned', "Abandonné"),
+        ],
+        string="État livraison",
+        compute='_compute_delivery_state',
+        store=True,
+        default='none',
+    )
+
+    @api.depends('repair_ids.delivery_state', 'repair_ids.state')
+    def _compute_delivery_state(self):
+        for batch in self:
+            repairs = batch.repair_ids
+            if not repairs:
+                batch.delivery_state = 'none'
+                continue
+            eligible = repairs.filtered(lambda r: r.delivery_state != 'abandoned')
+            if not eligible:
+                batch.delivery_state = 'abandoned'
+                continue
+            delivered = eligible.filtered(lambda r: r.delivery_state == 'delivered')
+            if len(delivered) == len(eligible):
+                batch.delivery_state = 'delivered'
+            elif delivered:
+                batch.delivery_state = 'partial'
+            else:
+                batch.delivery_state = 'none'
+
     ready_for_pickup_notification = fields.Boolean(
         string="Prêt à notifier",
         compute='_compute_ready_for_pickup_notification',
