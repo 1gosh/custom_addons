@@ -95,3 +95,62 @@ class TestSectionHeaderInjection(RepairQuoteCase):
                         "Header must include the serial number")
         self.assertTrue(any('SN-BBB' in lbl for lbl in labels),
                         "Header must include both serial numbers")
+
+
+class TestInvoiceApprovedQuotes(RepairQuoteCase):
+    """Core consolidation helper used by all three button surfaces."""
+
+    def setUp(self):
+        super().setUp()
+        self.repair_a = self._make_repair()
+        self.repair_a.serial_number = 'SN-A'
+        self.repair_b = self.Repair.create({
+            'partner_id': self.partner.id,
+            'internal_notes': 'Diag B',
+            'quote_required': True,
+            'technician_employee_id': self.tech_with_user.id,
+            'batch_id': self.repair_a.batch_id.id,
+            'serial_number': 'SN-B',
+        })
+        self.repair_b._action_repair_confirm()
+        self.so_a = self._make_sale_order_linked(self.repair_a)
+        self.so_b = self._make_sale_order_linked(self.repair_b)
+        self.batch = self.repair_a.batch_id
+
+    def test_raises_when_no_repairs_passed(self):
+        from odoo.exceptions import UserError
+        with self.assertRaises(UserError):
+            self.batch._invoice_approved_quotes(self.Repair)
+
+    def test_raises_when_no_sale_orders_linked(self):
+        from odoo.exceptions import UserError
+        orphan = self._make_repair()
+        with self.assertRaises(UserError):
+            orphan.batch_id._invoice_approved_quotes(orphan)
+
+    def test_creates_consolidated_invoice_with_section_headers(self):
+        # Both SOs confirmed and approved (quote_state=approved)
+        self.so_a.action_confirm()
+        self.so_b.action_confirm()
+        result = self.batch._invoice_approved_quotes(
+            self.repair_a + self.repair_b
+        )
+        # Helper returns an act_window dict
+        self.assertEqual(result['res_model'], 'account.move')
+        move = self.env['account.move'].browse(result['res_id'])
+        self.assertTrue(move.exists())
+        self.assertEqual(move.batch_id, self.batch,
+                         "Consolidated move stamps batch_id")
+        sections = move.invoice_line_ids.filtered(
+            lambda l: l.display_type == 'line_section'
+        )
+        self.assertEqual(len(sections), 2,
+                         "One section header per source SO")
+
+    def test_singleton_invoice_stamps_repair_id(self):
+        self.so_a.action_confirm()
+        result = self.batch._invoice_approved_quotes(self.repair_a)
+        move = self.env['account.move'].browse(result['res_id'])
+        self.assertEqual(move.repair_id, self.repair_a,
+                         "Singleton invoice stamps repair_id (via auto-stamp)")
+        self.assertEqual(move.batch_id, self.batch)

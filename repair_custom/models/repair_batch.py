@@ -190,6 +190,41 @@ class RepairBatch(models.Model):
             ))
         return self.action_create_pickup_appointment(notify=True)
 
+    def _invoice_approved_quotes(self, repairs):
+        """Core helper: consolidate sale.orders of `repairs` into one
+        account.move with per-repair section headers. Shared by the repair-
+        form button, the batch-form button, and the sale.order replacement
+        button."""
+        self.ensure_one()
+        if not repairs:
+            raise UserError(_("Aucune réparation sélectionnée."))
+        sale_orders = repairs.mapped('sale_order_id')
+        if not sale_orders:
+            raise UserError(_("Aucun devis lié aux réparations sélectionnées."))
+
+        moves = sale_orders._create_invoices()
+        for move in moves:
+            self._inject_repair_section_headers(move)
+            if not move.batch_id:
+                move.batch_id = self.id
+            # repair_id auto-stamped via account.move.create override when unique
+
+        if len(moves) == 1:
+            return {
+                'name': _("Facture Générée"),
+                'type': 'ir.actions.act_window',
+                'res_model': 'account.move',
+                'res_id': moves.id,
+                'view_mode': 'form',
+            }
+        return {
+            'name': _("Factures Générées"),
+            'type': 'ir.actions.act_window',
+            'res_model': 'account.move',
+            'view_mode': 'tree,form',
+            'domain': [('id', 'in', moves.ids)],
+        }
+
     def _inject_repair_section_headers(self, move):
         """Insert a display_type='line_section' header before each source SO's
         lines on a consolidated invoice. Labels mirror today's wizard format.
