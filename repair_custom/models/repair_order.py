@@ -499,6 +499,11 @@ class Repair(models.Model):
         store=False,
         string="Dossier prêt à notifier",
     )
+    batch_delivery_state = fields.Selection(
+        related='batch_id.delivery_state',
+        store=False,
+        string="État livraison dossier",
+    )
     batch_count = fields.Integer(compute='_compute_batch_count', string="Autres appareils")
     sibling_repair_ids = fields.Many2many(
         'repair.order',
