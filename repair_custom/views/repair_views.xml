@@ -53,6 +53,7 @@
             <search string="Recherche Dossier">
                 <field name="name" string="Dossier"/>
                 <field name="partner_id"/>
+                <filter string="Dossiers multi-appareils" name="multi_device_batches" domain="[('repair_count', '>', 1)]"/>
                 <filter name="filter_create_date" date="create_date"/>
                 <filter string="Brouillons" name="filter_draft" domain="[('state', '=', 'draft')]"/>
                 <filter string="Traités" name="filter_processed" domain="[('state', '=', 'processed')]"/>
@@ -123,6 +124,7 @@
         <field name="name">Dossiers de Dépôt</field>
         <field name="res_model">repair.batch</field>
         <field name="view_mode">tree,form</field> <field name="search_view_id" ref="view_repair_batch_search"/>
+        <field name="context">{'search_default_multi_device_batches': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 Créez un nouveau dossier de prise en charge groupée.
@@ -136,7 +138,7 @@
         <field name="priority" eval="1"/>
         <field name="arch" type="xml">
             <tree string="Repairs order" multi_edit="1" sample="1" decoration-info="state in 'draft'" decoration-success="delivery_state == 'delivered'">
-                <field name="batch_id" optional="hide"/>
+                <field name="batch_id" optional="show"/>
                 <field name="priority" optional="show" widget="priority" nolabel="1" />
                 <field name="entry_date" optional="show" string="Date d'entrée" readonly="True"
                     width="50" widget="datetime" options="{'show_time':false}" />
@@ -275,6 +277,13 @@
                         </div>
                     </div>
                     <div class="oe_button_box" name="button_box">
+                        <button name="action_open_batch"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-folder-open"
+                                invisible="not batch_id">
+                            <field name="batch_sibling_count" widget="statinfo" string="Dossier"/>
+                        </button>
                         <button name="action_open_unit"
                                 string="Fiche Appareil"
                                 type="object"
@@ -523,11 +532,14 @@
                 <filter string="Ready" name="ready" domain="[('state', 'in', 'confirmed')]" invisible="True"/>
                 <filter name="filter_create_date" date="entry_date"/>
                 <field name="batch_id"/>
+                <separator/>
+                <filter string="Archivés" name="inactive" domain="[('active', '=', False)]"/>
                 <group expand="0" string="Regrouper par">
                     <filter string="État" name="group_state" context="{'group_by': 'state'}"/>
                     <filter string="Technicien" name="group_tech" context="{'group_by': 'technician_employee_id'}"/>
                     <filter string="Client" name="group_partner" context="{'group_by': 'partner_id'}"/>
                     <filter string="Mois d'entrée" name="group_date" context="{'group_by': 'entry_date:month'}"/>
+                    <filter string="Dossier" name="group_by_batch" context="{'group_by': 'batch_id'}"/>
                 </group>
             </search>
         </field>

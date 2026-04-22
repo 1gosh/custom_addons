@@ -213,3 +213,37 @@ class TestSiblingBanner(RepairBatchUxCommon):
         self.assertFalse(repair.batch_id)
         self.assertFalse(repair.has_siblings)
         self.assertFalse(repair.sibling_repair_ids)
+
+
+@tagged('-at_install', 'post_install', 'repair_custom')
+class TestNavigationBridge(RepairBatchUxCommon):
+    def _confirmed(self, batch=None):
+        overrides = {'batch_id': batch.id} if batch else {}
+        r = self._new_draft_repair(**overrides)
+        r._action_repair_confirm()
+        return r
+
+    def test_batch_sibling_count_matches_repair_count(self):
+        r1 = self._confirmed()
+        self.assertEqual(r1.batch_sibling_count, 1)
+        r2 = self._confirmed(batch=r1.batch_id)
+        r1.invalidate_recordset(['batch_sibling_count'])
+        self.assertEqual(r1.batch_sibling_count, 2)
+        self.assertEqual(r2.batch_sibling_count, 2)
+
+    def test_batch_sibling_count_zero_for_batchless(self):
+        draft = self._new_draft_repair()
+        self.assertFalse(draft.batch_id)
+        self.assertEqual(draft.batch_sibling_count, 0)
+
+    def test_action_open_batch_returns_form_action(self):
+        r = self._confirmed()
+        action = r.action_open_batch()
+        self.assertEqual(action['res_model'], 'repair.batch')
+        self.assertEqual(action['res_id'], r.batch_id.id)
+        self.assertEqual(action['view_mode'], 'form')
+
+    def test_action_open_batch_raises_when_no_batch(self):
+        draft = self._new_draft_repair()
+        with self.assertRaises(UserError):
+            draft.action_open_batch()

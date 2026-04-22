@@ -508,6 +508,27 @@ class Repair(models.Model):
     has_siblings = fields.Boolean(
         compute='_compute_sibling_repair_ids',
     )
+    batch_sibling_count = fields.Integer(
+        compute='_compute_batch_sibling_count',
+        string="Réparations dans le dossier",
+    )
+
+    @api.depends('batch_id.repair_ids')
+    def _compute_batch_sibling_count(self):
+        for rec in self:
+            rec.batch_sibling_count = len(rec.batch_id.repair_ids) if rec.batch_id else 0
+
+    def action_open_batch(self):
+        self.ensure_one()
+        if not self.batch_id:
+            raise UserError(_("Cette réparation n'est pas liée à un dossier."))
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'repair.batch',
+            'res_id': self.batch_id.id,
+            'view_mode': 'form',
+            'target': 'current',
+        }
 
     @api.depends('batch_id')
     def _compute_batch_count(self):
