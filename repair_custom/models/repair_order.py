@@ -969,7 +969,7 @@ class Repair(models.Model):
         for rec in self:
             if rec.state != 'draft' and not rec.batch_id:
                 raise ValidationError(_(
-                    "Un dossier de dépôt est obligatoire dès la confirmation de la réparation."
+                    "Un dossier de dépôt est obligatoire une fois la réparation confirmée."
                 ))
 
     @api.constrains('lot_id', 'product_tmpl_id', 'variant_id', 'serial_number')

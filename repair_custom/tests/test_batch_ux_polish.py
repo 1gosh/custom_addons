@@ -58,6 +58,13 @@ class TestDeferredBatchCreation(RepairBatchUxCommon):
         with self.assertRaises(UserError):
             repair._action_repair_confirm()
 
+    def test_constraint_fires_when_clearing_batch_post_draft(self):
+        repair = self._new_draft_repair()
+        repair._action_repair_confirm()
+        self.assertTrue(repair.batch_id)
+        with self.assertRaises(ValidationError):
+            repair.batch_id = False
+
     def test_action_add_device_to_batch_unchanged(self):
         # Confirm the first repair so the batch exists
         r1 = self._new_draft_repair()
