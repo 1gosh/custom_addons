@@ -978,6 +978,14 @@ class Repair(models.Model):
                 and rec.sale_order_id.invoice_status in ('to invoice', 'upselling')
             )
 
+    def action_invoice_repair_quote(self):
+        """Per-repair invoicing. Delegates to the batch helper with self as
+        the singleton repair set."""
+        self.ensure_one()
+        if not self.batch_id:
+            raise UserError(_("Cette réparation n'est rattachée à aucun dossier."))
+        return self.batch_id._invoice_approved_quotes(self)
+
     def action_view_sale_order(self):
         self.ensure_one()
         if not self.sale_order_id:

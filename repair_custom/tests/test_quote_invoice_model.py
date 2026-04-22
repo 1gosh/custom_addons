@@ -185,3 +185,20 @@ class TestIsQuoteInvoiceable(RepairQuoteCase):
         so._create_invoices()
         self.assertEqual(so.invoice_status, 'invoiced')
         self.assertFalse(self.repair.is_quote_invoiceable)
+
+
+class TestRepairInvoiceAction(RepairQuoteCase):
+
+    def setUp(self):
+        super().setUp()
+        self.repair = self._make_repair()
+        self.so = self._make_sale_order_linked(self.repair)
+        self.so.action_confirm()
+
+    def test_action_delegates_to_batch_helper(self):
+        result = self.repair.action_invoice_repair_quote()
+        self.assertEqual(result['res_model'], 'account.move')
+        move = self.env['account.move'].browse(result['res_id'])
+        self.assertEqual(move.repair_id, self.repair)
+        self.assertEqual(move.batch_id, self.repair.batch_id)
+        self.assertFalse(self.repair.is_quote_invoiceable)
