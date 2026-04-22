@@ -303,6 +303,31 @@ class TestPartialAcceptancePickup(RepairQuoteCase):
         self.assertEqual(self.repair_refused.delivery_state, 'delivered')
         self.assertEqual(self.repair_refused.state, 'cancel')
 
+    def test_livrer_multi_approved_no_singleton_crash(self):
+        """Regression: action_repair_delivered is called with multi-record
+        recordsets from action_mark_delivered. Direct field access on `self`
+        in action_repair_delivered must not call ensure_one()."""
+        # Add a second approved+done repair to the batch
+        second = self.Repair.create({
+            'partner_id': self.partner.id,
+            'internal_notes': 'Second approved',
+            'quote_required': True,
+            'technician_employee_id': self.tech_with_user.id,
+            'batch_id': self.batch.id,
+        })
+        second._action_repair_confirm()
+        so_second = self._make_sale_order_linked(second)
+        so_second.action_confirm()
+        second.state = 'done'
+        # batch now has repair_ok (done/approved), second (done/approved),
+        # repair_refused (refused). action_mark_delivered passes the two
+        # approved repairs as a multi-record recordset to
+        # action_repair_delivered — must not raise ensure_one().
+        self.batch.action_mark_delivered()
+        self.assertEqual(self.repair_ok.delivery_state, 'delivered')
+        self.assertEqual(second.delivery_state, 'delivered')
+        self.assertEqual(self.repair_refused.delivery_state, 'delivered')
+
 
 class TestSaleOrderButtonReplacement(RepairQuoteCase):
 

@@ -796,7 +796,7 @@ class Repair(models.Model):
         return self.write({'state': 'irreparable', 'end_date': fields.Datetime.now()})
 
     def action_repair_delivered(self):
-        if self.delivery_state == 'abandoned':
+        if self.filtered(lambda r: r.delivery_state == 'abandoned'):
             raise UserError(_("Impossible de livrer une réparation abandonnée. L'appareil est désormais propriété de l'atelier."))
 
         for rec in self:
