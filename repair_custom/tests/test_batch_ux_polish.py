@@ -179,3 +179,31 @@ class TestBatchDeliveryState(RepairBatchUxCommon):
         repairs[0].delivery_state = 'abandoned'
         repairs[1].delivery_state = 'delivered'
         self.assertEqual(batch.delivery_state, 'delivered')
+
+
+@tagged('-at_install', 'post_install', 'repair_custom')
+class TestSiblingBanner(RepairBatchUxCommon):
+    def _confirmed(self, batch=None):
+        overrides = {'batch_id': batch.id} if batch else {}
+        r = self._new_draft_repair(**overrides)
+        r._action_repair_confirm()
+        return r
+
+    def test_has_siblings_false_for_singleton(self):
+        repair = self._confirmed()
+        self.assertFalse(repair.has_siblings)
+        self.assertFalse(repair.sibling_repair_ids)
+
+    def test_has_siblings_true_when_batch_has_peers(self):
+        r1 = self._confirmed()
+        r2 = self._confirmed(batch=r1.batch_id)
+        self.assertTrue(r1.has_siblings)
+        self.assertTrue(r2.has_siblings)
+
+    def test_sibling_list_excludes_self(self):
+        r1 = self._confirmed()
+        r2 = self._confirmed(batch=r1.batch_id)
+        self.assertNotIn(r1, r1.sibling_repair_ids)
+        self.assertIn(r2, r1.sibling_repair_ids)
+        self.assertNotIn(r2, r2.sibling_repair_ids)
+        self.assertIn(r1, r2.sibling_repair_ids)

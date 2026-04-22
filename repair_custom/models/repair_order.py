@@ -500,6 +500,14 @@ class Repair(models.Model):
         string="Dossier prêt à notifier",
     )
     batch_count = fields.Integer(compute='_compute_batch_count', string="Autres appareils")
+    sibling_repair_ids = fields.Many2many(
+        'repair.order',
+        string="Autres réparations du dossier",
+        compute='_compute_sibling_repair_ids',
+    )
+    has_siblings = fields.Boolean(
+        compute='_compute_sibling_repair_ids',
+    )
 
     @api.depends('batch_id')
     def _compute_batch_count(self):
@@ -509,6 +517,17 @@ class Repair(models.Model):
                 rec.batch_count = self.env['repair.order'].search_count(domain)
             else:
                 rec.batch_count = 0
+
+    @api.depends('batch_id', 'batch_id.repair_ids')
+    def _compute_sibling_repair_ids(self):
+        for rec in self:
+            if not rec.batch_id:
+                rec.sibling_repair_ids = False
+                rec.has_siblings = False
+                continue
+            peers = rec.batch_id.repair_ids - rec
+            rec.sibling_repair_ids = peers
+            rec.has_siblings = bool(peers)
 
     def action_add_device_to_batch(self):
         self.ensure_one()

@@ -175,6 +175,7 @@
                 <field name="category_id" invisible="1"/>
                 <field name="quote_state" invisible="1"/>
                 <field name="delivery_state" invisible="1"/>
+                <field name="has_siblings" invisible="1"/>
                 <header>
                     <button name="action_validate" groups="repair_custom.group_repair_manager" invisible="state not in 'draft'" type="object" string="Confirmer la réparation" class="oe_highlight" data-hotkey="v"/>
                     <button name="action_repair_start" invisible="state not in 'confirmed'" type="object" string="Commencer" class="oe_highlight" data-hotkey="q"/>
@@ -200,7 +201,16 @@
                 <sheet>
                     <widget name="web_ribbon" title="Livré" bg_color="bg-success" invisible="delivery_state != 'delivered'"/>
                     <widget name="web_ribbon" title="Abandonné" bg_color="bg-danger" invisible="delivery_state != 'abandoned'"/>
-                    <div class="alert alert-warning mb-3 shadow-sm" 
+                    <div class="o_repair_siblings alert alert-info py-2 px-3 mb-2"
+                         role="alert"
+                         invisible="not has_siblings">
+                        <strong>Autres appareils du dossier : </strong>
+                        <field name="sibling_repair_ids"
+                               widget="many2many_tags"
+                               readonly="1"
+                               options="{'no_create': True}"/>
+                    </div>
+                    <div class="alert alert-warning mb-3 shadow-sm"
                         role="alert" 
                         invisible="quote_state != 'pending'"
                         style="border-left: 5px solid #dba728; background: #fff3cd; padding: 0;">
