@@ -39,7 +39,7 @@ class TestDeferredBatchCreation(RepairBatchUxCommon):
     def test_confirm_creates_batch_when_missing(self):
         repair = self._new_draft_repair()
         self.assertFalse(repair.batch_id)
-        repair.action_confirm()
+        repair._action_repair_confirm()
         self.assertTrue(repair.batch_id, "action_confirm must populate batch_id")
         self.assertEqual(repair.batch_id.partner_id, self.partner)
         self.assertEqual(repair.state, 'confirmed')
@@ -47,7 +47,7 @@ class TestDeferredBatchCreation(RepairBatchUxCommon):
     def test_confirm_keeps_existing_batch(self):
         existing = self.Batch.create({'partner_id': self.partner.id})
         repair = self._new_draft_repair(batch_id=existing.id)
-        repair.action_confirm()
+        repair._action_repair_confirm()
         self.assertEqual(repair.batch_id, existing)
 
     def test_confirm_requires_partner(self):
@@ -56,12 +56,12 @@ class TestDeferredBatchCreation(RepairBatchUxCommon):
         # action_confirm without hitting the DB-level check.
         repair = self.Repair.new({'product_tmpl_id': self.product_tmpl.id})
         with self.assertRaises(UserError):
-            repair.action_confirm()
+            repair._action_repair_confirm()
 
     def test_action_add_device_to_batch_unchanged(self):
         # Confirm the first repair so the batch exists
         r1 = self._new_draft_repair()
-        r1.action_confirm()
+        r1._action_repair_confirm()
         batch = r1.batch_id
         self.assertTrue(batch)
 

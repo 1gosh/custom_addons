@@ -809,9 +809,6 @@ class Repair(models.Model):
     def _action_repair_confirm(self):
         if self.delivery_state == 'abandoned':
             raise UserError(_("Impossible de modifier l'état d'une réparation abandonnée."))
-        return self.write({'state': 'confirmed'})
-
-    def action_confirm(self):
         Batch = self.env['repair.batch']
         for rec in self:
             if not rec.partner_id:
