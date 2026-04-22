@@ -372,6 +372,21 @@ class SaleOrder(models.Model):
             for repair in order.repair_order_ids:
                 repair._apply_quote_state_transition(target, from_sale_order=True)
 
+    def action_invoice_repair_quote(self):
+        """Per-SO invoicing (C.1): invoices only this SO regardless of batch
+        siblings. Routes through the batch consolidation helper with the SO's
+        own repair_order_ids."""
+        self.ensure_one()
+        repairs = self.repair_order_ids
+        if not repairs:
+            raise UserError(_("Ce devis n'est lié à aucune réparation."))
+        batch = repairs[:1].batch_id
+        if not batch:
+            raise UserError(_(
+                "Ce devis n'est rattaché à aucun dossier de dépôt."
+            ))
+        return batch._invoice_approved_quotes(repairs)
+
     def action_show_repair(self):
         self.ensure_one()
         if self.repair_count == 1:

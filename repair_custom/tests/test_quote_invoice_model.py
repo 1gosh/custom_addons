@@ -245,3 +245,57 @@ class TestBatchInvoiceAction(RepairQuoteCase):
         from odoo.exceptions import UserError
         with self.assertRaises(UserError):
             self.batch.action_invoice_approved_quotes()
+
+
+class TestSaleOrderButtonReplacement(RepairQuoteCase):
+
+    def setUp(self):
+        super().setUp()
+        self.repair = self._make_repair()
+        self.so = self._make_sale_order_linked(self.repair)
+        # Assign the repair quote template so computed_order_type = 'repair_quote'
+        self.so.sale_order_template_id = self.env.ref(
+            'repair_custom.sale_order_template_repair_quote'
+        )
+        self.so.action_confirm()
+
+    def test_action_invoices_only_this_so(self):
+        """Per-SO button (C.1) invoices only this SO even if batch siblings exist."""
+        # Create a sibling repair with its own approved quote
+        sibling = self.Repair.create({
+            'partner_id': self.partner.id,
+            'internal_notes': 'Sibling',
+            'quote_required': True,
+            'technician_employee_id': self.tech_with_user.id,
+            'batch_id': self.repair.batch_id.id,
+        })
+        sibling._action_repair_confirm()
+        sibling_so = self._make_sale_order_linked(sibling)
+        sibling_so.sale_order_template_id = self.env.ref(
+            'repair_custom.sale_order_template_repair_quote'
+        )
+        sibling_so.action_confirm()
+
+        result = self.so.action_invoice_repair_quote()
+        move = self.env['account.move'].browse(result['res_id'])
+        sos_on_move = move.invoice_line_ids.mapped('sale_line_ids.order_id')
+        self.assertEqual(sos_on_move, self.so,
+                         "Per-SO button must invoice only self, not siblings")
+
+    def test_action_raises_without_repair_link(self):
+        from odoo.exceptions import UserError
+        standalone = self.SaleOrder.create({
+            'partner_id': self.partner.id,
+            'order_line': [(0, 0, {
+                'product_id': self.service_product.id,
+                'name': 'X',
+                'product_uom_qty': 1,
+                'price_unit': 1.0,
+            })],
+        })
+        with self.assertRaises(UserError):
+            standalone.action_invoice_repair_quote()
+
+    def test_computed_order_type_is_repair_quote(self):
+        """Sanity check for the view inheritance gate."""
+        self.assertEqual(self.so.computed_order_type, 'repair_quote')
