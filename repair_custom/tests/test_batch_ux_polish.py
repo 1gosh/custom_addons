@@ -207,3 +207,9 @@ class TestSiblingBanner(RepairBatchUxCommon):
         self.assertIn(r2, r1.sibling_repair_ids)
         self.assertNotIn(r2, r2.sibling_repair_ids)
         self.assertIn(r1, r2.sibling_repair_ids)
+
+    def test_sibling_fields_empty_when_no_batch(self):
+        repair = self._new_draft_repair()
+        self.assertFalse(repair.batch_id)
+        self.assertFalse(repair.has_siblings)
+        self.assertFalse(repair.sibling_repair_ids)
