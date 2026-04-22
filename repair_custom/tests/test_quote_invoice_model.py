@@ -295,6 +295,14 @@ class TestPartialAcceptancePickup(RepairQuoteCase):
         self.batch.invalidate_recordset(['delivery_state'])
         self.assertEqual(self.batch.delivery_state, 'delivered')
 
+    def test_livrer_handles_refused_and_already_cancelled(self):
+        """Regression: refused-quote repair already in state='cancel' must not
+        crash action_repair_delivered."""
+        self.repair_refused.state = 'cancel'  # manager pre-cancelled
+        self.batch.action_mark_delivered()
+        self.assertEqual(self.repair_refused.delivery_state, 'delivered')
+        self.assertEqual(self.repair_refused.state, 'cancel')
+
 
 class TestSaleOrderButtonReplacement(RepairQuoteCase):
 

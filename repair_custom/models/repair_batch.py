@@ -105,9 +105,11 @@ class RepairBatch(models.Model):
             batch.ready_for_pickup_notification = True
 
     def action_pickup_start(self):
-        """Counter entry point. Route to linked sale.order or open the
-        pricing wizard in invoice mode. Invoice creation happens wherever;
-        delivery transition is driven by the account.move post hook.
+        """Counter entry point. Route to linked sale.order if one exists;
+        otherwise open the pricing wizard (quote-only) pre-filled with the
+        first eligible repair. Invoice creation happens via the 'Facturer le
+        devis' flow after the quote is approved; delivery transitions via
+        the account.move post hook or the batch Livrer button.
         """
         self.ensure_one()
         eligible = self.repair_ids.filtered(
@@ -166,11 +168,13 @@ class RepairBatch(models.Model):
         # Partial-acceptance branch: refused-quote repairs go out un-repaired.
         # Silent state='cancel' side effect + delivery_state='delivered';
         # no SAR, no invoice (no approved SO to invoice from).
-        refused_pickup = eligible.filtered(
-            lambda r: r.quote_state == 'refused'
-            and r.state not in ('cancel', 'irreparable')
+        refused_pickup = eligible.filtered(lambda r: r.quote_state == 'refused')
+        # Silent state='cancel' only for refused repairs not already in a
+        # terminal state; state='cancel' / 'irreparable' stays as-is.
+        refused_to_cancel = refused_pickup.filtered(
+            lambda r: r.state not in ('cancel', 'irreparable')
         )
-        for rec in refused_pickup:
+        for rec in refused_to_cancel:
             rec.state = 'cancel'
         refused_pickup.write({'delivery_state': 'delivered'})
 

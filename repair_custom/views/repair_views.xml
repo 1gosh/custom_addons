@@ -75,7 +75,6 @@
         <field name="arch" type="xml">
             <form string="Dossier de Prise en Charge">
                 <header>
-                    <button name="%(action_repair_pricing_wizard)d" icon="fa-file" string="Devis/Facture" type="action" invisible="state in 'draft'"/>
                     <field name="ready_for_pickup_notification" invisible="1"/>
                     <button name="action_invoice_approved_quotes"
                             type="object"
