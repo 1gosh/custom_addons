@@ -28,7 +28,7 @@
         <field name="name">repair.batch.tree</field>
         <field name="model">repair.batch</field>
         <field name="arch" type="xml">
-            <tree string="Dossiers de Dépôt" sample="1" decoration-info="state == 'draft'" decoration-muted="state == 'processed'" multi_edit="1">
+            <tree string="Dossiers de Dépôt" sample="1" decoration-info="state == 'draft'" decoration-muted="state == 'processed'" decoration-success="delivery_state == 'delivered'" multi_edit="1">
                 <field name="state" 
                    widget="badge" 
                    decoration-muted="state == 'draft'" 
@@ -41,6 +41,7 @@
                 <field name="partner_id" widget="res_partner_many2one"/>
                 
                 <field name="repair_count" string="Nb Appareils"/>
+                <field name="delivery_state"/>
             </tree>
         </field>
     </record>
@@ -75,6 +76,11 @@
                 <header>
                     <button name="%(action_repair_pricing_wizard)d" icon="fa-file" string="Devis/Facture" type="action" invisible="state in 'draft'"/>
                     <field name="ready_for_pickup_notification" invisible="1"/>
+                    <button name="action_mark_delivered"
+                            type="object"
+                            string="Livrer"
+                            class="btn-primary"
+                            invisible="delivery_state in ('delivered', 'abandoned')"/>
                     <button name="action_notify_client_ready"
                             type="object"
                             string="Notifier client – dossier prêt"
@@ -98,6 +104,10 @@
                     <group>
                         <field name="partner_id" readonly="1"/>
                         <field name="date" readonly="1"/>
+                        <field name="delivery_state" widget="badge"
+                               decoration-success="delivery_state == 'delivered'"
+                               decoration-info="delivery_state == 'partial'"
+                               decoration-muted="delivery_state in ('none', 'abandoned')"/>
                     </group>
                     <notebook>
                         <page string="Appareils">
@@ -125,7 +135,7 @@
         <field name="model">repair.order</field>
         <field name="priority" eval="1"/>
         <field name="arch" type="xml">
-            <tree string="Repairs order" multi_edit="1" sample="1" decoration-info="state in 'draft'">
+            <tree string="Repairs order" multi_edit="1" sample="1" decoration-info="state in 'draft'" decoration-success="delivery_state == 'delivered'">
                 <field name="batch_id" optional="hide"/>
                 <field name="priority" optional="show" widget="priority" nolabel="1" />
                 <field name="entry_date" optional="show" string="Date d'entrée" readonly="True"
@@ -145,6 +155,7 @@
                     decoration-info="activity_summary and 'Contacter' in activity_summary"
                     decoration-muted="not activity_summary"/>
                 <field name="notes" optional="hide"/>
+                <field name="delivery_state" optional="show"/>
             </tree>
         </field>
     </record>
@@ -176,7 +187,7 @@
                             class="btn-secondary"
                             invisible="not batch_ready_for_pickup_notification"/>
                     <button name="action_repair_delivered" string="Livrer" type="object" class="btn-secondary" invisible="delivery_state != 'none' or state not in ['done', 'irreparable']"/>
-                    <button name="action_open_abandon_wizard" string="Abandon" type="object" class="btn-warning" invisible="delivery_state != 'none' or state == 'draft'" groups="repair_custom.group_repair_manager"/>
+                    <button name="action_open_abandon_wizard" string="Abandon" type="object" class="btn-warning" invisible="delivery_state != 'none' or state in ['draft', 'confirmed']" groups="repair_custom.group_repair_manager"/>
                     <button name="action_repair_cancel_draft" groups="repair_custom.group_repair_manager" invisible="state in 'draft'" string="Marquer comme brouillon" type="object" data-hotkey="z"/>
                     <button name="action_repair_cancel" groups="repair_custom.group_repair_manager" string="Annuler" type="object" invisible="state in ('done', 'cancel')" data-hotkey="l" class="btn-danger"/>
                     <button name="action_print_repair_order" string="Bon" type="object" icon="fa-regular fa-print" invisible="state in 'draft, done, delivered'" class="btn-info"/>
