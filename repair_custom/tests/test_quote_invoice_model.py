@@ -348,3 +348,64 @@ class TestSaleOrderButtonReplacement(RepairQuoteCase):
     def test_computed_order_type_is_repair_quote(self):
         """Sanity check for the view inheritance gate."""
         self.assertEqual(self.so.computed_order_type, 'repair_quote')
+
+
+class TestPricingWizardQuoteOnly(RepairQuoteCase):
+
+    def setUp(self):
+        super().setUp()
+        self.repair = self._make_repair()
+
+    def test_wizard_has_no_generation_type_field(self):
+        Wizard = self.env['repair.pricing.wizard']
+        self.assertNotIn('generation_type', Wizard._fields,
+                         "generation_type removed in Theme A")
+
+    def test_wizard_has_no_batch_fields(self):
+        Wizard = self.env['repair.pricing.wizard']
+        for f in ('batch_id', 'remaining_repair_ids',
+                  'accumulated_lines_json', 'step_info'):
+            self.assertNotIn(f, Wizard._fields,
+                             f"{f} removed in Theme A")
+
+    def test_wizard_creates_quote_only(self):
+        wizard = self.env['repair.pricing.wizard'].with_context(
+            default_repair_id=self.repair.id
+        ).create({
+            'repair_id': self.repair.id,
+            'target_total_amount': 100.0,
+            'manual_product_id': self.service_product.id,
+            'manual_label': 'Forfait test',
+        })
+        result = wizard.action_confirm()
+        self.assertEqual(result['res_model'], 'sale.order',
+                         "Wizard produces a sale.order, not an account.move")
+        so = self.env['sale.order'].browse(result['res_id'])
+        self.assertEqual(so, self.repair.sale_order_id)
+        self.assertEqual(so.sale_order_template_id,
+                         self.env.ref('repair_custom.sale_order_template_repair_quote'))
+
+    def test_wizard_rejects_duplicate_quote(self):
+        from odoo.exceptions import UserError
+        self._make_sale_order_linked(self.repair)
+        wizard = self.env['repair.pricing.wizard'].create({
+            'repair_id': self.repair.id,
+            'target_total_amount': 50.0,
+            'manual_product_id': self.service_product.id,
+            'manual_label': 'Double',
+        })
+        with self.assertRaises(UserError):
+            wizard.action_confirm()
+
+    def test_wizard_ignores_batch_context(self):
+        """Launching with active_model='repair.batch' no longer pre-fills a
+        batch walkthrough — Theme A removes that entry path."""
+        wizard_env = self.env['repair.pricing.wizard'].with_context(
+            active_model='repair.batch',
+            active_id=self.repair.batch_id.id,
+            default_repair_id=self.repair.id,
+        )
+        # default_get should not populate anything batch-shaped (fields don't exist)
+        # and should still resolve the repair_id from default_repair_id
+        defaults = wizard_env.default_get(['repair_id', 'device_name'])
+        self.assertEqual(defaults.get('repair_id'), self.repair.id)
