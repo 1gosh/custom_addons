@@ -7,6 +7,7 @@ class RepairBatch(models.Model):
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _order = 'date desc'
     name = fields.Char("Réf. Dossier", required=True, copy=False, readonly=True, default='New')
+    active = fields.Boolean(default=True)
     date = fields.Datetime(string="Date de création", default=lambda self: fields.Datetime.now())
     repair_ids = fields.One2many('repair.order', 'batch_id', string="Réparations")
     partner_id = fields.Many2one('res.partner', string="Client")

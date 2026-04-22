@@ -80,3 +80,55 @@ class TestDeferredBatchCreation(RepairBatchUxCommon):
             'batch_id': batch.id,
         })
         self.assertEqual(r2.batch_id, batch)
+
+
+@tagged('-at_install', 'post_install', 'repair_custom')
+class TestArchiveCascade(RepairBatchUxCommon):
+    def _confirmed(self, **overrides):
+        r = self._new_draft_repair(**overrides)
+        r._action_repair_confirm()
+        return r
+
+    def test_unlink_last_repair_archives_batch(self):
+        repair = self._confirmed()
+        batch = repair.batch_id
+        repair.unlink()
+        self.assertFalse(batch.active, "Batch must be archived after last repair deleted")
+
+    def test_unlink_with_siblings_keeps_batch_active(self):
+        r1 = self._confirmed()
+        batch = r1.batch_id
+        r2 = self.Repair.create({
+            'partner_id': self.partner.id,
+            'product_tmpl_id': self.product_tmpl.id,
+            'batch_id': batch.id,
+        })
+        r2._action_repair_confirm()
+        r1.unlink()
+        self.assertTrue(batch.active)
+
+    def test_archive_last_active_repair_archives_batch(self):
+        repair = self._confirmed()
+        batch = repair.batch_id
+        repair.active = False
+        self.assertFalse(batch.active)
+
+    def test_unarchive_repair_unarchives_batch(self):
+        repair = self._confirmed()
+        batch = repair.batch_id
+        repair.active = False
+        self.assertFalse(batch.active)
+        repair.active = True
+        self.assertTrue(batch.active)
+
+    def test_archive_with_active_siblings_keeps_batch_active(self):
+        r1 = self._confirmed()
+        batch = r1.batch_id
+        r2 = self.Repair.create({
+            'partner_id': self.partner.id,
+            'product_tmpl_id': self.product_tmpl.id,
+            'batch_id': batch.id,
+        })
+        r2._action_repair_confirm()
+        r1.active = False
+        self.assertTrue(batch.active, "Batch stays active while any sibling is active")

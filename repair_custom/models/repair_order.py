@@ -96,6 +96,7 @@ class Repair(models.Model):
             rec.tracking_url = f"{base_url}/repair/tracking/{rec.tracking_token}" if rec.tracking_token else False
 
     name = fields.Char('Référence', default='New', index='trigram', copy=False, required=True, readonly=True)
+    active = fields.Boolean(default=True)
     company_id = fields.Many2one('res.company', 'Company', readonly=True, required=True, index=True, default=lambda self: self.env.company)
 
     state = fields.Selection([
@@ -560,7 +561,25 @@ class Repair(models.Model):
             vals = dict(vals)
             vals.update({'technician_user_id': False, 'technician_employee_id': False})
 
-        return super(Repair, self).write(vals)
+        res = super(Repair, self).write(vals)
+        if 'active' in vals:
+            batches = self.mapped('batch_id').exists()
+            for batch in batches:
+                all_children = batch.with_context(active_test=False).repair_ids
+                active_children = all_children.filtered('active')
+                if vals['active'] is False and not active_children and batch.active:
+                    batch.active = False
+                elif vals['active'] is True and active_children and not batch.active:
+                    batch.active = True
+        return res
+
+    def unlink(self):
+        batches = self.mapped('batch_id')
+        res = super().unlink()
+        for batch in batches.exists():
+            if not batch.repair_ids.filtered('active'):
+                batch.active = False
+        return res
 
     @api.ondelete(at_uninstall=False)
     def _unlink_except_confirmed(self):
