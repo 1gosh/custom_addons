@@ -77,6 +77,11 @@
                 <header>
                     <button name="%(action_repair_pricing_wizard)d" icon="fa-file" string="Devis/Facture" type="action" invisible="state in 'draft'"/>
                     <field name="ready_for_pickup_notification" invisible="1"/>
+                    <button name="action_invoice_approved_quotes"
+                            type="object"
+                            string="Facturer les devis acceptés"
+                            class="btn-primary"
+                            invisible="not has_invoiceable_quotes"/>
                     <button name="action_mark_delivered"
                             type="object"
                             string="Livrer"
@@ -90,10 +95,11 @@
                     <field name="state" widget="statusbar"/>
                 </header>
                 <sheet>
+                    <field name="has_invoiceable_quotes" invisible="1"/>
                     <div class="oe_button_box" name="button_box">
-                        <button name="%(action_repair_order_tree)d" 
-                                type="action" 
-                                class="oe_stat_button" 
+                        <button name="%(action_repair_order_tree)d"
+                                type="action"
+                                class="oe_stat_button"
                                 icon="fa-wrench"
                                 context="{'search_default_batch_id': id}">
                             <field name="repair_count" widget="statinfo" string="Réparations"/>

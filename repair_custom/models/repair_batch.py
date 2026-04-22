@@ -190,6 +190,29 @@ class RepairBatch(models.Model):
             ))
         return self.action_create_pickup_appointment(notify=True)
 
+    has_invoiceable_quotes = fields.Boolean(
+        compute='_compute_has_invoiceable_quotes',
+        string="Devis à facturer",
+    )
+
+    @api.depends('repair_ids.is_quote_invoiceable')
+    def _compute_has_invoiceable_quotes(self):
+        for batch in self:
+            batch.has_invoiceable_quotes = any(
+                r.is_quote_invoiceable for r in batch.repair_ids
+            )
+
+    def action_invoice_approved_quotes(self):
+        """Batch-form button: consolidate all eligible approved quotes into
+        one account.move."""
+        self.ensure_one()
+        eligible = self.repair_ids.filtered('is_quote_invoiceable')
+        if not eligible:
+            raise UserError(_(
+                "Aucun devis accepté à facturer dans ce dossier."
+            ))
+        return self._invoice_approved_quotes(eligible)
+
     def _invoice_approved_quotes(self, repairs):
         """Core helper: consolidate sale.orders of `repairs` into one
         account.move with per-repair section headers. Shared by the repair-

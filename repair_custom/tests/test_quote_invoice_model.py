@@ -202,3 +202,46 @@ class TestRepairInvoiceAction(RepairQuoteCase):
         self.assertEqual(move.repair_id, self.repair)
         self.assertEqual(move.batch_id, self.repair.batch_id)
         self.assertFalse(self.repair.is_quote_invoiceable)
+
+
+class TestBatchInvoiceAction(RepairQuoteCase):
+
+    def setUp(self):
+        super().setUp()
+        self.repair_a = self._make_repair()
+        self.repair_b = self.Repair.create({
+            'partner_id': self.partner.id,
+            'internal_notes': 'B',
+            'quote_required': True,
+            'technician_employee_id': self.tech_with_user.id,
+            'batch_id': self.repair_a.batch_id.id,
+        })
+        self.repair_b._action_repair_confirm()
+        self.so_a = self._make_sale_order_linked(self.repair_a)
+        self.so_b = self._make_sale_order_linked(self.repair_b)
+        self.batch = self.repair_a.batch_id
+
+    def test_has_invoiceable_quotes_false_when_none_approved(self):
+        self.assertFalse(self.batch.has_invoiceable_quotes)
+
+    def test_has_invoiceable_quotes_true_when_any_approved(self):
+        self.so_a.action_confirm()
+        # Force recompute: depends on repair_ids.is_quote_invoiceable which
+        # depends on quote_state + sale_order_id.invoice_status
+        self.batch.invalidate_recordset(['has_invoiceable_quotes'])
+        self.assertTrue(self.batch.has_invoiceable_quotes)
+
+    def test_action_consolidates_only_approved(self):
+        self.so_a.action_confirm()
+        # so_b stays in draft → quote_state=pending, not eligible
+        result = self.batch.action_invoice_approved_quotes()
+        move = self.env['account.move'].browse(result['res_id'])
+        # Only repair_a's lines should be on the move
+        sos_on_move = move.invoice_line_ids.mapped('sale_line_ids.order_id')
+        self.assertIn(self.so_a, sos_on_move)
+        self.assertNotIn(self.so_b, sos_on_move)
+
+    def test_action_raises_when_no_eligible(self):
+        from odoo.exceptions import UserError
+        with self.assertRaises(UserError):
+            self.batch.action_invoice_approved_quotes()
