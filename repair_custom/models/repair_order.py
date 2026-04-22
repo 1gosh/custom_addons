@@ -109,7 +109,7 @@ class Repair(models.Model):
 
     quote_state = fields.Selection([
         ('none', 'Pas de devis'),
-        ('pending', 'En préparation manager'),
+        ('pending', 'En préparation'),
         ('sent', 'Envoyé au client'),
         ('approved', 'Validé'),
         ('refused', 'Refusé')
@@ -811,6 +811,19 @@ class Repair(models.Model):
             raise UserError(_("Impossible de modifier l'état d'une réparation abandonnée."))
         return self.write({'state': 'confirmed'})
 
+    def action_confirm(self):
+        Batch = self.env['repair.batch']
+        for rec in self:
+            if not rec.partner_id:
+                raise UserError(_("Veuillez renseigner un client avant de confirmer la réparation."))
+            if not rec.batch_id:
+                rec.batch_id = Batch.create({
+                    'partner_id': rec.partner_id.id,
+                    'date': rec.entry_date or fields.Datetime.now(),
+                    'company_id': rec.company_id.id,
+                })
+        return self.write({'state': 'confirmed'})
+
     def action_generate_serial(self):
         """Auto-generate a serial number (without creating the lot — action_validate handles that)."""
         self.ensure_one()
@@ -948,22 +961,19 @@ class Repair(models.Model):
     # --- CREATE WITH SEQUENCE ---
     @api.model_create_multi
     def create(self, vals_list):
-        Batch = self.env['repair.batch']
-        for vals in vals_list:
-            if not vals.get('batch_id') and vals.get('partner_id'):
-                batch = Batch.create({'partner_id': vals['partner_id']})
-                vals['batch_id'] = batch.id
         for vals in vals_list:
             if vals.get('name', 'New') == 'New':
                 vals['name'] = self.env['ir.sequence'].next_by_code('repair.order') or 'New'
         return super(Repair, self).create(vals_list)
 
     # --- CONSTRAINTS ---
-    @api.constrains('batch_id')
+    @api.constrains('batch_id', 'state')
     def _check_batch_id_required(self):
         for rec in self:
-            if not rec.batch_id:
-                raise ValidationError(_("Un dossier de dépôt est obligatoire pour chaque réparation."))
+            if rec.state != 'draft' and not rec.batch_id:
+                raise ValidationError(_(
+                    "Un dossier de dépôt est obligatoire dès la confirmation de la réparation."
+                ))
 
     @api.constrains('lot_id', 'product_tmpl_id', 'variant_id', 'serial_number')
     def _check_unit_consistency(self):
