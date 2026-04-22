@@ -55,7 +55,7 @@ class RepairBatch(models.Model):
         default='none',
     )
 
-    @api.depends('repair_ids.delivery_state', 'repair_ids.state')
+    @api.depends('repair_ids.delivery_state')
     def _compute_delivery_state(self):
         for batch in self:
             repairs = batch.repair_ids
