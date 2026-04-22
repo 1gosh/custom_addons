@@ -35,7 +35,7 @@ Four drivers:
 | 5 | Native `sale.order` "Créer la facture" button is **hidden** on repair quotes (`computed_order_type == 'repair_quote'`) and replaced by a repair-aware button | Keeps one visible path on the SO form. Per-SO button invoices only that SO (C.1 — no auto-promote to batch consolidation); batch consolidation is reached via the batch form |
 | 6 | `account.move` auto-stamps `repair_id` / `batch_id` on create by resolving `invoice_line_ids.sale_line_ids.order_id.repair_order_ids` | Defensive net: any path (list-view bulk invoice, scripted creation, future surfaces) that produces a repair-linked move gets the metadata populated. Our button becomes idempotent w.r.t. the auto-stamp |
 | 7 | Check for "this is a repair quote" uses `computed_order_type == 'repair_quote'` (template-derived, already stored), not `repair_order_ids` | Intent-bearing: the document type is the signal, not the link. The field is stored+indexed; equipment sales and rentals are unaffected |
-| 8 | Pricing wizard becomes quote-only. `generation_type` field, `_create_global_invoice`, and related branches deleted. Walk-in invoices require three clicks: create quote → confirm SO → facturer le devis | Every repair `account.move` is born from an approved `sale.order`. Unifies every downstream hook (`action_post`, reports, filters). Manager burden (one extra click for walk-ins) accepted |
+| 8 | Pricing wizard becomes quote-only. `generation_type` field, `_create_global_invoice`, and related branches deleted. Walk-in invoices require three clicks: create quote → confirm SO → facturer le devis. **The wizard entry button stays available throughout the repair lifecycle (any non-draft state), independent of `quote_state`** — `quote_state='pending'` is the technician→manager request-for-quote signal, not a precondition for the manager to produce a document | Every repair `account.move` is born from an approved `sale.order`. Unifies every downstream hook (`action_post`, reports, filters). Walk-in flow (client doesn't care about seeing a quote): manager opens the wizard directly without waiting on the technician's "Établir devis" button |
 | 9 | Partial acceptance: refused-quote repairs eligible for the batch `Livrer` button regardless of `repair.state`. Silent side effect: delivering a refused-quote repair sets `repair.state='cancel'` (cleanup only; no new UI) | Matches real-world pickup ("client takes everything at once, pays for what got fixed"). Consolidation helper naturally excludes refused repairs (no approved quote → no sale.line → no contribution) |
 | 10 | No post-migration for legacy multi-repair sale.orders. New code treats them as a single contribution; section headers are injected per SO rather than per repair when the legacy shape is detected | Legacy SOs are mostly terminal (invoiced or cancelled). Splitting them would fabricate accounting history. Forward-only discipline |
 | 11 | Eligibility predicate: `quote_state == 'approved'` AND `sale_order_id.invoice_status in ('to invoice', 'upselling')`. `repair.state` does not gate invoicing | Approved = manager+client both consented. Invoicing deposits/advances on a not-yet-done repair is the manager's call |
@@ -129,6 +129,16 @@ def _create_quote(self, lines):
 ### Entry point
 
 Repair form button "Devis" (renamed from "Devis/Facture") calls `action_create_quotation_wizard`, which passes `default_repair_id=self.id` — unchanged behavior minus the `default_generation_type='quote'` context key (no longer needed; wizard is quote-only).
+
+**Visibility:** the button stays available for any non-draft repair, regardless of `quote_state`. Hidden only when `state == 'draft'` (existing rule) or `sale_order_id` already exists (wizard would reject anyway — hide rather than let the user hit the error). This preserves the walk-in flow: a manager who needs to produce a document without waiting on the technician's "Établir devis" signal can open the wizard at any time.
+
+```xml
+<button name="action_create_quotation_wizard"
+        icon="fa-file" type="object" string="Devis"
+        invisible="state == 'draft' or sale_order_id"/>
+```
+
+The technician's "Établir devis" button (`action_atelier_request_quote`) remains the separate diagnostic-request path: it writes `quote_state='pending'`, posts chatter, and lands the repair in the manager's queue. It is NOT a precondition for running the wizard.
 
 ## Section 2 — "Facturer le devis" flow
 
@@ -423,6 +433,7 @@ New file: `repair_custom/tests/test_quote_invoice_model.py`.
 | `test_wizard_creates_quote` | Run wizard, produces exactly one `sale.order` with `sale_order_template_id=sale_order_template_repair_quote`, linked via `repair.sale_order_id`, `computed_order_type='repair_quote'` |
 | `test_wizard_has_no_generation_type_field` | `generation_type` not in `_fields` — regression guard |
 | `test_wizard_rejects_existing_quote` | `UserError` if `repair.sale_order_id` already set |
+| `test_wizard_available_on_walk_in` | Repair with `quote_state='none'` in `state='confirmed'` / `under_repair` / `done` — "Devis" button is visible, wizard runs and creates the SO normally |
 | `test_wizard_no_batch_context` | Launching with `active_model='repair.batch'` context yields a wizard that ignores the batch (no `batch_id`, no `remaining_repair_ids`) |
 
 ### `TestApprovedQuoteInvoicing`
@@ -480,7 +491,7 @@ Audit `tests/test_quote_lifecycle.py` for any assertion tied to grouped-SO seman
 7. On the batch, click "Livrer". Verify the refused repair transitions to `state='cancel'`, `delivery_state='delivered'`, no SAR, no ready-for-pickup notification. Accepted ones get SAR + delivered.
 8. Pick any legacy batch whose SO covers multiple repairs (pre-Theme-A). Verify the batch button still works — native `_create_invoices` produces one move, section headers fall back to SO name for the multi-repair case.
 9. Create an `account.move` directly from the accounting UI with sale lines from a repair quote. Verify `repair_id` and `batch_id` are auto-stamped on post.
-10. Walk-in repair (no quote): use the technician flow to get to `quote_state='pending'`, run the pricing wizard, approve the SO manually via `action_confirm`, click "Facturer le devis". Verify the three-click path produces the expected invoice.
+10. Walk-in repair (no quote requested): create the repair, confirm it (skipping the technician's "Établir devis" button entirely — `quote_state` stays `'none'`). Verify the "Devis" button on the repair form is still visible. Click it, run the wizard, approve the resulting SO manually via `action_confirm`, click "Facturer le devis". Verify the three-click path produces the expected invoice.
 
 ## Migration plan
 
