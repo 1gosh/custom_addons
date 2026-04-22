@@ -47,3 +47,51 @@ class TestAccountMoveAutoStamp(RepairQuoteCase):
         })
         self.assertEqual(move.repair_id, other_repair,
                          "Pre-stamped repair_id must survive the create hook")
+
+
+class TestSectionHeaderInjection(RepairQuoteCase):
+    """_inject_repair_section_headers prepends a line_section per source SO."""
+
+    def setUp(self):
+        super().setUp()
+        # Two repairs in one batch, each with its own sale.order
+        self.repair_a = self._make_repair(internal_notes='Diag A')
+        self.repair_a.serial_number = 'SN-AAA'
+        self.repair_b = self.Repair.create({
+            'partner_id': self.partner.id,
+            'internal_notes': 'Diag B',
+            'quote_required': True,
+            'technician_employee_id': self.tech_with_user.id,
+            'batch_id': self.repair_a.batch_id.id,
+            'serial_number': 'SN-BBB',
+        })
+        self.repair_b._action_repair_confirm()
+        self.so_a = self._make_sale_order_linked(self.repair_a)
+        self.so_b = self._make_sale_order_linked(self.repair_b)
+        self.so_a.action_confirm()
+        self.so_b.action_confirm()
+
+    def test_injects_one_header_per_source_so(self):
+        moves = (self.so_a + self.so_b)._create_invoices()
+        # Native may produce one consolidated move for same partner
+        self.assertEqual(len(moves), 1)
+        move = moves
+        self.repair_a.batch_id._inject_repair_section_headers(move)
+        sections = move.invoice_line_ids.filtered(
+            lambda l: l.display_type == 'line_section'
+        )
+        self.assertEqual(len(sections), 2,
+                         "One section header per source sale.order")
+
+    def test_header_label_contains_device_and_sn(self):
+        moves = (self.so_a + self.so_b)._create_invoices()
+        move = moves
+        self.repair_a.batch_id._inject_repair_section_headers(move)
+        labels = move.invoice_line_ids.filtered(
+            lambda l: l.display_type == 'line_section'
+        ).mapped('name')
+        # repair_a.device_id_name may be empty in the test fixture; focus on SN
+        self.assertTrue(any('SN-AAA' in lbl for lbl in labels),
+                        "Header must include the serial number")
+        self.assertTrue(any('SN-BBB' in lbl for lbl in labels),
+                        "Header must include both serial numbers")

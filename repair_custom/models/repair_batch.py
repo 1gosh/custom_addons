@@ -190,6 +190,46 @@ class RepairBatch(models.Model):
             ))
         return self.action_create_pickup_appointment(notify=True)
 
+    def _inject_repair_section_headers(self, move):
+        """Insert a display_type='line_section' header before each source SO's
+        lines on a consolidated invoice. Labels mirror today's wizard format.
+
+        Legacy SOs (linked to N repairs) fall back to the SO name — forward
+        decision: no post-migration split, handle gracefully at read time."""
+        self.ensure_one()
+        lines_by_so = {}
+        for line in move.invoice_line_ids.sorted('sequence'):
+            if line.display_type in ('line_section', 'line_note'):
+                continue
+            sos = line.sale_line_ids.mapped('order_id')
+            if not sos:
+                continue
+            so = sos[:1]
+            lines_by_so.setdefault(so.id, []).append(line)
+
+        seq = 0
+        AccountMoveLine = self.env['account.move.line']
+        for so_id, lines in lines_by_so.items():
+            so = self.env['sale.order'].browse(so_id)
+            if len(so.repair_order_ids) == 1:
+                repair = so.repair_order_ids
+                label = _("Réparation : %s") % (repair.device_id_name or so.name)
+                if repair.serial_number:
+                    label += _(" (S/N: %s)") % repair.serial_number
+            else:
+                label = _("Devis : %s") % so.name
+
+            seq += 1
+            AccountMoveLine.create({
+                'move_id': move.id,
+                'display_type': 'line_section',
+                'name': label,
+                'sequence': seq,
+            })
+            for line in lines:
+                seq += 1
+                line.sequence = seq
+
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
