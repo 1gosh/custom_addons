@@ -89,7 +89,6 @@ class RepairPickupAppointment(models.Model):
     @api.depends(
         'repair_ids',
         'repair_ids.device_id_name',
-        'repair_ids.serial_number',
     )
     def _compute_device_summary(self):
         for apt in self:
@@ -98,12 +97,10 @@ class RepairPickupAppointment(models.Model):
             if not repairs:
                 apt.device_summary = _("Aucun appareil")
                 continue
-            parts = []
-            for repair in repairs:
-                label = repair.device_id_name or _("Appareil")
-                if repair.serial_number:
-                    label = "%s (SN:%s)" % (label, repair.serial_number)
-                parts.append(label)
+            parts = [
+                repair.device_id_name or _("Appareil")
+                for repair in repairs
+            ]
             apt.device_summary = ", ".join(parts)
 
     @api.depends('name', 'partner_id')
