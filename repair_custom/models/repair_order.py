@@ -388,7 +388,6 @@ class Repair(models.Model):
         if self.product_tmpl_id and self.product_tmpl_id.categ_id:
             self.category_id = self.product_tmpl_id.categ_id
 
-    serial_number = fields.Char("N° de série")
     lot_id = fields.Many2one(
         'stock.lot', string="Appareil physique",
         index=True,
