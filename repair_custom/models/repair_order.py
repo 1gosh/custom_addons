@@ -878,15 +878,6 @@ class Repair(models.Model):
                 })
         return self.write({'state': 'confirmed'})
 
-    def action_generate_serial(self):
-        """Auto-generate a serial number (without creating the lot — action_validate handles that)."""
-        self.ensure_one()
-        if self.serial_number or self.lot_id:
-            return
-        if not self.product_tmpl_id:
-            raise UserError(_("Veuillez sélectionner un appareil avant de générer un numéro de série."))
-        self.serial_number = self.env['ir.sequence'].next_by_code('stock.lot.hifi')
-
     def action_validate(self):
         """Confirm repair, create stock.lot if needed, and create intake stock move."""
         self.ensure_one()
@@ -914,13 +905,13 @@ class Repair(models.Model):
             return self._action_repair_confirm()
 
         if self.product_tmpl_id and self.partner_id:
-            # Create stock.lot for the device
+            # Fallback lot creation for programmatic callers / imports that
+            # didn't set lot_id. Interactive users now set lot_id directly.
             product = self.product_tmpl_id.product_variant_id
             if not product:
                 raise UserError(_("Aucun produit trouvé pour cet appareil."))
-            sn = self.serial_number or False
             lot_vals = {
-                'name': sn or f"REP-{self.name}",
+                'name': f"REP-{self.name}",
                 'product_id': product.id,
                 'company_id': self.company_id.id,
                 'hifi_partner_id': self.partner_id.id,
@@ -928,8 +919,7 @@ class Repair(models.Model):
             if self.variant_id:
                 lot_vals['hifi_variant_id'] = self.variant_id.id
             new_lot = self.env['stock.lot'].create(lot_vals)
-            self.write({'lot_id': new_lot.id, 'serial_number': new_lot.name})
-            # Seed quant at customer location and move to workshop
+            self.write({'lot_id': new_lot.id})
             Quant._update_available_quantity(product, customer_location, 1.0, lot_id=new_lot)
             self._create_repair_picking(customer_location, workshop_location)
         return self._action_repair_confirm()
@@ -1035,7 +1025,7 @@ class Repair(models.Model):
                     "Un dossier de dépôt est obligatoire une fois la réparation confirmée."
                 ))
 
-    @api.constrains('lot_id', 'product_tmpl_id', 'variant_id', 'serial_number')
+    @api.constrains('lot_id', 'product_tmpl_id', 'variant_id')
     def _check_unit_consistency(self):
         for rec in self:
             if rec.lot_id:
