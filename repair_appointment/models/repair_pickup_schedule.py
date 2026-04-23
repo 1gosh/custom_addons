@@ -23,15 +23,10 @@ class RepairPickupSchedule(models.Model):
     saturday_open = fields.Boolean('Samedi', default=True)
     sunday_open = fields.Boolean('Dimanche', default=False)
 
-    slot1_start = fields.Float('Créneau 1 début', default=15.0)
-    slot1_end = fields.Float('Créneau 1 fin', default=17.25)
-    slot2_start = fields.Float('Créneau 2 début', default=17.25)
-    slot2_end = fields.Float('Créneau 2 fin', default=19.5)
-
-    slot_capacity = fields.Integer(
-        'Capacité par créneau',
-        default=3,
-        help="Nombre maximum de rendez-vous simultanés dans un créneau.",
+    daily_capacity = fields.Integer(
+        'Capacité par jour',
+        default=6,
+        help="Nombre maximum de retraits acceptés pour un jour ouvré.",
     )
 
     _sql_constraints = [
@@ -40,34 +35,23 @@ class RepairPickupSchedule(models.Model):
          "Il existe déjà un horaire pour ce lieu."),
     ]
 
-    @api.constrains('slot1_start', 'slot1_end', 'slot2_start', 'slot2_end')
-    def _check_slot_ranges(self):
+    @api.constrains('daily_capacity')
+    def _check_daily_capacity(self):
         for rec in self:
-            if rec.slot1_end <= rec.slot1_start:
-                raise ValidationError(_("Le créneau 1 doit se terminer après son début."))
-            if rec.slot2_end <= rec.slot2_start:
-                raise ValidationError(_("Le créneau 2 doit se terminer après son début."))
-            if rec.slot2_start < rec.slot1_end:
-                raise ValidationError(_("Le créneau 2 doit commencer après la fin du créneau 1."))
-
-    @api.constrains('slot_capacity')
-    def _check_slot_capacity(self):
-        for rec in self:
-            if rec.slot_capacity < 1:
-                raise ValidationError(_("La capacité doit être au moins 1."))
+            if rec.daily_capacity < 1:
+                raise ValidationError(_("La capacité quotidienne doit être au moins 1."))
 
     def _day_is_open(self, weekday_index):
         """weekday_index: 0=Mon..6=Sun. Returns bool."""
         mapping = [
             self.monday_open, self.tuesday_open, self.wednesday_open,
-            self.thursday_open, self.friday_open, self.saturday_open, self.sunday_open,
+            self.thursday_open, self.friday_open, self.saturday_open,
+            self.sunday_open,
         ]
         return bool(mapping[weekday_index])
 
     @api.model
     def _seed_default_schedules(self):
-        """Create a default Mon–Sat schedule for every location
-        that doesn't already have one."""
         Location = self.env['repair.pickup.location']
         for location in Location.search([]):
             if not self.search([('location_id', '=', location.id)], limit=1):
