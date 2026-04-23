@@ -82,6 +82,18 @@ class RepairPickupAppointment(models.Model):
         compute='_compute_device_summary',
         help="Identification rapide des appareils à préparer pour le retrait.",
     )
+    primary_device_id = fields.Many2one(
+        'product.template',
+        string='Appareil principal',
+        compute='_compute_primary_device',
+        store=True,
+    )
+    primary_device_category_id = fields.Many2one(
+        'product.category',
+        string='Catégorie principale',
+        compute='_compute_primary_device',
+        store=True,
+    )
 
     _sql_constraints = [
         ('token_unique', 'UNIQUE(token)', "Jeton déjà utilisé."),
@@ -108,6 +120,14 @@ class RepairPickupAppointment(models.Model):
             if len(repairs) > 3:
                 parts.append(_("… (+%s)") % (len(repairs) - 3))
             apt.device_summary = ", ".join(parts)
+
+    @api.depends('repair_ids', 'repair_ids.product_tmpl_id',
+                 'repair_ids.category_id')
+    def _compute_primary_device(self):
+        for apt in self:
+            first = apt.repair_ids[:1]
+            apt.primary_device_id = first.product_tmpl_id if first else False
+            apt.primary_device_category_id = first.category_id if first else False
 
     @api.constrains('state', 'pickup_date')
     def _check_scheduled_has_date(self):

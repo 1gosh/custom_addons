@@ -50,3 +50,19 @@ class TestAppointmentModel(RepairAppointmentCase):
         apt = self.Appointment.create({'batch_id': batch.id})
         with self.assertRaises(ValidationError):
             apt.write({'state': 'scheduled'})
+
+    def test_primary_device_exposes_first_repair_device(self):
+        batch = self._make_batch(repair_count=2)
+        repair = batch.repair_ids[0]
+        # Give the first repair a product_tmpl and category so the computes fire
+        template = self.env['product.template'].search([], limit=1)
+        category = self.env['product.category'].search([], limit=1)
+        repair.write({
+            'product_tmpl_id': template.id if template else False,
+            'category_id': category.id if category else False,
+        })
+        apt = self.Appointment.create({'batch_id': batch.id})
+        if template:
+            self.assertEqual(apt.primary_device_id, template)
+        if category:
+            self.assertEqual(apt.primary_device_category_id, category)
