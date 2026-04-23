@@ -434,8 +434,7 @@
                                     <field name="lot_id"
                                             invisible="not lot_id"
                                             readonly="1"
-                                            string="Appareil"
-                                            context="{'lot_display': 'full'}"/>
+                                            string="Appareil"/>
                                     <field name="technician_employee_id" 
                                         groups="repair_custom.group_repair_manager" 
                                         options="{'no_open':True}"

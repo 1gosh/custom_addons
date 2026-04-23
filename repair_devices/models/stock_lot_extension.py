@@ -31,7 +31,7 @@ class StockLot(models.Model):
         if non_hifi:
             super(StockLot, non_hifi)._compute_display_name()
 
-        lot_display = self.env.context.get('lot_display', 'full')
+        lot_display = self.env.context.get('lot_display', 'serial_only')
         for rec in hifi:
             if lot_display == 'serial_only':
                 rec.display_name = rec.name or ""
