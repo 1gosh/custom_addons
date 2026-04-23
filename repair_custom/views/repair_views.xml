@@ -185,6 +185,7 @@
                 <field name="has_siblings" invisible="1"/>
                 <field name="is_quote_invoiceable" invisible="1"/>
                 <field name="batch_id" invisible="1"/>
+                <field name="product_variant_id" invisible="1"/>
                 <header>
                     <button name="action_validate" groups="repair_custom.group_repair_manager" invisible="state not in 'draft'" type="object" string="Confirmer la réparation" class="oe_highlight" data-hotkey="v"/>
                     <button name="action_repair_start" invisible="state not in 'confirmed'" type="object" string="Commencer" class="oe_highlight" data-hotkey="q"/>
@@ -395,7 +396,6 @@
                                     <field name="lot_id" nolabel="1"
                                         invisible="not product_tmpl_id"
                                         readonly="state not in 'draft'"
-                                        options="{'no_quick_create': True}"
                                         domain="[('product_id.product_tmpl_id', '=', product_tmpl_id),
                                                  ('is_hifi_unit', '=', True)]"
                                         context="{'default_product_id': product_variant_id,
