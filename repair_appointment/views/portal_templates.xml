@@ -14,65 +14,235 @@
                     <p>Votre appareil est prêt à être récupéré :</p>
                     <ul>
                         <t t-foreach="apt.repair_ids" t-as="r">
-                            <li><t t-out="r.name or r.display_name"/></li>
+                            <li><t t-out="r.device_id_name or r.display_name"/></li>
                         </t>
                     </ul>
                     <p>
-                        <strong>Lieu :</strong> <t t-out="apt.location_id.display_name"/><br/>
+                        <strong>Lieu de retrait :</strong> <t t-out="apt.location_id.display_name"/><br/>
                         <t t-if="apt.location_id.street">
-                            <t t-out="apt.location_id.street"/>, <t t-out="apt.location_id.city"/>
+                            <t t-out="apt.location_id.street"/>, <t t-out="apt.location_id.city"/><br/>
                         </t>
+                        <strong>Horaires d'ouverture :</strong> lundi–samedi, 15h00 – 19h30
                     </p>
 
-                    <h4 class="mt-4">Choisissez un créneau :</h4>
-                    <div id="pickup-slot-selector">Chargement...</div>
-                    <form method="POST" t-att-action="'/my/pickup/' + apt.token + '/book'" id="pickup-book-form">
-                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                        <input type="hidden" name="start_datetime" id="start_datetime_input"/>
-                        <button type="submit" class="btn btn-primary mt-2" disabled="1" id="book-submit">
-                            Valider mon rendez-vous
-                        </button>
-                    </form>
+                    <h4 class="mt-4">Choisissez votre jour de retrait :</h4>
+                    <div id="pickup-day-selector" class="mt-3">Chargement…</div>
+
+                    <div id="pickup-confirm-block" class="mt-3" style="display:none;">
+                        <div class="alert alert-info">
+                            <span>Confirmer le retrait du </span>
+                            <strong id="pickup-confirm-label"></strong>
+                            <span> à </span>
+                            <strong t-out="apt.location_id.display_name"/>
+                            <span> ?</span>
+                        </div>
+                        <form method="POST"
+                              t-att-action="'/my/pickup/' + apt.token + '/book'"
+                              id="pickup-book-form">
+                            <input type="hidden" name="csrf_token"
+                                   t-att-value="request.csrf_token()"/>
+                            <input type="hidden" name="pickup_date" id="pickup_date_input"/>
+                            <button type="submit" class="btn btn-primary">
+                                Valider mon rendez-vous
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary"
+                                    id="pickup-cancel-btn">
+                                Annuler
+                            </button>
+                        </form>
+                    </div>
                 </t>
 
                 <t t-if="apt.state == 'scheduled'">
-                    <p>Votre rendez-vous est confirmé :</p>
+                    <p>Votre retrait est confirmé :</p>
                     <ul>
-                        <li><strong>Date :</strong> <t t-out="apt.start_datetime"/></li>
-                        <li><strong>Lieu :</strong> <t t-out="apt.location_id.display_name"/></li>
+                        <li>📅 <strong t-out="apt.pickup_date"/></li>
+                        <li>📍 <strong t-out="apt.location_id.display_name"/></li>
+                        <li>🕒 Ouverture de 15h00 à 19h30</li>
                     </ul>
                     <p>Appareils à récupérer :</p>
                     <ul>
                         <t t-foreach="apt.repair_ids" t-as="r">
-                            <li><t t-out="r.name or r.display_name"/></li>
+                            <li><t t-out="r.device_id_name or r.display_name"/></li>
                         </t>
                     </ul>
 
-                    <h4 class="mt-4">Changer de créneau ?</h4>
-                    <div id="pickup-slot-selector">Chargement...</div>
-                    <form method="POST" t-att-action="'/my/pickup/' + apt.token + '/reschedule'" id="pickup-reschedule-form">
-                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                        <input type="hidden" name="start_datetime" id="start_datetime_input"/>
-                        <button type="submit" class="btn btn-primary mt-2" disabled="1" id="book-submit">
-                            Valider le nouveau créneau
-                        </button>
-                    </form>
+                    <h4 class="mt-4">Déplacer mon rendez-vous</h4>
+                    <div id="pickup-day-selector" class="mt-3">Chargement…</div>
+
+                    <div id="pickup-confirm-block" class="mt-3" style="display:none;">
+                        <div class="alert alert-info">
+                            <span>Déplacer le retrait au </span>
+                            <strong id="pickup-confirm-label"></strong>
+                            <span> ?</span>
+                        </div>
+                        <form method="POST"
+                              t-att-action="'/my/pickup/' + apt.token + '/reschedule'"
+                              id="pickup-reschedule-form">
+                            <input type="hidden" name="csrf_token"
+                                   t-att-value="request.csrf_token()"/>
+                            <input type="hidden" name="pickup_date" id="pickup_date_input"/>
+                            <button type="submit" class="btn btn-primary">
+                                Valider le nouveau jour
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary"
+                                    id="pickup-cancel-btn">
+                                Annuler
+                            </button>
+                        </form>
+                    </div>
+
                     <p class="text-muted mt-3">
                         Pour annuler votre rendez-vous, merci de nous contacter directement.
                     </p>
                 </t>
 
                 <t t-if="apt.state in ('done', 'cancelled', 'no_show')">
-                    <p>Ce rendez-vous est clôturé (<t t-out="apt.state"/>).</p>
+                    <p>Ce rendez-vous est clôturé.</p>
                     <p>Pour toute question, contactez-nous directement.</p>
                 </t>
             </div>
 
+            <style>
+                .pickup-month { margin-bottom: 1.5rem; }
+                .pickup-month h5 { margin-bottom: 0.5rem; text-transform: capitalize; }
+                .pickup-grid {
+                    display: grid;
+                    grid-template-columns: repeat(7, 1fr);
+                    gap: 4px;
+                }
+                .pickup-dayhead {
+                    text-align: center;
+                    font-size: 0.8em;
+                    color: #888;
+                    padding: 4px 0;
+                }
+                .pickup-day {
+                    border: 1px solid #ddd;
+                    padding: 10px 4px;
+                    text-align: center;
+                    border-radius: 4px;
+                    background: #fff;
+                }
+                .pickup-day.open { cursor: pointer; }
+                .pickup-day.open:hover { background: #e7f1ff; border-color: #0d6efd; }
+                .pickup-day.open.selected { background: #0d6efd; color: white; }
+                .pickup-day.closed, .pickup-day.lead_time {
+                    background: #f5f5f5; color: #bbb;
+                }
+                .pickup-day.full { background: #fde2e2; color: #a33; }
+                .pickup-day.empty { border: none; background: transparent; }
+                .pickup-legend { font-size: 0.85em; color: #666; margin-top: 0.5rem; }
+                .pickup-legend span {
+                    display: inline-block; margin-right: 1rem;
+                    padding: 2px 8px; border-radius: 3px;
+                }
+                .pickup-legend .l-closed { background: #f5f5f5; color: #bbb; }
+                .pickup-legend .l-full { background: #fde2e2; color: #a33; }
+                .pickup-legend .l-open { background: #e7f1ff; color: #0d6efd; }
+            </style>
+
             <script type="text/javascript">
                 (async function() {
-                    const container = document.getElementById('pickup-slot-selector');
+                    const container = document.getElementById('pickup-day-selector');
                     if (!container) return;
                     const token = '<t t-out="apt.token"/>';
+                    const currentDate = '<t t-out="apt.pickup_date or \'\'"/>';
+                    const monthNames = ['janvier','février','mars','avril','mai','juin',
+                                        'juillet','août','septembre','octobre','novembre','décembre'];
+                    const dayHeads = ['L','M','M','J','V','S','D'];
+
+                    let selectedDate = null;
+
+                    function fmtDateLabel(iso) {
+                        const d = new Date(iso + 'T12:00:00');
+                        const weekdays = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+                        return weekdays[d.getDay()] + ' ' + d.getDate() + ' '
+                               + monthNames[d.getMonth()] + ' ' + d.getFullYear();
+                    }
+
+                    function render(days) {
+                        // Group by YYYY-MM
+                        const byMonth = {};
+                        days.forEach(d => {
+                            const k = d.date.substring(0, 7);
+                            (byMonth[k] = byMonth[k] || []).push(d);
+                        });
+                        const monthsOrdered = Object.keys(byMonth).sort();
+                        const root = document.createElement('div');
+                        monthsOrdered.forEach(monthKey => {
+                            const [year, month] = monthKey.split('-').map(Number);
+                            const wrap = document.createElement('div');
+                            wrap.className = 'pickup-month';
+                            const title = document.createElement('h5');
+                            title.textContent = monthNames[month - 1] + ' ' + year;
+                            wrap.appendChild(title);
+
+                            const grid = document.createElement('div');
+                            grid.className = 'pickup-grid';
+                            dayHeads.forEach(h => {
+                                const el = document.createElement('div');
+                                el.className = 'pickup-dayhead';
+                                el.textContent = h;
+                                grid.appendChild(el);
+                            });
+
+                            // Pad leading empty cells based on first day's weekday (Mon=0)
+                            const firstDay = byMonth[monthKey][0];
+                            const firstJs = new Date(firstDay.date + 'T12:00:00');
+                            let leading = (firstJs.getDay() + 6) % 7;  // Mon=0..Sun=6
+                            for (let i = 0; i &lt; leading; i++) {
+                                const pad = document.createElement('div');
+                                pad.className = 'pickup-day empty';
+                                grid.appendChild(pad);
+                            }
+
+                            byMonth[monthKey].forEach(d => {
+                                const cell = document.createElement('div');
+                                cell.className = 'pickup-day ' + d.state;
+                                cell.dataset.date = d.date;
+                                const js = new Date(d.date + 'T12:00:00');
+                                cell.textContent = js.getDate();
+                                if (d.state === 'open') {
+                                    cell.addEventListener('click', () => {
+                                        selectedDate = d.date;
+                                        document.querySelectorAll('.pickup-day.selected')
+                                            .forEach(c => c.classList.remove('selected'));
+                                        cell.classList.add('selected');
+                                        document.getElementById('pickup_date_input').value = d.date;
+                                        document.getElementById('pickup-confirm-label').textContent
+                                            = fmtDateLabel(d.date);
+                                        document.getElementById('pickup-confirm-block').style.display = 'block';
+                                    });
+                                }
+                                if (d.date === currentDate) {
+                                    cell.classList.add('selected');
+                                }
+                                grid.appendChild(cell);
+                            });
+                            wrap.appendChild(grid);
+                            root.appendChild(wrap);
+                        });
+                        const legend = document.createElement('div');
+                        legend.className = 'pickup-legend';
+                        legend.innerHTML = '<span class="l-open">Disponible</span>'
+                                         + '<span class="l-full">Complet</span>'
+                                         + '<span class="l-closed">Fermé / Indisponible</span>';
+                        root.appendChild(legend);
+                        container.innerHTML = '';
+                        container.appendChild(root);
+
+                        const cancelBtn = document.getElementById('pickup-cancel-btn');
+                        if (cancelBtn) {
+                            cancelBtn.addEventListener('click', () => {
+                                document.getElementById('pickup-confirm-block').style.display = 'none';
+                                document.querySelectorAll('.pickup-day.selected')
+                                    .forEach(c => c.classList.remove('selected'));
+                                selectedDate = null;
+                            });
+                        }
+                    }
+
                     try {
                         const resp = await fetch('/my/pickup/' + token + '/slots', {
                             method: 'POST',
@@ -80,30 +250,14 @@
                             body: JSON.stringify({jsonrpc: '2.0', method: 'call', params: {}}),
                         });
                         const payload = await resp.json();
-                        const slots = payload.result || [];
-                        if (!slots.length) {
-                            container.innerHTML = '<em>Aucun créneau disponible.</em>';
+                        const days = payload.result || [];
+                        if (!days.length) {
+                            container.innerHTML = '&lt;em&gt;Aucun jour disponible.&lt;/em&gt;';
                             return;
                         }
-                        const list = document.createElement('div');
-                        slots.forEach(s => {
-                            const btn = document.createElement('button');
-                            btn.type = 'button';
-                            btn.className = 'btn btn-outline-primary m-1';
-                            btn.disabled = (s.remaining &lt;= 0);
-                            btn.textContent = s.label + ' (' + s.remaining + ' places)';
-                            btn.addEventListener('click', () => {
-                                document.getElementById('start_datetime_input').value = s.start;
-                                document.getElementById('book-submit').disabled = false;
-                                list.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-                                btn.classList.add('active');
-                            });
-                            list.appendChild(btn);
-                        });
-                        container.innerHTML = '';
-                        container.appendChild(list);
+                        render(days);
                     } catch (e) {
-                        container.innerHTML = '<em>Erreur de chargement des créneaux.</em>';
+                        container.innerHTML = '&lt;em&gt;Erreur de chargement du calendrier.&lt;/em&gt;';
                     }
                 })();
             </script>
@@ -113,12 +267,14 @@
     <template id="portal_pickup_confirmation" name="Portail retrait — confirmation">
         <t t-call="portal.frontend_layout">
             <div class="container mt-4 mb-5">
-                <h2>Rendez-vous confirmé</h2>
-                <p>Votre rendez-vous est confirmé pour le
-                   <strong t-out="apt.start_datetime"/> à
+                <h2>Retrait confirmé</h2>
+                <p>Votre retrait est confirmé pour le
+                   <strong t-out="apt.pickup_date"/> à
                    <strong t-out="apt.location_id.display_name"/>.</p>
+                <p class="text-muted">Ouverture de 15h00 à 19h30.</p>
                 <p>
-                    <a t-att-href="'/my/pickup/' + apt.token" class="btn btn-outline-primary">
+                    <a t-att-href="'/my/pickup/' + apt.token"
+                       class="btn btn-outline-primary">
                         Retour à ma demande
                     </a>
                 </p>
