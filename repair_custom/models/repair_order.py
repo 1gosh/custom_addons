@@ -504,7 +504,6 @@ class Repair(models.Model):
         store=False,
         string="État livraison dossier",
     )
-    batch_count = fields.Integer(compute='_compute_batch_count', string="Autres appareils")
     sibling_repair_ids = fields.Many2many(
         'repair.order',
         string="Autres réparations du dossier",
@@ -513,15 +512,15 @@ class Repair(models.Model):
     has_siblings = fields.Boolean(
         compute='_compute_sibling_repair_ids',
     )
-    batch_sibling_count = fields.Integer(
-        compute='_compute_batch_sibling_count',
+    batch_count = fields.Integer(
+        compute='_compute_batch_count',
         string="Réparations dans le dossier",
     )
 
     @api.depends('batch_id.repair_ids')
-    def _compute_batch_sibling_count(self):
+    def _compute_batch_count(self):
         for rec in self:
-            rec.batch_sibling_count = len(rec.batch_id.repair_ids) if rec.batch_id else 0
+            rec.batch_count = len(rec.batch_id.repair_ids) if rec.batch_id else 0
 
     def action_open_batch(self):
         self.ensure_one()
@@ -534,15 +533,6 @@ class Repair(models.Model):
             'view_mode': 'form',
             'target': 'current',
         }
-
-    @api.depends('batch_id')
-    def _compute_batch_count(self):
-        for rec in self:
-            if rec.batch_id:
-                domain = [('batch_id', '=', rec.batch_id.id)]
-                rec.batch_count = self.env['repair.order'].search_count(domain)
-            else:
-                rec.batch_count = 0
 
     @api.depends('batch_id', 'batch_id.repair_ids')
     def _compute_sibling_repair_ids(self):

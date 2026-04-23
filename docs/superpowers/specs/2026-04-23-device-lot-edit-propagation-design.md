@@ -33,11 +33,28 @@ Today, edits to these fields don't always propagate to what the repair order dis
 
 ## Design
 
-### 1. Remove the redundant `serial_number` Char
+### 1. Replace `serial_number` Char with a Many2one on `stock.lot`
 
-- **Delete** `repair.order.serial_number = fields.Char(...)` at `repair_order.py:391`.
-- Replace every view/report reference to `serial_number` with `lot_id.name` (or `lot_id` using the lot's live `display_name`).
-- For inline editing of the serial from the repair form, rely on the `external_link` on the `lot_id` Many2one widget — users click it, edit `name` on `stock.lot`, and every repair referencing that lot updates instantly (lot's `display_name` is non-stored).
+The `serial_number` Char exists today so users can type a customer's serial at intake; the lot + quant are materialized at confirmation. We keep that purpose but change the field type so that:
+
+- typed input autocompletes against existing lots (duplicate detection while typing);
+- the repair always points at the real `stock.lot` record (no drift);
+- warranty / picking logic — which already hangs off `lot_id` — is untouched.
+
+**Changes on `repair.order`:**
+
+- **Delete** `serial_number = fields.Char(...)` at `repair_order.py:391`.
+- **Promote `lot_id`** from `readonly=True` (currently set at confirmation) to an editable Many2one used as the intake field itself. Remove the `readonly=True` constraint, but keep it disabled until `product_tmpl_id` is set (`readonly="not product_tmpl_id"` in the view).
+- Autocomplete is **scoped to the currently selected product**: apply
+  `domain="[('product_id.product_tmpl_id', '=', product_tmpl_id)]"`
+  on the `lot_id` field in the repair form. This keeps the dropdown focused on the right model and still surfaces existing duplicates for that model as the user types.
+- **Create-on-the-fly at entry.** Allow Many2one's default `name_create` path: when the user types a serial that doesn't exist, Odoo creates a new `stock.lot` immediately. We need to ensure `product_id` is supplied at creation — do this by adding `context="{'default_product_id': product_variant_id}"` (or equivalent) on the field so `name_create` produces a valid lot. Lots without quants are harmless; the quant/incoming-stock transfer continues to happen at repair confirmation as it does today. Repairs cancelled before confirmation may leave orphan lots — acceptable, and cleanable via a periodic query if it becomes a concern.
+- If the currently-selected `product_tmpl_id` changes after a lot was picked, clear `lot_id` (existing `onchange` at `repair_order.py:416` already does something similar — extend/verify).
+
+**Views / reports:**
+
+- Replace every view/report reference to `serial_number` with `lot_id` (live `display_name`) or `lot_id.name` where only the raw serial is needed.
+- Ensure the external-link arrow on the `lot_id` Many2one is visible so the user can jump to the lot form to fix a typo post-creation.
 
 ### 2. Make `device_id_name` non-stored
 
@@ -79,16 +96,22 @@ After the changes, perform a manual smoke test:
 
 ## Migration
 
-`repair.order.serial_number` is being dropped. If any existing rows have a `serial_number` value that differs from `lot_id.name` (because the serial was edited on the lot after the repair was cached), we prefer the lot's current value — no data migration needed. The column can be dropped by Odoo's ORM on module update; for a paranoid audit, run a pre-upgrade SQL check:
+`repair.order.serial_number` is being dropped. Because we're also changing how `lot_id` is populated (now at entry rather than at confirmation), existing data needs a one-shot backfill:
 
-```sql
-SELECT id, name, serial_number, lot_id
-FROM repair_order
-WHERE serial_number IS NOT NULL
-  AND serial_number != COALESCE((SELECT sl.name FROM stock_lot sl WHERE sl.id = lot_id), '');
-```
+1. **Audit step — find rows where the cached serial and the lot disagree:**
 
-Any rows returned are candidates for manual review before the module update.
+   ```sql
+   SELECT id, name, serial_number, lot_id
+   FROM repair_order
+   WHERE serial_number IS NOT NULL
+     AND serial_number != COALESCE((SELECT sl.name FROM stock_lot sl WHERE sl.id = lot_id), '');
+   ```
+
+   Any rows returned are candidates for manual review before the module update — the truth is almost always `lot.name`, but we want eyes on it.
+
+2. **Backfill step — for draft repairs with a typed `serial_number` but no `lot_id`:** create matching `stock.lot` records (scoped to their `product_variant_id`) or link to an existing lot if one with the same `(serial, product)` tuple already exists. This can run as a post-install migration hook.
+
+3. After backfill, Odoo's ORM drops the `serial_number` column on module update.
 
 ## Risks
 

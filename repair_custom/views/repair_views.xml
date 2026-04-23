@@ -184,6 +184,7 @@
                 <field name="delivery_state" invisible="1"/>
                 <field name="has_siblings" invisible="1"/>
                 <field name="is_quote_invoiceable" invisible="1"/>
+                <field name="batch_id" invisible="1"/>
                 <header>
                     <button name="action_validate" groups="repair_custom.group_repair_manager" invisible="state not in 'draft'" type="object" string="Confirmer la réparation" class="oe_highlight" data-hotkey="v"/>
                     <button name="action_repair_start" invisible="state not in 'confirmed'" type="object" string="Commencer" class="oe_highlight" data-hotkey="q"/>
@@ -296,7 +297,7 @@
                                 class="oe_stat_button"
                                 icon="fa-folder-open"
                                 invisible="not batch_id">
-                            <field name="batch_sibling_count" widget="statinfo" string="Dossier"/>
+                            <field name="batch_count" widget="statinfo" string="Dossier"/>
                         </button>
                         <button name="action_open_unit"
                                 string="Fiche Appareil"
@@ -319,9 +320,6 @@
                         </button>
                     </div>
                     <div class="oe_title">
-                        <h4 invisible="not batch_id" class="text-muted">
-                            <i class="fa fa-folder-open"/> <span invisible="batch_count == 0"></span>(1/<span class="o_stat_value"><field name="batch_count"/></span>) Dossier : <field name="batch_id" readonly="1" class="oe_inline"/>
-                        </h4>
                         <label class="o_form_label" invisible="lot_id" for="entry_date"/>
                         <field name="entry_date" invisible="not lot_id" class="o_form_label" string="Date d'entrée" widget="datetime" options="{'show_time':false}" readonly="state not in 'draft'" />
                         <h1 class="d-flex">
