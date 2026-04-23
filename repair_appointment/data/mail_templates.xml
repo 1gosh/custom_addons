@@ -107,7 +107,7 @@
                 <div>
                     <p>Bonjour <t t-out="object.partner_id.name or ''"/>,</p>
                     <p>Votre rendez-vous a été déplacé au
-                       <strong t-out="object.start_datetime"/>.</p>
+                       <strong t-out="object.pickup_date and object.pickup_date.strftime('%d/%m/%Y') or ''"/>.</p>
                     <p>
                         <a t-att-href="object._portal_url()">Voir mon rendez-vous</a>
                     </p>

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from unittest.mock import patch
 from odoo import fields
 from odoo.tests import tagged
@@ -45,9 +45,9 @@ class TestReminderCron(RepairAppointmentCase):
         apt = self._make_pending_with_notification(days_ago=4)
         self.Appointment._cron_process_pending_appointments()
         apt.last_reminder_sent_at = fields.Datetime.now() - timedelta(days=4)
-        start = datetime.now().replace(hour=15, minute=0, second=0, microsecond=0) + timedelta(days=3)
-        end = start + timedelta(hours=2, minutes=15)
-        apt.with_context(skip_slot_validation=True).action_schedule(start, end)
+        apt.with_context(skip_slot_validation=True).action_schedule(
+            date.today() + timedelta(days=3),
+        )
         self.Appointment._cron_process_pending_appointments()
         self.assertFalse(apt.escalation_activity_id)
 

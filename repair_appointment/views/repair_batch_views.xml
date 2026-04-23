@@ -12,7 +12,7 @@
                     </group>
                     <field name="appointment_ids" readonly="1">
                         <tree>
-                            <field name="start_datetime"/>
+                            <field name="pickup_date"/>
                             <field name="device_count" string="Nb."/>
                             <field name="device_summary"/>
                             <field name="location_id"/>
