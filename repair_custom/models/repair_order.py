@@ -391,7 +391,7 @@ class Repair(models.Model):
     serial_number = fields.Char("N° de série")
     lot_id = fields.Many2one('stock.lot', string="Appareil physique", readonly=True, index=True,
                               domain=[('is_hifi_unit', '=', True)])
-    device_id_name = fields.Char("Appareil", compute="_compute_device_id_name", store=True, readonly=True)
+    device_id_name = fields.Char("Appareil", compute="_compute_device_id_name", readonly=True)
     show_lot_field = fields.Boolean(string="Afficher champ unité", compute="_compute_show_lot_field")
 
     @api.depends('lot_id', 'lot_id.product_id', 'lot_id.hifi_variant_id', 'product_tmpl_id', 'product_tmpl_id.display_name', 'variant_id')
