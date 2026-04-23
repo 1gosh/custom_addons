@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import date, timedelta
 from odoo.exceptions import UserError, ValidationError
 from odoo.tests import tagged
 from .common import RepairAppointmentCase
@@ -10,28 +10,43 @@ class TestStateMachine(RepairAppointmentCase):
     def _make_pending(self):
         return self.Appointment.create({'batch_id': self._make_batch().id})
 
-    def _future_slot(self, days=3):
-        start = datetime.now().replace(hour=15, minute=0, second=0, microsecond=0) + timedelta(days=days)
-        end = start + timedelta(hours=2, minutes=15)
-        return start, end
+    def _future_date(self, days=3):
+        return date.today() + timedelta(days=days)
+
+    def test_pending_to_scheduled_sets_pickup_date(self):
+        batch = self._make_batch()
+        apt = self.Appointment.create({'batch_id': batch.id})
+        target = date.today() + timedelta(days=3)
+        apt.with_context(skip_slot_validation=True).action_schedule(target)
+        self.assertEqual(apt.state, 'scheduled')
+        self.assertEqual(apt.pickup_date, target)
+
+    def test_reschedule_in_place_increments_counter(self):
+        batch = self._make_batch()
+        apt = self.Appointment.create({'batch_id': batch.id})
+        d1 = date.today() + timedelta(days=3)
+        d2 = date.today() + timedelta(days=5)
+        apt.with_context(skip_slot_validation=True).action_schedule(d1)
+        apt.with_context(skip_slot_validation=True).action_schedule(d2)
+        self.assertEqual(apt.pickup_date, d2)
+        self.assertEqual(apt.reschedule_count, 1)
 
     def test_action_schedule_moves_pending_to_scheduled(self):
         apt = self._make_pending()
-        start, end = self._future_slot()
-        apt.with_context(skip_slot_validation=True).action_schedule(start, end)
+        target = self._future_date()
+        apt.with_context(skip_slot_validation=True).action_schedule(target)
         self.assertEqual(apt.state, 'scheduled')
-        self.assertEqual(apt.start_datetime, start)
-        self.assertEqual(apt.end_datetime, end)
+        self.assertEqual(apt.pickup_date, target)
         self.assertEqual(apt.reschedule_count, 0)
 
     def test_action_schedule_in_place_reschedule_increments_count(self):
         apt = self._make_pending()
-        start, end = self._future_slot(days=3)
-        apt.with_context(skip_slot_validation=True).action_schedule(start, end)
-        new_start, new_end = self._future_slot(days=5)
-        apt.with_context(skip_slot_validation=True).action_schedule(new_start, new_end)
+        d1 = self._future_date(days=3)
+        apt.with_context(skip_slot_validation=True).action_schedule(d1)
+        d2 = self._future_date(days=5)
+        apt.with_context(skip_slot_validation=True).action_schedule(d2)
         self.assertEqual(apt.state, 'scheduled')
-        self.assertEqual(apt.start_datetime, new_start)
+        self.assertEqual(apt.pickup_date, d2)
         self.assertEqual(apt.reschedule_count, 1)
 
     def test_action_mark_done_requires_scheduled(self):
@@ -41,15 +56,13 @@ class TestStateMachine(RepairAppointmentCase):
 
     def test_action_mark_done_from_scheduled(self):
         apt = self._make_pending()
-        start, end = self._future_slot()
-        apt.with_context(skip_slot_validation=True).action_schedule(start, end)
+        apt.with_context(skip_slot_validation=True).action_schedule(self._future_date())
         apt.action_mark_done()
         self.assertEqual(apt.state, 'done')
 
     def test_action_mark_no_show_from_scheduled(self):
         apt = self._make_pending()
-        start, end = self._future_slot()
-        apt.with_context(skip_slot_validation=True).action_schedule(start, end)
+        apt.with_context(skip_slot_validation=True).action_schedule(self._future_date())
         apt.action_mark_no_show()
         self.assertEqual(apt.state, 'no_show')
 
@@ -60,8 +73,7 @@ class TestStateMachine(RepairAppointmentCase):
 
     def test_action_cancel_from_scheduled(self):
         apt = self._make_pending()
-        start, end = self._future_slot()
-        apt.with_context(skip_slot_validation=True).action_schedule(start, end)
+        apt.with_context(skip_slot_validation=True).action_schedule(self._future_date())
         apt.action_cancel()
         self.assertEqual(apt.state, 'cancelled')
 
@@ -71,32 +83,23 @@ class TestStateMachine(RepairAppointmentCase):
         with self.assertRaises(UserError):
             apt.action_cancel()
 
-    def test_action_confirm_manual_requires_dates(self):
+    def test_action_confirm_manual_requires_date(self):
         apt = self._make_pending()
-        with self.assertRaises(UserError):
-            apt.action_confirm_manual()
-
-    def test_action_confirm_manual_requires_end_date(self):
-        apt = self._make_pending()
-        start, _end = self._future_slot()
-        apt.start_datetime = start
         with self.assertRaises(UserError):
             apt.action_confirm_manual()
 
     def test_action_confirm_manual_transitions_pending_to_scheduled(self):
         apt = self._make_pending()
-        start, end = self._future_slot()
-        apt.write({'start_datetime': start, 'end_datetime': end})
+        target = self._future_date()
+        apt.write({'pickup_date': target})
         apt.action_confirm_manual()
         self.assertEqual(apt.state, 'scheduled')
-        self.assertEqual(apt.start_datetime, start)
-        self.assertEqual(apt.end_datetime, end)
+        self.assertEqual(apt.pickup_date, target)
         self.assertEqual(apt.reschedule_count, 0)
 
     def test_action_confirm_manual_rejects_non_pending(self):
         apt = self._make_pending()
-        start, end = self._future_slot()
-        apt.with_context(skip_slot_validation=True).action_schedule(start, end)
+        apt.with_context(skip_slot_validation=True).action_schedule(self._future_date())
         with self.assertRaises(UserError):
             apt.action_confirm_manual()
 

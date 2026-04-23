@@ -143,21 +143,21 @@ class RepairPickupAppointment(models.Model):
         return super().create(vals_list)
 
     def write(self, vals):
-        track_datetime_change = False
-        old_starts = {}
-        if 'start_datetime' in vals and not self.env.context.get('skip_reschedule_notification'):
-            track_datetime_change = True
-            old_starts = {apt.id: apt.start_datetime for apt in self}
+        track_date_change = False
+        old_dates = {}
+        if 'pickup_date' in vals and not self.env.context.get('skip_reschedule_notification'):
+            track_date_change = True
+            old_dates = {apt.id: apt.pickup_date for apt in self}
         res = super().write(vals)
-        if track_datetime_change:
+        if track_date_change:
             template = self.env.ref(
                 'repair_appointment.mail_template_pickup_reschedule',
                 raise_if_not_found=False,
             )
             for apt in self:
                 if (apt.state == 'scheduled'
-                        and old_starts.get(apt.id)
-                        and old_starts.get(apt.id) != apt.start_datetime):
+                        and old_dates.get(apt.id)
+                        and old_dates.get(apt.id) != apt.pickup_date):
                     if template:
                         template.send_mail(apt.id, force_send=False)
                     apt.message_post(body=_(
@@ -178,9 +178,9 @@ class RepairPickupAppointment(models.Model):
                     "Ce rendez-vous est déjà dans un état final (%s).",
                 ) % dict(STATE_SELECTION).get(apt.state))
 
-    def action_schedule(self, start_datetime, end_datetime):
-        """Transition pending → scheduled, or update datetime in-place on
-        an already-scheduled appointment. Validates slot availability
+    def action_schedule(self, pickup_date):
+        """Transition pending → scheduled, or update pickup_date in place
+        on an already-scheduled appointment. Validates day availability
         unless context `skip_slot_validation` is True."""
         for apt in self:
             apt._ensure_not_terminal()
@@ -188,63 +188,51 @@ class RepairPickupAppointment(models.Model):
                 raise UserError(_("Impossible de planifier ce rendez-vous."))
 
             if not self.env.context.get('skip_slot_validation'):
-                apt._validate_slot(start_datetime, end_datetime)
+                apt._validate_day(pickup_date)
 
             was_scheduled = apt.state == 'scheduled'
-            old_start = apt.start_datetime
+            old_date = apt.pickup_date
 
             apt.write({
-                'start_datetime': start_datetime,
-                'end_datetime': end_datetime,
+                'pickup_date': pickup_date,
                 'state': 'scheduled',
             })
 
-            if was_scheduled and old_start != start_datetime:
+            if was_scheduled and old_date != pickup_date:
                 apt.reschedule_count += 1
                 apt.message_post(body=_(
                     "RDV déplacé du %(old)s au %(new)s."
-                ) % {
-                    'old': old_start,
-                    'new': start_datetime,
-                })
+                ) % {'old': old_date, 'new': pickup_date})
             elif not was_scheduled:
                 apt.message_post(body=_(
                     "RDV confirmé pour le %s."
-                ) % start_datetime)
+                ) % pickup_date)
 
-            # Mark any open escalation activities as done
             apt._close_open_escalation_activities()
 
     def action_confirm_manual(self):
         """Manual confirmation path for appointments booked by phone.
-
-        Unlike the portal flow, the staff is free to choose any datetime
-        (a phoned-in slot may not line up with the template schedule),
-        so slot validation is bypassed. Dates must already be filled on
-        the record before calling this.
-        """
+        Pickup date must already be filled on the record; slot validation
+        is bypassed so staff can override closure / capacity rules."""
         for apt in self:
             if apt.state != 'pending':
                 raise UserError(_(
                     "Seuls les rendez-vous en attente peuvent être confirmés "
                     "manuellement."
                 ))
-            if not apt.start_datetime or not apt.end_datetime:
+            if not apt.pickup_date:
                 raise UserError(_(
-                    "Renseignez le début et la fin du rendez-vous avant "
-                    "de confirmer."
+                    "Renseignez la date de retrait avant de confirmer."
                 ))
             apt.with_context(skip_slot_validation=True).action_schedule(
-                apt.start_datetime, apt.end_datetime,
+                apt.pickup_date,
             )
 
-    def _validate_slot(self, start_datetime, end_datetime):
-        if not start_datetime or not end_datetime:
-            raise UserError(_("Début et fin de créneau requis."))
-        if end_datetime <= start_datetime:
-            raise UserError(_("La fin doit être postérieure au début."))
-        if not self._is_slot_available(start_datetime, end_datetime):
-            raise UserError(_("Ce créneau n'est plus disponible."))
+    def _validate_day(self, pickup_date):
+        if not pickup_date:
+            raise UserError(_("Date de retrait requise."))
+        if not self._is_day_available(pickup_date):
+            raise UserError(_("Ce jour n'est plus disponible."))
 
     def action_mark_done(self):
         for apt in self:
