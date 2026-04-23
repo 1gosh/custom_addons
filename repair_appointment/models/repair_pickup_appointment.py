@@ -273,26 +273,29 @@ class RepairPickupAppointment(models.Model):
         ))
 
     @api.model
-    def _compute_available_slots(self, location, date_from=None, date_to=None,
-                                 booking_horizon_days=None):
-        """Return a list of dicts describing available slots between
-        date_from and date_to at `location`.
+    def _compute_available_days(self, location, date_from=None, date_to=None,
+                                booking_horizon_days=None):
+        """Return a list of dicts describing each calendar day in the
+        booking window at `location`.
 
         Each dict: {
-            'datetime_start': datetime,
-            'datetime_end': datetime,
+            'date': date,
+            'state': 'open' | 'closed' | 'full' | 'lead_time',
             'remaining_capacity': int,
         }
 
-        Respects: schedule weekly mask, closures, min lead time,
-        booking horizon, slot capacity.
+        Days before the min-lead cutoff are excluded entirely (the portal
+        renders the cutoff explicitly; no need to send them). Days past
+        the horizon are also excluded. Days within the window are always
+        returned, with their state explaining why they are/aren't bookable.
         """
         from datetime import timedelta
 
         today = fields.Date.today()
         min_lead = self._get_min_lead_days()
-        horizon = booking_horizon_days if booking_horizon_days is not None \
-            else self._get_booking_horizon_days()
+        horizon = (booking_horizon_days
+                   if booking_horizon_days is not None
+                   else self._get_booking_horizon_days())
 
         earliest = today + timedelta(days=min_lead)
         latest = today + timedelta(days=horizon)
@@ -304,88 +307,75 @@ class RepairPickupAppointment(models.Model):
             return []
 
         schedule = self.env['repair.pickup.schedule'].search(
-            [('location_id', '=', location.id), ('active', '=', True)], limit=1,
+            [('location_id', '=', location.id), ('active', '=', True)],
+            limit=1,
         )
         if not schedule:
             return []
 
         closures = self.env['repair.pickup.closure'].search(
             [('active', '=', True)],
-        ).filtered(lambda c: c.location_id in (location, False) or c.location_id.id is False)
+        ).filtered(
+            lambda c: c.location_id in (location, False) or c.location_id.id is False
+        )
 
-        slots = []
+        results = []
         day = date_from
         while day <= date_to:
-            if schedule._day_is_open(day.weekday()) and not any(
-                c._covers(day, location) for c in closures
-            ):
-                for (start_f, end_f) in [
-                    (schedule.slot1_start, schedule.slot1_end),
-                    (schedule.slot2_start, schedule.slot2_end),
-                ]:
-                    start_dt = self._float_to_datetime(day, start_f)
-                    end_dt = self._float_to_datetime(day, end_f)
-                    booked = self._count_booked_in_slot(start_dt, location)
-                    remaining = max(0, schedule.slot_capacity - booked)
-                    slots.append({
-                        'datetime_start': start_dt,
-                        'datetime_end': end_dt,
-                        'remaining_capacity': remaining,
-                    })
+            entry = {'date': day, 'state': 'open', 'remaining_capacity': 0}
+            if not schedule._day_is_open(day.weekday()):
+                entry['state'] = 'closed'
+            elif any(c._covers(day, location) for c in closures):
+                entry['state'] = 'closed'
+            else:
+                booked = self._count_booked_on_day(day, location)
+                remaining = max(0, schedule.daily_capacity - booked)
+                entry['remaining_capacity'] = remaining
+                entry['state'] = 'open' if remaining > 0 else 'full'
+            results.append(entry)
             day += timedelta(days=1)
 
-        return slots
+        return results
 
     @api.model
-    def _float_to_datetime(self, day, float_hour):
-        """Convert (date, 15.25) → datetime(day, 15, 15, 0)."""
-        from datetime import datetime as dt_cls
-        hours = int(float_hour)
-        minutes = int(round((float_hour - hours) * 60))
-        return dt_cls.combine(day, dt_cls.min.time()).replace(hour=hours, minute=minutes)
-
-    @api.model
-    def _count_booked_in_slot(self, start_dt, location):
-        """Count scheduled appointments whose start_datetime matches
-        start_dt and whose location is `location`. Excludes cancelled,
-        done, no_show."""
+    def _count_booked_on_day(self, pickup_date, location):
+        """Count scheduled appointments at `location` on `pickup_date`."""
         return self.search_count([
-            ('start_datetime', '=', start_dt),
+            ('pickup_date', '=', pickup_date),
             ('location_id', '=', location.id),
             ('state', '=', 'scheduled'),
         ])
 
-    def _is_slot_available(self, start_dt, end_dt):
-        """True if the target slot has remaining capacity and is within
+    def _is_day_available(self, pickup_date):
+        """True if the target day has remaining capacity and is within
         the schedule + closures + lead-time rules. Excludes self from
-        the count so reschedules into the same slot work."""
+        the count so same-day reschedules pass."""
         self.ensure_one()
-        if not self.location_id:
+        from datetime import timedelta
+        if not self.location_id or not pickup_date:
             return False
         schedule = self.env['repair.pickup.schedule'].search(
             [('location_id', '=', self.location_id.id)], limit=1,
         )
         if not schedule:
             return False
-        if not schedule._day_is_open(start_dt.weekday()):
+        if not schedule._day_is_open(pickup_date.weekday()):
             return False
         closures = self.env['repair.pickup.closure'].search([('active', '=', True)])
         for c in closures:
-            if c._covers(start_dt.date(), self.location_id):
+            if c._covers(pickup_date, self.location_id):
                 return False
-        from datetime import timedelta
         min_lead = self._get_min_lead_days()
-        if start_dt.date() < fields.Date.today() + timedelta(days=min_lead):
-            # Context bypass for staff
+        if pickup_date < fields.Date.today() + timedelta(days=min_lead):
             if not self.env.context.get('bypass_lead_time'):
                 return False
         booked = self.search_count([
-            ('start_datetime', '=', start_dt),
+            ('pickup_date', '=', pickup_date),
             ('location_id', '=', self.location_id.id),
             ('state', '=', 'scheduled'),
             ('id', '!=', self.id),
         ])
-        if booked >= schedule.slot_capacity:
+        if booked >= schedule.daily_capacity:
             if not self.env.context.get('bypass_capacity'):
                 return False
         return True
