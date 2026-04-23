@@ -1,59 +1,26 @@
-/* Constrain the whole portal pickup page to a centered, readable
-   column so the intro text and calendar feel like one coherent
-   flow instead of the calendar floating alone. */
+/* Constrain the portal page to a readable centered column on all
+   viewports. Single column flow; the Flatpickr calendar opens as a
+   popup from the text input. */
 .pickup-portal-page {
-    max-width: 980px;
+    max-width: 640px;
     margin: 0 auto;
 }
 
-/* Center the H4 above the two columns, not only above the calendar. */
-.pickup-portal-page .pickup-picker-heading {
-    text-align: center;
+/* Cap the date input width on desktop so it doesn't stretch across
+   the whole column. The wrapper sets the max-width; both the original
+   input and Flatpickr's altInput (which shares the form-control class)
+   inherit it naturally. */
+.pickup-date-field {
+    max-width: 340px;
 }
-
-/* The text input is only a value holder for the form POST; the inline
-   Flatpickr calendar is the visible UI. */
-.pickup-date-holder {
-    position: absolute;
-    left: -9999px;
-    width: 1px;
-    height: 1px;
-    opacity: 0;
-    pointer-events: none;
-}
-
-/* Calendar card. Sized to the Flatpickr default calendar width
-   (~320px) and centered inside its column. No internal Flatpickr
-   overrides — the library's default sizing handles mobile cleanly. */
-.pickup-picker-wrap {
-    width: fit-content;
-    margin: 0 auto;
-    padding: 1rem;
+.pickup-date-field .form-control {
+    cursor: pointer;
     background: #fff;
-    border: 1px solid #dee2e6;
-    border-radius: 0.5rem;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-/* On desktop, left-align the card inside its column so the calendar
-   sits next to the info block instead of drifting to the middle of
-   the right column. */
-@media (min-width: 768px) {
-    .pickup-picker-wrap {
-        margin-left: 0;
-    }
-}
-.pickup-picker-wrap .flatpickr-calendar.inline {
-    box-shadow: none;
 }
 
-.pickup-confirm-wrap {
-    max-width: 520px;
-    margin: 1rem auto;
-}
-
-/* Padding days from adjacent months that are still selectable must look
-   like regular in-month available days, not muted. Disabled padding
-   days stay visibly "grey" so users don't try to click them. */
+/* Padding days from adjacent months that are still selectable must
+   look like regular in-month available days, not muted. Disabled
+   padding days stay visibly "grey". */
 .flatpickr-day.nextMonthDay,
 .flatpickr-day.prevMonthDay {
     color: #393939;
