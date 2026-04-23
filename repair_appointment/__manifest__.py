@@ -23,7 +23,6 @@ repair.batch.
         'data/pickup_schedule_data.xml',
         'data/ir_cron.xml',
         'views/portal_templates.xml',
-        'views/portal_compare_templates.xml',
         'views/res_config_settings_views.xml',
         'views/pickup_schedule_views.xml',
         'views/pickup_closure_views.xml',
@@ -36,6 +35,9 @@ repair.batch.
             'repair_appointment/static/src/js/appointment_calendar_patch.js',
         ],
         'web.assets_frontend': [
+            'repair_appointment/static/lib/flatpickr/flatpickr.min.css',
+            'repair_appointment/static/lib/flatpickr/flatpickr.min.js',
+            'repair_appointment/static/lib/flatpickr/l10n_fr.js',
             'repair_appointment/static/src/css/portal_pickup.css',
             'repair_appointment/static/src/js/portal_pickup.js',
         ],

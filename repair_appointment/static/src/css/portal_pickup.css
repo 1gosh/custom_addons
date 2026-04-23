@@ -1,36 +1,12 @@
-.pickup-month { margin-bottom: 1.5rem; }
-.pickup-month h5 { margin-bottom: 0.5rem; text-transform: capitalize; }
-.pickup-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 4px;
+/* Padding days from adjacent months that are still selectable must look
+   like regular in-month available days, not muted. Disabled padding
+   days stay visibly "grey" so users don't try to click them. */
+.flatpickr-day.nextMonthDay,
+.flatpickr-day.prevMonthDay {
+    color: #393939;
+    opacity: 0.7;
 }
-.pickup-dayhead {
-    text-align: center;
-    font-size: 0.8em;
-    color: #888;
-    padding: 4px 0;
+.flatpickr-day.nextMonthDay.flatpickr-disabled,
+.flatpickr-day.prevMonthDay.flatpickr-disabled {
+    opacity: 0.1;
 }
-.pickup-day {
-    border: 1px solid #ddd;
-    padding: 10px 4px;
-    text-align: center;
-    border-radius: 4px;
-    background: #fff;
-}
-.pickup-day.open { cursor: pointer; }
-.pickup-day.open:hover { background: #e7f1ff; border-color: #0d6efd; }
-.pickup-day.open.selected { background: #0d6efd; color: white; }
-.pickup-day.closed, .pickup-day.lead_time {
-    background: #f5f5f5; color: #bbb;
-}
-.pickup-day.full { background: #fde2e2; color: #a33; }
-.pickup-day.empty { border: none; background: transparent; }
-.pickup-legend { font-size: 0.85em; color: #666; margin-top: 0.5rem; }
-.pickup-legend span {
-    display: inline-block; margin-right: 1rem;
-    padding: 2px 8px; border-radius: 3px;
-}
-.pickup-legend .l-closed { background: #f5f5f5; color: #bbb; }
-.pickup-legend .l-full { background: #fde2e2; color: #a33; }
-.pickup-legend .l-open { background: #e7f1ff; color: #0d6efd; }
