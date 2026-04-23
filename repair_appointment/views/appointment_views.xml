@@ -201,4 +201,64 @@
         <field name="search_view_id" ref="view_repair_pickup_appointment_search"/>
         <field name="context">{'search_default_pending': 1, 'search_default_scheduled': 1}</field>
     </record>
+
+    <!-- Daily agenda tree -->
+    <record id="view_repair_pickup_appointment_agenda_tree" model="ir.ui.view">
+        <field name="name">repair.pickup.appointment.agenda.tree</field>
+        <field name="model">repair.pickup.appointment</field>
+        <field name="arch" type="xml">
+            <tree string="Agenda du jour"
+                  decoration-bf="pickup_date == context_today().strftime('%Y-%m-%d')"
+                  decoration-muted="pickup_date &gt; context_today().strftime('%Y-%m-%d')"
+                  create="false">
+                <field name="pickup_date"/>
+                <field name="partner_id"/>
+                <field name="primary_device_id" string="Appareil"/>
+                <field name="primary_device_category_id" string="Catégorie"/>
+                <field name="location_id"/>
+                <field name="batch_id"/>
+                <field name="reschedule_count" optional="hide"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Daily agenda search (adds the today-or-tomorrow filter) -->
+    <record id="view_repair_pickup_appointment_agenda_search" model="ir.ui.view">
+        <field name="name">repair.pickup.appointment.agenda.search</field>
+        <field name="model">repair.pickup.appointment</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="partner_id"/>
+                <field name="batch_id"/>
+                <filter name="today_or_tomorrow" string="Aujourd'hui + demain"
+                        domain="[('state','=','scheduled'),
+                                 ('pickup_date','&gt;=', context_today().strftime('%Y-%m-%d')),
+                                 ('pickup_date','&lt;=', (context_today() + relativedelta(days=1)).strftime('%Y-%m-%d'))]"/>
+                <filter name="today_only" string="Aujourd'hui"
+                        domain="[('state','=','scheduled'),
+                                 ('pickup_date','=', context_today().strftime('%Y-%m-%d'))]"/>
+                <group expand="1" string="Grouper par">
+                    <filter name="group_date" string="Jour"
+                            context="{'group_by': 'pickup_date'}"/>
+                    <filter name="group_location" string="Lieu"
+                            context="{'group_by': 'location_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_repair_pickup_appointment_daily_agenda"
+            model="ir.actions.act_window">
+        <field name="name">Agenda du jour</field>
+        <field name="res_model">repair.pickup.appointment</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="view_repair_pickup_appointment_agenda_tree"/>
+        <field name="search_view_id"
+               ref="view_repair_pickup_appointment_agenda_search"/>
+        <field name="context">{
+            'search_default_today_or_tomorrow': 1,
+            'search_default_group_date': 1,
+            'search_default_group_location': 1
+        }</field>
+    </record>
 </odoo>
