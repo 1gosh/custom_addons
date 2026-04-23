@@ -34,3 +34,20 @@ class TestAppointmentModel(RepairAppointmentCase):
         batch = self._make_batch(repair_count=3)
         apt = self.Appointment.create({'batch_id': batch.id})
         self.assertEqual(len(apt.repair_ids), 3)
+
+    def test_appointment_has_pickup_date_not_datetime(self):
+        batch = self._make_batch()
+        apt = self.Appointment.create({'batch_id': batch.id})
+        self.assertIn('pickup_date', apt._fields)
+        self.assertNotIn('start_datetime', apt._fields)
+        self.assertNotIn('end_datetime', apt._fields)
+        self.assertFalse(apt.pickup_date)
+        self.assertEqual(apt.state, 'pending')
+
+    def test_scheduled_requires_pickup_date(self):
+        from odoo.exceptions import ValidationError
+        batch = self._make_batch()
+        apt = self.Appointment.create({'batch_id': batch.id})
+        with self.assertRaises(ValidationError):
+            apt.write({'state': 'scheduled'})
+

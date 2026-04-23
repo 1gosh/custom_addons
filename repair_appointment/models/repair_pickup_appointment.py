@@ -17,7 +17,7 @@ class RepairPickupAppointment(models.Model):
     _name = 'repair.pickup.appointment'
     _description = 'Rendez-vous de retrait'
     _inherit = ['mail.thread', 'mail.activity.mixin']
-    _order = 'start_datetime desc, id desc'
+    _order = 'pickup_date desc, id desc'
 
     name = fields.Char(
         required=True, copy=False, readonly=True,
@@ -54,8 +54,7 @@ class RepairPickupAppointment(models.Model):
         required=True,
         tracking=True,
     )
-    start_datetime = fields.Datetime('Début', tracking=True)
-    end_datetime = fields.Datetime('Fin', tracking=True)
+    pickup_date = fields.Date('Date de retrait', tracking=True)
     token = fields.Char(
         required=True, copy=False, readonly=True, index=True,
         default=lambda self: str(uuid.uuid4()),
@@ -83,7 +82,6 @@ class RepairPickupAppointment(models.Model):
         compute='_compute_device_summary',
         help="Identification rapide des appareils à préparer pour le retrait.",
     )
-
     _sql_constraints = [
         ('token_unique', 'UNIQUE(token)', "Jeton déjà utilisé."),
     ]
@@ -91,7 +89,6 @@ class RepairPickupAppointment(models.Model):
     @api.depends(
         'repair_ids',
         'repair_ids.device_id_name',
-        'repair_ids.serial_number',
     )
     def _compute_device_summary(self):
         for apt in self:
@@ -100,25 +97,26 @@ class RepairPickupAppointment(models.Model):
             if not repairs:
                 apt.device_summary = _("Aucun appareil")
                 continue
-            parts = []
-            for repair in repairs[:3]:
-                label = repair.device_id_name or _("Appareil")
-                if repair.serial_number:
-                    label = "%s (SN:%s)" % (label, repair.serial_number)
-                parts.append(label)
-            if len(repairs) > 3:
-                parts.append(_("… (+%s)") % (len(repairs) - 3))
+            parts = [
+                repair.device_id_name or _("Appareil")
+                for repair in repairs
+            ]
             apt.device_summary = ", ".join(parts)
 
-    @api.constrains('state', 'start_datetime', 'end_datetime')
-    def _check_scheduled_has_dates(self):
+    @api.depends('name', 'partner_id')
+    def _compute_display_name(self):
+        """Show the customer name as the record label — this is what
+        Odoo's calendar view, many2one dropdowns and breadcrumbs render.
+        The sequence ref (self.name) stays visible in form/tree views."""
         for apt in self:
-            if apt.state == 'scheduled' and (
-                not apt.start_datetime or not apt.end_datetime
-            ):
+            apt.display_name = apt.partner_id.name or apt.name or ''
+
+    @api.constrains('state', 'pickup_date')
+    def _check_scheduled_has_date(self):
+        for apt in self:
+            if apt.state == 'scheduled' and not apt.pickup_date:
                 raise ValidationError(_(
-                    "Un rendez-vous confirmé doit avoir une date de début "
-                    "et de fin."
+                    "Un rendez-vous confirmé doit avoir une date de retrait."
                 ))
 
     @api.depends('batch_id.repair_ids.pickup_location_id')
@@ -147,21 +145,21 @@ class RepairPickupAppointment(models.Model):
         return super().create(vals_list)
 
     def write(self, vals):
-        track_datetime_change = False
-        old_starts = {}
-        if 'start_datetime' in vals and not self.env.context.get('skip_reschedule_notification'):
-            track_datetime_change = True
-            old_starts = {apt.id: apt.start_datetime for apt in self}
+        track_date_change = False
+        old_dates = {}
+        if 'pickup_date' in vals and not self.env.context.get('skip_reschedule_notification'):
+            track_date_change = True
+            old_dates = {apt.id: apt.pickup_date for apt in self}
         res = super().write(vals)
-        if track_datetime_change:
+        if track_date_change:
             template = self.env.ref(
                 'repair_appointment.mail_template_pickup_reschedule',
                 raise_if_not_found=False,
             )
             for apt in self:
                 if (apt.state == 'scheduled'
-                        and old_starts.get(apt.id)
-                        and old_starts.get(apt.id) != apt.start_datetime):
+                        and old_dates.get(apt.id)
+                        and old_dates.get(apt.id) != apt.pickup_date):
                     if template:
                         template.send_mail(apt.id, force_send=False)
                     apt.message_post(body=_(
@@ -182,9 +180,9 @@ class RepairPickupAppointment(models.Model):
                     "Ce rendez-vous est déjà dans un état final (%s).",
                 ) % dict(STATE_SELECTION).get(apt.state))
 
-    def action_schedule(self, start_datetime, end_datetime):
-        """Transition pending → scheduled, or update datetime in-place on
-        an already-scheduled appointment. Validates slot availability
+    def action_schedule(self, pickup_date):
+        """Transition pending → scheduled, or update pickup_date in place
+        on an already-scheduled appointment. Validates day availability
         unless context `skip_slot_validation` is True."""
         for apt in self:
             apt._ensure_not_terminal()
@@ -192,63 +190,51 @@ class RepairPickupAppointment(models.Model):
                 raise UserError(_("Impossible de planifier ce rendez-vous."))
 
             if not self.env.context.get('skip_slot_validation'):
-                apt._validate_slot(start_datetime, end_datetime)
+                apt._validate_day(pickup_date)
 
             was_scheduled = apt.state == 'scheduled'
-            old_start = apt.start_datetime
+            old_date = apt.pickup_date
 
             apt.write({
-                'start_datetime': start_datetime,
-                'end_datetime': end_datetime,
+                'pickup_date': pickup_date,
                 'state': 'scheduled',
             })
 
-            if was_scheduled and old_start != start_datetime:
+            if was_scheduled and old_date != pickup_date:
                 apt.reschedule_count += 1
                 apt.message_post(body=_(
                     "RDV déplacé du %(old)s au %(new)s."
-                ) % {
-                    'old': old_start,
-                    'new': start_datetime,
-                })
+                ) % {'old': old_date, 'new': pickup_date})
             elif not was_scheduled:
                 apt.message_post(body=_(
                     "RDV confirmé pour le %s."
-                ) % start_datetime)
+                ) % pickup_date)
 
-            # Mark any open escalation activities as done
             apt._close_open_escalation_activities()
 
     def action_confirm_manual(self):
         """Manual confirmation path for appointments booked by phone.
-
-        Unlike the portal flow, the staff is free to choose any datetime
-        (a phoned-in slot may not line up with the template schedule),
-        so slot validation is bypassed. Dates must already be filled on
-        the record before calling this.
-        """
+        Pickup date must already be filled on the record; slot validation
+        is bypassed so staff can override closure / capacity rules."""
         for apt in self:
             if apt.state != 'pending':
                 raise UserError(_(
                     "Seuls les rendez-vous en attente peuvent être confirmés "
                     "manuellement."
                 ))
-            if not apt.start_datetime or not apt.end_datetime:
+            if not apt.pickup_date:
                 raise UserError(_(
-                    "Renseignez le début et la fin du rendez-vous avant "
-                    "de confirmer."
+                    "Renseignez la date de retrait avant de confirmer."
                 ))
             apt.with_context(skip_slot_validation=True).action_schedule(
-                apt.start_datetime, apt.end_datetime,
+                apt.pickup_date,
             )
 
-    def _validate_slot(self, start_datetime, end_datetime):
-        if not start_datetime or not end_datetime:
-            raise UserError(_("Début et fin de créneau requis."))
-        if end_datetime <= start_datetime:
-            raise UserError(_("La fin doit être postérieure au début."))
-        if not self._is_slot_available(start_datetime, end_datetime):
-            raise UserError(_("Ce créneau n'est plus disponible."))
+    def _validate_day(self, pickup_date):
+        if not pickup_date:
+            raise UserError(_("Date de retrait requise."))
+        if not self._is_day_available(pickup_date):
+            raise UserError(_("Ce jour n'est plus disponible."))
 
     def action_mark_done(self):
         for apt in self:
@@ -289,26 +275,29 @@ class RepairPickupAppointment(models.Model):
         ))
 
     @api.model
-    def _compute_available_slots(self, location, date_from=None, date_to=None,
-                                 booking_horizon_days=None):
-        """Return a list of dicts describing available slots between
-        date_from and date_to at `location`.
+    def _compute_available_days(self, location, date_from=None, date_to=None,
+                                booking_horizon_days=None):
+        """Return a list of dicts describing each calendar day in the
+        booking window at `location`.
 
         Each dict: {
-            'datetime_start': datetime,
-            'datetime_end': datetime,
+            'date': date,
+            'state': 'open' | 'closed' | 'full' | 'lead_time',
             'remaining_capacity': int,
         }
 
-        Respects: schedule weekly mask, closures, min lead time,
-        booking horizon, slot capacity.
+        Days before the min-lead cutoff are excluded entirely (the portal
+        renders the cutoff explicitly; no need to send them). Days past
+        the horizon are also excluded. Days within the window are always
+        returned, with their state explaining why they are/aren't bookable.
         """
         from datetime import timedelta
 
         today = fields.Date.today()
         min_lead = self._get_min_lead_days()
-        horizon = booking_horizon_days if booking_horizon_days is not None \
-            else self._get_booking_horizon_days()
+        horizon = (booking_horizon_days
+                   if booking_horizon_days is not None
+                   else self._get_booking_horizon_days())
 
         earliest = today + timedelta(days=min_lead)
         latest = today + timedelta(days=horizon)
@@ -320,88 +309,75 @@ class RepairPickupAppointment(models.Model):
             return []
 
         schedule = self.env['repair.pickup.schedule'].search(
-            [('location_id', '=', location.id), ('active', '=', True)], limit=1,
+            [('location_id', '=', location.id), ('active', '=', True)],
+            limit=1,
         )
         if not schedule:
             return []
 
         closures = self.env['repair.pickup.closure'].search(
             [('active', '=', True)],
-        ).filtered(lambda c: c.location_id in (location, False) or c.location_id.id is False)
+        ).filtered(
+            lambda c: c.location_id in (location, False) or c.location_id.id is False
+        )
 
-        slots = []
+        results = []
         day = date_from
         while day <= date_to:
-            if schedule._day_is_open(day.weekday()) and not any(
-                c._covers(day, location) for c in closures
-            ):
-                for (start_f, end_f) in [
-                    (schedule.slot1_start, schedule.slot1_end),
-                    (schedule.slot2_start, schedule.slot2_end),
-                ]:
-                    start_dt = self._float_to_datetime(day, start_f)
-                    end_dt = self._float_to_datetime(day, end_f)
-                    booked = self._count_booked_in_slot(start_dt, location)
-                    remaining = max(0, schedule.slot_capacity - booked)
-                    slots.append({
-                        'datetime_start': start_dt,
-                        'datetime_end': end_dt,
-                        'remaining_capacity': remaining,
-                    })
+            entry = {'date': day, 'state': 'open', 'remaining_capacity': 0}
+            if not schedule._day_is_open(day.weekday()):
+                entry['state'] = 'closed'
+            elif any(c._covers(day, location) for c in closures):
+                entry['state'] = 'closed'
+            else:
+                booked = self._count_booked_on_day(day, location)
+                remaining = max(0, schedule.daily_capacity - booked)
+                entry['remaining_capacity'] = remaining
+                entry['state'] = 'open' if remaining > 0 else 'full'
+            results.append(entry)
             day += timedelta(days=1)
 
-        return slots
+        return results
 
     @api.model
-    def _float_to_datetime(self, day, float_hour):
-        """Convert (date, 15.25) → datetime(day, 15, 15, 0)."""
-        from datetime import datetime as dt_cls
-        hours = int(float_hour)
-        minutes = int(round((float_hour - hours) * 60))
-        return dt_cls.combine(day, dt_cls.min.time()).replace(hour=hours, minute=minutes)
-
-    @api.model
-    def _count_booked_in_slot(self, start_dt, location):
-        """Count scheduled appointments whose start_datetime matches
-        start_dt and whose location is `location`. Excludes cancelled,
-        done, no_show."""
+    def _count_booked_on_day(self, pickup_date, location):
+        """Count scheduled appointments at `location` on `pickup_date`."""
         return self.search_count([
-            ('start_datetime', '=', start_dt),
+            ('pickup_date', '=', pickup_date),
             ('location_id', '=', location.id),
             ('state', '=', 'scheduled'),
         ])
 
-    def _is_slot_available(self, start_dt, end_dt):
-        """True if the target slot has remaining capacity and is within
+    def _is_day_available(self, pickup_date):
+        """True if the target day has remaining capacity and is within
         the schedule + closures + lead-time rules. Excludes self from
-        the count so reschedules into the same slot work."""
+        the count so same-day reschedules pass."""
         self.ensure_one()
-        if not self.location_id:
+        from datetime import timedelta
+        if not self.location_id or not pickup_date:
             return False
         schedule = self.env['repair.pickup.schedule'].search(
             [('location_id', '=', self.location_id.id)], limit=1,
         )
         if not schedule:
             return False
-        if not schedule._day_is_open(start_dt.weekday()):
+        if not schedule._day_is_open(pickup_date.weekday()):
             return False
         closures = self.env['repair.pickup.closure'].search([('active', '=', True)])
         for c in closures:
-            if c._covers(start_dt.date(), self.location_id):
+            if c._covers(pickup_date, self.location_id):
                 return False
-        from datetime import timedelta
         min_lead = self._get_min_lead_days()
-        if start_dt.date() < fields.Date.today() + timedelta(days=min_lead):
-            # Context bypass for staff
+        if pickup_date < fields.Date.today() + timedelta(days=min_lead):
             if not self.env.context.get('bypass_lead_time'):
                 return False
         booked = self.search_count([
-            ('start_datetime', '=', start_dt),
+            ('pickup_date', '=', pickup_date),
             ('location_id', '=', self.location_id.id),
             ('state', '=', 'scheduled'),
             ('id', '!=', self.id),
         ])
-        if booked >= schedule.slot_capacity:
+        if booked >= schedule.daily_capacity:
             if not self.env.context.get('bypass_capacity'):
                 return False
         return True

@@ -8,7 +8,7 @@
             <tree decoration-danger="state == 'no_show'"
                   decoration-muted="state in ('cancelled','done')"
                   decoration-bf="state == 'pending'">
-                <field name="start_datetime"/>
+                <field name="pickup_date"/>
                 <field name="partner_id"/>
                 <field name="device_count" string="Nb."/>
                 <field name="device_summary"/>
@@ -30,7 +30,7 @@
                 <header>
                     <button name="action_confirm_manual" type="object"
                             string="Confirmer le rendez-vous" class="btn-primary"
-                            invisible="state != 'pending' or not start_datetime or not end_datetime"/>
+                            invisible="state != 'pending' or not pickup_date"/>
                     <button name="action_mark_done" type="object"
                             string="Marquer terminé" class="btn-primary"
                             invisible="state != 'scheduled'"/>
@@ -69,8 +69,7 @@
                             <field name="device_summary" readonly="1"/>
                         </group>
                         <group>
-                            <field name="start_datetime"/>
-                            <field name="end_datetime"/>
+                            <field name="pickup_date"/>
                             <field name="reschedule_count" readonly="1"/>
                         </group>
                     </group>
@@ -148,10 +147,9 @@
         <field name="model">repair.pickup.appointment</field>
         <field name="arch" type="xml">
             <calendar string="Rendez-vous de retrait"
-                      date_start="start_datetime"
-                      date_stop="end_datetime"
+                      date_start="pickup_date"
                       color="location_id"
-                      mode="week"
+                      mode="month"
                       quick_create="0">
                 <field name="partner_id"/>
                 <field name="device_count"/>
@@ -179,8 +177,10 @@
                 <filter name="to_contact" string="À contacter"
                         domain="[('escalation_activity_id','!=',False)]"/>
                 <filter name="today" string="Aujourd'hui"
-                        domain="[('start_datetime','&gt;=', datetime.datetime.now().strftime('%Y-%m-%d 00:00:00')),
-                                 ('start_datetime','&lt;', (datetime.datetime.now() + datetime.timedelta(days=1)).strftime('%Y-%m-%d 00:00:00'))]"/>
+                        domain="[('pickup_date','=', context_today().strftime('%Y-%m-%d'))]"/>
+                <filter name="this_week" string="Cette semaine"
+                        domain="[('pickup_date','&gt;=', (context_today() + relativedelta(weekday=0, days=-6)).strftime('%Y-%m-%d')),
+                                 ('pickup_date','&lt;=', (context_today() + relativedelta(weekday=6)).strftime('%Y-%m-%d'))]"/>
                 <group expand="0" string="Grouper par">
                     <filter name="group_location" string="Lieu"
                             context="{'group_by': 'location_id'}"/>
@@ -200,5 +200,67 @@
         <field name="view_mode">calendar,tree,form</field>
         <field name="search_view_id" ref="view_repair_pickup_appointment_search"/>
         <field name="context">{'search_default_pending': 1, 'search_default_scheduled': 1}</field>
+    </record>
+
+    <!-- Daily agenda tree (priority=99 so it only loads when explicitly
+         referenced by the Agenda du jour action, not as a generic fallback) -->
+    <record id="view_repair_pickup_appointment_agenda_tree" model="ir.ui.view">
+        <field name="name">repair.pickup.appointment.agenda.tree</field>
+        <field name="model">repair.pickup.appointment</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <tree string="Agenda du jour"
+                  decoration-bf="pickup_date == context_today().strftime('%Y-%m-%d')"
+                  decoration-muted="pickup_date &gt; context_today().strftime('%Y-%m-%d')"
+                  create="false">
+                <field name="pickup_date"/>
+                <field name="partner_id"/>
+                <field name="device_count" string="Nb."/>
+                <field name="device_summary" string="Appareils"/>
+                <field name="location_id"/>
+                <field name="batch_id"/>
+                <field name="reschedule_count" optional="hide"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Daily agenda search (adds the today-or-tomorrow filter) -->
+    <record id="view_repair_pickup_appointment_agenda_search" model="ir.ui.view">
+        <field name="name">repair.pickup.appointment.agenda.search</field>
+        <field name="model">repair.pickup.appointment</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="partner_id"/>
+                <field name="batch_id"/>
+                <filter name="today_or_tomorrow" string="Aujourd'hui + demain"
+                        domain="[('state','=','scheduled'),
+                                 ('pickup_date','&gt;=', context_today().strftime('%Y-%m-%d')),
+                                 ('pickup_date','&lt;=', (context_today() + relativedelta(days=1)).strftime('%Y-%m-%d'))]"/>
+                <filter name="today_only" string="Aujourd'hui"
+                        domain="[('state','=','scheduled'),
+                                 ('pickup_date','=', context_today().strftime('%Y-%m-%d'))]"/>
+                <group expand="1" string="Grouper par">
+                    <filter name="group_date" string="Jour"
+                            context="{'group_by': 'pickup_date'}"/>
+                    <filter name="group_location" string="Lieu"
+                            context="{'group_by': 'location_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_repair_pickup_appointment_daily_agenda"
+            model="ir.actions.act_window">
+        <field name="name">Agenda du jour</field>
+        <field name="res_model">repair.pickup.appointment</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="view_repair_pickup_appointment_agenda_tree"/>
+        <field name="search_view_id"
+               ref="view_repair_pickup_appointment_agenda_search"/>
+        <field name="context">{
+            'search_default_today_or_tomorrow': 1,
+            'search_default_group_date': 1,
+            'search_default_group_location': 1
+        }</field>
     </record>
 </odoo>

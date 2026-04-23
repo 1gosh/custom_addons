@@ -46,13 +46,13 @@ class TestEscalation(RepairAppointmentCase):
         self.assertTrue(apt.contacted_at)
 
     def test_action_schedule_closes_escalation_activities(self):
-        from datetime import datetime, timedelta
+        from datetime import date, timedelta
         batch = self._make_batch()
         apt = batch.action_create_pickup_appointment(notify=False)
         apt._create_escalation_activity()
-        start = datetime.now().replace(hour=15, minute=0, second=0, microsecond=0) + timedelta(days=3)
-        end = start + timedelta(hours=2, minutes=15)
-        apt.with_context(skip_slot_validation=True).action_schedule(start, end)
+        apt.with_context(skip_slot_validation=True).action_schedule(
+            date.today() + timedelta(days=3),
+        )
         remaining = self.env['mail.activity'].search([
             ('res_model', '=', 'repair.pickup.appointment'),
             ('res_id', '=', apt.id),

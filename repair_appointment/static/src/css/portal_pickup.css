@@ -1,0 +1,24 @@
+/* Cap the date input width so it doesn't stretch across the container.
+   The wrapper sets the max-width; both the original input and
+   Flatpickr's altInput (which shares the form-control class) inherit
+   it naturally. */
+.pickup-date-field {
+    max-width: 340px;
+}
+.pickup-date-field .form-control {
+    cursor: pointer;
+    color: #212529;
+}
+
+/* Padding days from adjacent months that are still selectable must
+   look like regular in-month available days, not muted. Disabled
+   padding days stay visibly "grey". */
+.flatpickr-day.nextMonthDay,
+.flatpickr-day.prevMonthDay {
+    color: #393939;
+    opacity: 0.7;
+}
+.flatpickr-day.nextMonthDay.flatpickr-disabled,
+.flatpickr-day.prevMonthDay.flatpickr-disabled {
+    opacity: 0.1;
+}

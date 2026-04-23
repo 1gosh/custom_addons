@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'repair_appointment',
-    'version': '17.0.1.0.0',
+    'version': '17.0.1.1.0',
     'category': 'Inventory/Inventory',
     'summary': 'Pickup appointment scheduling for repair batches',
     'author': 'martinl',
@@ -33,6 +33,13 @@ repair.batch.
     'assets': {
         'web.assets_backend': [
             'repair_appointment/static/src/js/appointment_calendar_patch.js',
+        ],
+        'web.assets_frontend': [
+            'repair_appointment/static/lib/flatpickr/flatpickr.min.css',
+            'repair_appointment/static/lib/flatpickr/flatpickr.min.js',
+            'repair_appointment/static/lib/flatpickr/l10n_fr.js',
+            'repair_appointment/static/src/css/portal_pickup.css',
+            'repair_appointment/static/src/js/portal_pickup.js',
         ],
     },
     'installable': True,

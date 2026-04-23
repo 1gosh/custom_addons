@@ -11,6 +11,12 @@
               action="action_repair_pickup_appointment"
               sequence="10"/>
 
+    <menuitem id="menu_repair_appointment_daily_agenda"
+              name="Agenda du jour"
+              parent="menu_repair_appointment_root"
+              action="action_repair_pickup_appointment_daily_agenda"
+              sequence="20"/>
+
     <menuitem id="menu_repair_appointment_config_root"
               name="Configuration"
               parent="menu_repair_appointment_root"

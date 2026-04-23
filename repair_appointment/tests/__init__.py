@@ -2,10 +2,11 @@ from . import test_schedule
 from . import test_closure
 from . import test_appointment_model
 from . import test_state_machine
-from . import test_slot_availability
+from . import test_day_availability
 from . import test_batch_integration
 from . import test_escalation
 from . import test_reminder_cron
 from . import test_portal_controller
 from . import test_reschedule_notification
 from . import test_mail_template_pickup_ready
+from . import test_daily_agenda

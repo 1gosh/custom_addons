@@ -6,7 +6,7 @@
         <field name="arch" type="xml">
             <tree>
                 <field name="location_id"/>
-                <field name="slot_capacity"/>
+                <field name="daily_capacity"/>
                 <field name="monday_open"/>
                 <field name="saturday_open"/>
                 <field name="sunday_open"/>
@@ -22,14 +22,8 @@
                     <group>
                         <group>
                             <field name="location_id"/>
-                            <field name="slot_capacity"/>
+                            <field name="daily_capacity"/>
                             <field name="active"/>
-                        </group>
-                        <group>
-                            <field name="slot1_start" widget="float_time"/>
-                            <field name="slot1_end" widget="float_time"/>
-                            <field name="slot2_start" widget="float_time"/>
-                            <field name="slot2_end" widget="float_time"/>
                         </group>
                     </group>
                     <group string="Jours ouverts">
