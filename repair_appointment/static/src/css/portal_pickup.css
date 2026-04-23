@@ -34,6 +34,14 @@
     border-radius: 0.5rem;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
+/* On desktop, left-align the card inside its column so the calendar
+   sits next to the info block instead of drifting to the middle of
+   the right column. */
+@media (min-width: 768px) {
+    .pickup-picker-wrap {
+        margin-left: 0;
+    }
+}
 .pickup-picker-wrap .flatpickr-calendar.inline {
     box-shadow: none;
 }
