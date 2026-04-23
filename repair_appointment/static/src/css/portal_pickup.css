@@ -8,6 +8,7 @@
 .pickup-date-field .form-control {
     cursor: pointer;
     background: #fff;
+    color: #212529;
 }
 
 /* Padding days from adjacent months that are still selectable must
