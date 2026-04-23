@@ -389,8 +389,13 @@ class Repair(models.Model):
             self.category_id = self.product_tmpl_id.categ_id
 
     serial_number = fields.Char("N° de série")
-    lot_id = fields.Many2one('stock.lot', string="Appareil physique", readonly=True, index=True,
-                              domain=[('is_hifi_unit', '=', True)])
+    lot_id = fields.Many2one(
+        'stock.lot', string="Appareil physique",
+        index=True,
+        domain=[('is_hifi_unit', '=', True)],
+        help="Unité physique. Tape un numéro de série existant pour le retrouver, "
+             "ou un nouveau numéro pour le créer à la volée.",
+    )
     device_id_name = fields.Char("Appareil", compute="_compute_device_id_name", readonly=True)
     show_lot_field = fields.Boolean(string="Afficher champ unité", compute="_compute_show_lot_field")
 
@@ -419,7 +424,6 @@ class Repair(models.Model):
             self.variant_id = False
             if self.lot_id:
                 self.lot_id = False
-                self.serial_number = False
 
     @api.onchange('category_id')
     def _onchange_category_id(self):
@@ -452,7 +456,6 @@ class Repair(models.Model):
     def _onchange_lot_id(self):
         for rec in self:
             if rec.lot_id:
-                rec.serial_number = rec.lot_id.name
                 rec.product_tmpl_id = rec.lot_id.product_id.product_tmpl_id
                 rec.variant_id = rec.lot_id.hifi_variant_id
 
