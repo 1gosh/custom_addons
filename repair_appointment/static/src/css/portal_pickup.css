@@ -1,15 +1,7 @@
-/* Constrain the portal page to a readable centered column on all
-   viewports. Single column flow; the Flatpickr calendar opens as a
-   popup from the text input. */
-.pickup-portal-page {
-    max-width: 640px;
-    margin: 0 auto;
-}
-
-/* Cap the date input width on desktop so it doesn't stretch across
-   the whole column. The wrapper sets the max-width; both the original
-   input and Flatpickr's altInput (which shares the form-control class)
-   inherit it naturally. */
+/* Cap the date input width so it doesn't stretch across the container.
+   The wrapper sets the max-width; both the original input and
+   Flatpickr's altInput (which shares the form-control class) inherit
+   it naturally. */
 .pickup-date-field {
     max-width: 340px;
 }
