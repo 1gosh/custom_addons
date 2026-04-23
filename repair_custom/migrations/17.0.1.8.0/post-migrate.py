@@ -45,9 +45,9 @@ def migrate(cr, version):
     for ro_id, sn, _tmpl, company_id, partner_id, variant_id, product_id in rows:
         cr.execute("""
             INSERT INTO stock_lot (name, product_id, company_id, hifi_partner_id,
-                                   hifi_variant_id, create_date, write_date,
-                                   create_uid, write_uid)
-            VALUES (%s, %s, %s, %s, %s, now(), now(), 1, 1)
+                                   hifi_variant_id, is_hifi_unit,
+                                   create_date, write_date, create_uid, write_uid)
+            VALUES (%s, %s, %s, %s, %s, TRUE, now(), now(), 1, 1)
             RETURNING id
         """, (sn, product_id, company_id, partner_id, variant_id))
         new_lot_id = cr.fetchone()[0]
