@@ -157,7 +157,7 @@
                                                 <span class="device-details" t-field="o.category_short_name"/>
                                             </t>
                                             <div class="device-details">
-                                                <span>S/N: </span><span t-field="o.serial_number"/>
+                                                <span>S/N: </span><span t-out="o.lot_id.name or ''"/>
                                             </div>
                                             <div class="device-details">
                                                 <span>Réf: </span><span t-field="o.name"/>

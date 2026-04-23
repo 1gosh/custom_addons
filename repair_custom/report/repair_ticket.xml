@@ -45,7 +45,7 @@
                             <div style="margin-bottom: 2mm;">
                                 <span t-field="repair.device_id_name" style="font-weight: bold;"/>
                                 <br/>
-                                <span style="font-size: 11px;">N° de série: <span t-field="repair.serial_number"/></span>
+                                <span style="font-size: 11px;">N° de série: <span t-out="repair.lot_id.name or ''"/></span>
                                 <span t-if="is_batch" style="font-size: 10px; float: right;" t-field="repair.name"/>
                             </div>
                             
