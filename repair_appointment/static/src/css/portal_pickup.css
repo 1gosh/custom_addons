@@ -1,3 +1,11 @@
+/* Constrain the whole portal pickup page to a centered, readable
+   column so the intro text and calendar feel like one coherent
+   flow instead of the calendar floating alone. */
+.pickup-portal-page {
+    max-width: 640px;
+    margin: 0 auto;
+}
+
 /* The text input is only a value holder for the form POST; the inline
    Flatpickr calendar is the visible UI. */
 .pickup-date-holder {
@@ -7,6 +15,39 @@
     height: 1px;
     opacity: 0;
     pointer-events: none;
+}
+
+/* Centered, roomier calendar card. */
+.pickup-picker-wrap {
+    max-width: 520px;
+    margin: 1.5rem auto;
+    padding: 1.25rem;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+.pickup-picker-wrap .flatpickr-calendar.inline {
+    box-shadow: none;
+    width: 100%;
+    max-width: 100%;
+}
+.pickup-picker-wrap .flatpickr-days,
+.pickup-picker-wrap .dayContainer {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+}
+.pickup-picker-wrap .flatpickr-day {
+    max-width: none;
+    height: 44px;
+    line-height: 44px;
+    font-size: 1rem;
+}
+
+.pickup-confirm-wrap {
+    max-width: 520px;
+    margin: 1rem auto;
 }
 
 /* Padding days from adjacent months that are still selectable must look

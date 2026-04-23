@@ -2,7 +2,7 @@
 <odoo>
     <template id="portal_pickup_page" name="Portail retrait">
         <t t-call="portal.frontend_layout">
-            <div class="container mt-4 mb-5">
+            <div class="container mt-4 mb-5 pickup-portal-page">
                 <t t-if="error">
                     <div class="alert alert-danger" t-esc="error"/>
                 </t>
@@ -25,32 +25,35 @@
                         <strong>Horaires d'ouverture :</strong> lundi–samedi, 15h00 – 19h30
                     </p>
 
-                    <h4 class="mt-4">Choisissez votre jour de retrait :</h4>
+                    <h4 class="mt-4 text-center">Choisissez votre jour de retrait :</h4>
                     <form method="POST"
                           t-att-action="'/my/pickup/' + apt.token + '/book'"
-                          id="pickup-book-form"
-                          class="mt-3">
+                          id="pickup-book-form">
                         <input type="hidden" name="csrf_token"
                                t-att-value="request.csrf_token()"/>
-                        <input type="text" name="pickup_date" id="pickup-date-input"
-                               class="pickup-date-holder"
-                               t-att-data-token="apt.token"
-                               t-att-data-current-date="apt.pickup_date or ''"/>
+                        <div class="pickup-picker-wrap">
+                            <input type="text" name="pickup_date" id="pickup-date-input"
+                                   class="pickup-date-holder"
+                                   t-att-data-token="apt.token"
+                                   t-att-data-current-date="apt.pickup_date or ''"/>
+                        </div>
 
-                        <div id="pickup-confirm-block" class="mt-3" style="display:none;">
-                            <div class="alert alert-info">
+                        <div id="pickup-confirm-block" class="pickup-confirm-wrap" style="display:none;">
+                            <div class="alert alert-info text-center">
                                 <span>Confirmer le retrait du </span>
                                 <strong id="pickup-confirm-label"></strong>
                                 <span> à </span>
                                 <strong t-out="apt.location_id.display_name"/>
                                 <span> ?</span>
                             </div>
-                            <button type="submit" class="btn btn-primary" id="pickup-submit-btn" disabled="1">
-                                Valider mon rendez-vous
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary" id="pickup-cancel-btn">
-                                Annuler
-                            </button>
+                            <div class="d-flex justify-content-center gap-2">
+                                <button type="submit" class="btn btn-primary" id="pickup-submit-btn" disabled="1">
+                                    Valider mon rendez-vous
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" id="pickup-cancel-btn">
+                                    Annuler
+                                </button>
+                            </div>
                         </div>
                     </form>
                 </t>
@@ -69,30 +72,33 @@
                         </t>
                     </ul>
 
-                    <h4 class="mt-4">Déplacer mon rendez-vous</h4>
+                    <h4 class="mt-4 text-center">Déplacer mon rendez-vous</h4>
                     <form method="POST"
                           t-att-action="'/my/pickup/' + apt.token + '/reschedule'"
-                          id="pickup-reschedule-form"
-                          class="mt-3">
+                          id="pickup-reschedule-form">
                         <input type="hidden" name="csrf_token"
                                t-att-value="request.csrf_token()"/>
-                        <input type="text" name="pickup_date" id="pickup-date-input"
-                               class="pickup-date-holder"
-                               t-att-data-token="apt.token"
-                               t-att-data-current-date="apt.pickup_date or ''"/>
+                        <div class="pickup-picker-wrap">
+                            <input type="text" name="pickup_date" id="pickup-date-input"
+                                   class="pickup-date-holder"
+                                   t-att-data-token="apt.token"
+                                   t-att-data-current-date="apt.pickup_date or ''"/>
+                        </div>
 
-                        <div id="pickup-confirm-block" class="mt-3" style="display:none;">
-                            <div class="alert alert-info">
+                        <div id="pickup-confirm-block" class="pickup-confirm-wrap" style="display:none;">
+                            <div class="alert alert-info text-center">
                                 <span>Déplacer le retrait au </span>
                                 <strong id="pickup-confirm-label"></strong>
                                 <span> ?</span>
                             </div>
-                            <button type="submit" class="btn btn-primary" id="pickup-submit-btn" disabled="1">
-                                Valider le nouveau jour
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary" id="pickup-cancel-btn">
-                                Annuler
-                            </button>
+                            <div class="d-flex justify-content-center gap-2">
+                                <button type="submit" class="btn btn-primary" id="pickup-submit-btn" disabled="1">
+                                    Valider le nouveau jour
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" id="pickup-cancel-btn">
+                                    Annuler
+                                </button>
+                            </div>
                         </div>
                     </form>
 
