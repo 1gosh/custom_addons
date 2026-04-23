@@ -23,6 +23,7 @@ repair.batch.
         'data/pickup_schedule_data.xml',
         'data/ir_cron.xml',
         'views/portal_templates.xml',
+        'views/portal_compare_templates.xml',
         'views/res_config_settings_views.xml',
         'views/pickup_schedule_views.xml',
         'views/pickup_closure_views.xml',

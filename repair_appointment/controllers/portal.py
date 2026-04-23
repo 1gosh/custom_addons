@@ -65,6 +65,17 @@ class RepairPickupPortal(http.Controller):
             'repair_appointment.portal_pickup_confirmation', {'apt': apt},
         )
 
+    @http.route('/my/pickup/<string:token>/compare', type='http',
+                auth='public', website=True)
+    def pickup_compare(self, token, **kwargs):
+        """Temporary comparison page: native date input vs Flatpickr."""
+        apt = self._get_appointment(token)
+        if not apt:
+            return request.not_found()
+        return request.render(
+            'repair_appointment.portal_pickup_compare', {'apt': apt},
+        )
+
     # ----- helpers -----
 
     def _schedule_from_form(self, apt, date_iso, expected_state):

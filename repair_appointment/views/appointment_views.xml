@@ -202,10 +202,12 @@
         <field name="context">{'search_default_pending': 1, 'search_default_scheduled': 1}</field>
     </record>
 
-    <!-- Daily agenda tree -->
+    <!-- Daily agenda tree (priority=99 so it only loads when explicitly
+         referenced by the Agenda du jour action, not as a generic fallback) -->
     <record id="view_repair_pickup_appointment_agenda_tree" model="ir.ui.view">
         <field name="name">repair.pickup.appointment.agenda.tree</field>
         <field name="model">repair.pickup.appointment</field>
+        <field name="priority">99</field>
         <field name="arch" type="xml">
             <tree string="Agenda du jour"
                   decoration-bf="pickup_date == context_today().strftime('%Y-%m-%d')"
@@ -213,8 +215,8 @@
                   create="false">
                 <field name="pickup_date"/>
                 <field name="partner_id"/>
-                <field name="primary_device_id" string="Appareil"/>
-                <field name="primary_device_category_id" string="Catégorie"/>
+                <field name="device_count" string="Nb."/>
+                <field name="device_summary" string="Appareils"/>
                 <field name="location_id"/>
                 <field name="batch_id"/>
                 <field name="reschedule_count" optional="hide"/>
