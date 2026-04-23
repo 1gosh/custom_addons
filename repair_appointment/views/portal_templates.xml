@@ -11,34 +11,40 @@
                 <p class="text-muted">Référence : <t t-out="apt.batch_id.name"/></p>
 
                 <t t-if="apt.state == 'pending'">
-                    <p>Votre appareil est prêt à être récupéré :</p>
-                    <ul>
-                        <t t-foreach="apt.repair_ids" t-as="r">
-                            <li><t t-out="r.device_id_name or r.display_name"/></li>
-                        </t>
-                    </ul>
-                    <p>
-                        <strong>Lieu de retrait :</strong> <t t-out="apt.location_id.display_name"/><br/>
-                        <t t-if="apt.location_id.street">
-                            <t t-out="apt.location_id.street"/>, <t t-out="apt.location_id.city"/><br/>
-                        </t>
-                        <strong>Horaires d'ouverture :</strong> lundi–samedi, 15h00 – 19h30
-                    </p>
-
-                    <h4 class="mt-4 text-center">Choisissez votre jour de retrait :</h4>
                     <form method="POST"
                           t-att-action="'/my/pickup/' + apt.token + '/book'"
                           id="pickup-book-form">
                         <input type="hidden" name="csrf_token"
                                t-att-value="request.csrf_token()"/>
-                        <div class="pickup-picker-wrap">
-                            <input type="text" name="pickup_date" id="pickup-date-input"
-                                   class="pickup-date-holder"
-                                   t-att-data-token="apt.token"
-                                   t-att-data-current-date="apt.pickup_date or ''"/>
+
+                        <div class="row g-4 align-items-start mt-2">
+                            <div class="col-md-5">
+                                <p>Votre appareil est prêt à être récupéré :</p>
+                                <ul>
+                                    <t t-foreach="apt.repair_ids" t-as="r">
+                                        <li><t t-out="r.device_id_name or r.display_name"/></li>
+                                    </t>
+                                </ul>
+                                <p>
+                                    <strong>Lieu de retrait :</strong> <t t-out="apt.location_id.display_name"/><br/>
+                                    <t t-if="apt.location_id.street">
+                                        <t t-out="apt.location_id.street"/>, <t t-out="apt.location_id.city"/><br/>
+                                    </t>
+                                    <strong>Horaires d'ouverture :</strong> lundi–samedi, 15h00 – 19h30
+                                </p>
+                            </div>
+                            <div class="col-md-7">
+                                <h4 class="pickup-picker-heading mb-3">Choisissez votre jour de retrait :</h4>
+                                <div class="pickup-picker-wrap">
+                                    <input type="text" name="pickup_date" id="pickup-date-input"
+                                           class="pickup-date-holder"
+                                           t-att-data-token="apt.token"
+                                           t-att-data-current-date="apt.pickup_date or ''"/>
+                                </div>
+                            </div>
                         </div>
 
-                        <div id="pickup-confirm-block" class="pickup-confirm-wrap" style="display:none;">
+                        <div id="pickup-confirm-block" class="pickup-confirm-wrap mt-3" style="display:none;">
                             <div class="alert alert-info text-center">
                                 <span>Confirmer le retrait du </span>
                                 <strong id="pickup-confirm-label"></strong>
@@ -59,33 +65,42 @@
                 </t>
 
                 <t t-if="apt.state == 'scheduled'">
-                    <p>Votre retrait est confirmé :</p>
-                    <ul>
-                        <li><strong>Date :</strong> <t t-out="apt.pickup_date"/></li>
-                        <li><strong>Lieu :</strong> <t t-out="apt.location_id.display_name"/></li>
-                        <li><strong>Horaires :</strong> ouverture de 15h00 à 19h30</li>
-                    </ul>
-                    <p>Appareils à récupérer :</p>
-                    <ul>
-                        <t t-foreach="apt.repair_ids" t-as="r">
-                            <li><t t-out="r.device_id_name or r.display_name"/></li>
-                        </t>
-                    </ul>
-
-                    <h4 class="mt-4 text-center">Déplacer mon rendez-vous</h4>
                     <form method="POST"
                           t-att-action="'/my/pickup/' + apt.token + '/reschedule'"
                           id="pickup-reschedule-form">
                         <input type="hidden" name="csrf_token"
                                t-att-value="request.csrf_token()"/>
-                        <div class="pickup-picker-wrap">
-                            <input type="text" name="pickup_date" id="pickup-date-input"
-                                   class="pickup-date-holder"
-                                   t-att-data-token="apt.token"
-                                   t-att-data-current-date="apt.pickup_date or ''"/>
+
+                        <div class="row g-4 align-items-start mt-2">
+                            <div class="col-md-5">
+                                <p>Votre retrait est confirmé :</p>
+                                <ul>
+                                    <li><strong>Date :</strong> <t t-out="apt.pickup_date"/></li>
+                                    <li><strong>Lieu :</strong> <t t-out="apt.location_id.display_name"/></li>
+                                    <li><strong>Horaires :</strong> ouverture de 15h00 à 19h30</li>
+                                </ul>
+                                <p>Appareils à récupérer :</p>
+                                <ul>
+                                    <t t-foreach="apt.repair_ids" t-as="r">
+                                        <li><t t-out="r.device_id_name or r.display_name"/></li>
+                                    </t>
+                                </ul>
+                                <p class="text-muted small mt-3">
+                                    Pour annuler votre rendez-vous, merci de nous contacter directement.
+                                </p>
+                            </div>
+                            <div class="col-md-7">
+                                <h4 class="pickup-picker-heading mb-3">Déplacer mon rendez-vous</h4>
+                                <div class="pickup-picker-wrap">
+                                    <input type="text" name="pickup_date" id="pickup-date-input"
+                                           class="pickup-date-holder"
+                                           t-att-data-token="apt.token"
+                                           t-att-data-current-date="apt.pickup_date or ''"/>
+                                </div>
+                            </div>
                         </div>
 
-                        <div id="pickup-confirm-block" class="pickup-confirm-wrap" style="display:none;">
+                        <div id="pickup-confirm-block" class="pickup-confirm-wrap mt-3" style="display:none;">
                             <div class="alert alert-info text-center">
                                 <span>Déplacer le retrait au </span>
                                 <strong id="pickup-confirm-label"></strong>
@@ -101,10 +116,6 @@
                             </div>
                         </div>
                     </form>
-
-                    <p class="text-muted mt-3">
-                        Pour annuler votre rendez-vous, merci de nous contacter directement.
-                    </p>
                 </t>
 
                 <t t-if="apt.state in ('done', 'cancelled', 'no_show')">

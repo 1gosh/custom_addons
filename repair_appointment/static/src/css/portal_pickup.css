@@ -2,8 +2,13 @@
    column so the intro text and calendar feel like one coherent
    flow instead of the calendar floating alone. */
 .pickup-portal-page {
-    max-width: 640px;
+    max-width: 980px;
     margin: 0 auto;
+}
+
+/* Center the H4 above the two columns, not only above the calendar. */
+.pickup-portal-page .pickup-picker-heading {
+    text-align: center;
 }
 
 /* The text input is only a value holder for the form POST; the inline
@@ -17,11 +22,13 @@
     pointer-events: none;
 }
 
-/* Centered, roomier calendar card. */
+/* Calendar card. Sized to the Flatpickr default calendar width
+   (~320px) and centered inside its column. No internal Flatpickr
+   overrides — the library's default sizing handles mobile cleanly. */
 .pickup-picker-wrap {
-    max-width: 520px;
-    margin: 1.5rem auto;
-    padding: 1.25rem;
+    width: fit-content;
+    margin: 0 auto;
+    padding: 1rem;
     background: #fff;
     border: 1px solid #dee2e6;
     border-radius: 0.5rem;
@@ -29,20 +36,6 @@
 }
 .pickup-picker-wrap .flatpickr-calendar.inline {
     box-shadow: none;
-    width: 100%;
-    max-width: 100%;
-}
-.pickup-picker-wrap .flatpickr-days,
-.pickup-picker-wrap .dayContainer {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-}
-.pickup-picker-wrap .flatpickr-day {
-    max-width: none;
-    height: 44px;
-    line-height: 44px;
-    font-size: 1rem;
 }
 
 .pickup-confirm-wrap {
