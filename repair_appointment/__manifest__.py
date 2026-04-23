@@ -34,6 +34,10 @@ repair.batch.
         'web.assets_backend': [
             'repair_appointment/static/src/js/appointment_calendar_patch.js',
         ],
+        'web.assets_frontend': [
+            'repair_appointment/static/src/css/portal_pickup.css',
+            'repair_appointment/static/src/js/portal_pickup.js',
+        ],
     },
     'installable': True,
     'application': False,

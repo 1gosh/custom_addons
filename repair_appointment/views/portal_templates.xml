@@ -26,7 +26,9 @@
                     </p>
 
                     <h4 class="mt-4">Choisissez votre jour de retrait :</h4>
-                    <div id="pickup-day-selector" class="mt-3">Chargement…</div>
+                    <div id="pickup-day-selector" class="mt-3"
+                         t-att-data-token="apt.token"
+                         t-att-data-current-date="apt.pickup_date or ''">Chargement…</div>
 
                     <div id="pickup-confirm-block" class="mt-3" style="display:none;">
                         <div class="alert alert-info">
@@ -41,14 +43,9 @@
                               id="pickup-book-form">
                             <input type="hidden" name="csrf_token"
                                    t-att-value="request.csrf_token()"/>
-                            <input type="hidden" name="pickup_date" id="pickup_date_input"/>
-                            <button type="submit" class="btn btn-primary">
-                                Valider mon rendez-vous
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary"
-                                    id="pickup-cancel-btn">
-                                Annuler
-                            </button>
+                            <input type="hidden" name="pickup_date"/>
+                            <button type="submit" class="btn btn-primary">Valider mon rendez-vous</button>
+                            <button type="button" class="btn btn-outline-secondary" id="pickup-cancel-btn">Annuler</button>
                         </form>
                     </div>
                 </t>
@@ -56,9 +53,9 @@
                 <t t-if="apt.state == 'scheduled'">
                     <p>Votre retrait est confirmé :</p>
                     <ul>
-                        <li>📅 <strong t-out="apt.pickup_date"/></li>
-                        <li>📍 <strong t-out="apt.location_id.display_name"/></li>
-                        <li>🕒 Ouverture de 15h00 à 19h30</li>
+                        <li><strong>Date :</strong> <t t-out="apt.pickup_date"/></li>
+                        <li><strong>Lieu :</strong> <t t-out="apt.location_id.display_name"/></li>
+                        <li><strong>Horaires :</strong> ouverture de 15h00 à 19h30</li>
                     </ul>
                     <p>Appareils à récupérer :</p>
                     <ul>
@@ -68,7 +65,9 @@
                     </ul>
 
                     <h4 class="mt-4">Déplacer mon rendez-vous</h4>
-                    <div id="pickup-day-selector" class="mt-3">Chargement…</div>
+                    <div id="pickup-day-selector" class="mt-3"
+                         t-att-data-token="apt.token"
+                         t-att-data-current-date="apt.pickup_date or ''">Chargement…</div>
 
                     <div id="pickup-confirm-block" class="mt-3" style="display:none;">
                         <div class="alert alert-info">
@@ -81,14 +80,9 @@
                               id="pickup-reschedule-form">
                             <input type="hidden" name="csrf_token"
                                    t-att-value="request.csrf_token()"/>
-                            <input type="hidden" name="pickup_date" id="pickup_date_input"/>
-                            <button type="submit" class="btn btn-primary">
-                                Valider le nouveau jour
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary"
-                                    id="pickup-cancel-btn">
-                                Annuler
-                            </button>
+                            <input type="hidden" name="pickup_date"/>
+                            <button type="submit" class="btn btn-primary">Valider le nouveau jour</button>
+                            <button type="button" class="btn btn-outline-secondary" id="pickup-cancel-btn">Annuler</button>
                         </form>
                     </div>
 
@@ -102,165 +96,6 @@
                     <p>Pour toute question, contactez-nous directement.</p>
                 </t>
             </div>
-
-            <style>
-                .pickup-month { margin-bottom: 1.5rem; }
-                .pickup-month h5 { margin-bottom: 0.5rem; text-transform: capitalize; }
-                .pickup-grid {
-                    display: grid;
-                    grid-template-columns: repeat(7, 1fr);
-                    gap: 4px;
-                }
-                .pickup-dayhead {
-                    text-align: center;
-                    font-size: 0.8em;
-                    color: #888;
-                    padding: 4px 0;
-                }
-                .pickup-day {
-                    border: 1px solid #ddd;
-                    padding: 10px 4px;
-                    text-align: center;
-                    border-radius: 4px;
-                    background: #fff;
-                }
-                .pickup-day.open { cursor: pointer; }
-                .pickup-day.open:hover { background: #e7f1ff; border-color: #0d6efd; }
-                .pickup-day.open.selected { background: #0d6efd; color: white; }
-                .pickup-day.closed, .pickup-day.lead_time {
-                    background: #f5f5f5; color: #bbb;
-                }
-                .pickup-day.full { background: #fde2e2; color: #a33; }
-                .pickup-day.empty { border: none; background: transparent; }
-                .pickup-legend { font-size: 0.85em; color: #666; margin-top: 0.5rem; }
-                .pickup-legend span {
-                    display: inline-block; margin-right: 1rem;
-                    padding: 2px 8px; border-radius: 3px;
-                }
-                .pickup-legend .l-closed { background: #f5f5f5; color: #bbb; }
-                .pickup-legend .l-full { background: #fde2e2; color: #a33; }
-                .pickup-legend .l-open { background: #e7f1ff; color: #0d6efd; }
-            </style>
-
-            <script type="text/javascript">
-                (async function() {
-                    const container = document.getElementById('pickup-day-selector');
-                    if (!container) return;
-                    const token = '<t t-out="apt.token"/>';
-                    const currentDate = '<t t-out="apt.pickup_date or \'\'"/>';
-                    const monthNames = ['janvier','février','mars','avril','mai','juin',
-                                        'juillet','août','septembre','octobre','novembre','décembre'];
-                    const dayHeads = ['L','M','M','J','V','S','D'];
-
-                    let selectedDate = null;
-
-                    function fmtDateLabel(iso) {
-                        const d = new Date(iso + 'T12:00:00');
-                        const weekdays = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
-                        return weekdays[d.getDay()] + ' ' + d.getDate() + ' '
-                               + monthNames[d.getMonth()] + ' ' + d.getFullYear();
-                    }
-
-                    function render(days) {
-                        // Group by YYYY-MM
-                        const byMonth = {};
-                        days.forEach(d => {
-                            const k = d.date.substring(0, 7);
-                            (byMonth[k] = byMonth[k] || []).push(d);
-                        });
-                        const monthsOrdered = Object.keys(byMonth).sort();
-                        const root = document.createElement('div');
-                        monthsOrdered.forEach(monthKey => {
-                            const [year, month] = monthKey.split('-').map(Number);
-                            const wrap = document.createElement('div');
-                            wrap.className = 'pickup-month';
-                            const title = document.createElement('h5');
-                            title.textContent = monthNames[month - 1] + ' ' + year;
-                            wrap.appendChild(title);
-
-                            const grid = document.createElement('div');
-                            grid.className = 'pickup-grid';
-                            dayHeads.forEach(h => {
-                                const el = document.createElement('div');
-                                el.className = 'pickup-dayhead';
-                                el.textContent = h;
-                                grid.appendChild(el);
-                            });
-
-                            // Pad leading empty cells based on first day's weekday (Mon=0)
-                            const firstDay = byMonth[monthKey][0];
-                            const firstJs = new Date(firstDay.date + 'T12:00:00');
-                            let leading = (firstJs.getDay() + 6) % 7;  // Mon=0..Sun=6
-                            for (let i = 0; i &lt; leading; i++) {
-                                const pad = document.createElement('div');
-                                pad.className = 'pickup-day empty';
-                                grid.appendChild(pad);
-                            }
-
-                            byMonth[monthKey].forEach(d => {
-                                const cell = document.createElement('div');
-                                cell.className = 'pickup-day ' + d.state;
-                                cell.dataset.date = d.date;
-                                const js = new Date(d.date + 'T12:00:00');
-                                cell.textContent = js.getDate();
-                                if (d.state === 'open') {
-                                    cell.addEventListener('click', () => {
-                                        selectedDate = d.date;
-                                        document.querySelectorAll('.pickup-day.selected')
-                                            .forEach(c => c.classList.remove('selected'));
-                                        cell.classList.add('selected');
-                                        document.getElementById('pickup_date_input').value = d.date;
-                                        document.getElementById('pickup-confirm-label').textContent
-                                            = fmtDateLabel(d.date);
-                                        document.getElementById('pickup-confirm-block').style.display = 'block';
-                                    });
-                                }
-                                if (d.date === currentDate) {
-                                    cell.classList.add('selected');
-                                }
-                                grid.appendChild(cell);
-                            });
-                            wrap.appendChild(grid);
-                            root.appendChild(wrap);
-                        });
-                        const legend = document.createElement('div');
-                        legend.className = 'pickup-legend';
-                        legend.innerHTML = '<span class="l-open">Disponible</span>'
-                                         + '<span class="l-full">Complet</span>'
-                                         + '<span class="l-closed">Fermé / Indisponible</span>';
-                        root.appendChild(legend);
-                        container.innerHTML = '';
-                        container.appendChild(root);
-
-                        const cancelBtn = document.getElementById('pickup-cancel-btn');
-                        if (cancelBtn) {
-                            cancelBtn.addEventListener('click', () => {
-                                document.getElementById('pickup-confirm-block').style.display = 'none';
-                                document.querySelectorAll('.pickup-day.selected')
-                                    .forEach(c => c.classList.remove('selected'));
-                                selectedDate = null;
-                            });
-                        }
-                    }
-
-                    try {
-                        const resp = await fetch('/my/pickup/' + token + '/slots', {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({jsonrpc: '2.0', method: 'call', params: {}}),
-                        });
-                        const payload = await resp.json();
-                        const days = payload.result || [];
-                        if (!days.length) {
-                            container.innerHTML = '&lt;em&gt;Aucun jour disponible.&lt;/em&gt;';
-                            return;
-                        }
-                        render(days);
-                    } catch (e) {
-                        container.innerHTML = '&lt;em&gt;Erreur de chargement du calendrier.&lt;/em&gt;';
-                    }
-                })();
-            </script>
         </t>
     </template>
 
@@ -274,9 +109,7 @@
                 <p class="text-muted">Ouverture de 15h00 à 19h30.</p>
                 <p>
                     <a t-att-href="'/my/pickup/' + apt.token"
-                       class="btn btn-outline-primary">
-                        Retour à ma demande
-                    </a>
+                       class="btn btn-outline-primary">Retour à ma demande</a>
                 </p>
             </div>
         </t>
