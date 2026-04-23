@@ -2,7 +2,7 @@
 <odoo>
     <template id="portal_pickup_page" name="Portail retrait">
         <t t-call="portal.frontend_layout">
-            <div class="container mt-4 mb-5 pickup-portal-page">
+            <div class="mt-4 mb-5 pickup-portal-page">
                 <t t-if="error">
                     <div class="alert alert-danger" t-esc="error"/>
                 </t>
