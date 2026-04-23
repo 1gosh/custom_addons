@@ -106,6 +106,14 @@ class RepairPickupAppointment(models.Model):
                 parts.append(label)
             apt.device_summary = ", ".join(parts)
 
+    @api.depends('name', 'partner_id')
+    def _compute_display_name(self):
+        """Show the customer name as the record label — this is what
+        Odoo's calendar view, many2one dropdowns and breadcrumbs render.
+        The sequence ref (self.name) stays visible in form/tree views."""
+        for apt in self:
+            apt.display_name = apt.partner_id.name or apt.name or ''
+
     @api.constrains('state', 'pickup_date')
     def _check_scheduled_has_date(self):
         for apt in self:

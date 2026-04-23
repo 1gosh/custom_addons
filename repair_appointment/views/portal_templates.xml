@@ -132,7 +132,7 @@
     <template id="portal_pickup_confirmation" name="Portail retrait — confirmation">
         <t t-call="portal.frontend_layout">
             <div class="container mt-4 mb-5">
-                <h2>Retrait confirmé</h2>
+                <h2 class="text-success">Retrait confirmé</h2>
                 <p>Votre retrait est confirmé pour le
                    <strong><span t-field="apt.pickup_date"
                                  t-options="{'widget': 'date', 'format': 'EEEE d MMMM y'}"/></strong> à
