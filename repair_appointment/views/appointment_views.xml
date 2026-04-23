@@ -8,7 +8,7 @@
             <tree decoration-danger="state == 'no_show'"
                   decoration-muted="state in ('cancelled','done')"
                   decoration-bf="state == 'pending'">
-                <field name="start_datetime"/>
+                <field name="pickup_date"/>
                 <field name="partner_id"/>
                 <field name="device_count" string="Nb."/>
                 <field name="device_summary"/>
@@ -30,7 +30,7 @@
                 <header>
                     <button name="action_confirm_manual" type="object"
                             string="Confirmer le rendez-vous" class="btn-primary"
-                            invisible="state != 'pending' or not start_datetime or not end_datetime"/>
+                            invisible="state != 'pending' or not pickup_date"/>
                     <button name="action_mark_done" type="object"
                             string="Marquer terminé" class="btn-primary"
                             invisible="state != 'scheduled'"/>
@@ -69,8 +69,7 @@
                             <field name="device_summary" readonly="1"/>
                         </group>
                         <group>
-                            <field name="start_datetime"/>
-                            <field name="end_datetime"/>
+                            <field name="pickup_date"/>
                             <field name="reschedule_count" readonly="1"/>
                         </group>
                     </group>
@@ -148,10 +147,9 @@
         <field name="model">repair.pickup.appointment</field>
         <field name="arch" type="xml">
             <calendar string="Rendez-vous de retrait"
-                      date_start="start_datetime"
-                      date_stop="end_datetime"
+                      date_start="pickup_date"
                       color="location_id"
-                      mode="week"
+                      mode="month"
                       quick_create="0">
                 <field name="partner_id"/>
                 <field name="device_count"/>
@@ -179,8 +177,10 @@
                 <filter name="to_contact" string="À contacter"
                         domain="[('escalation_activity_id','!=',False)]"/>
                 <filter name="today" string="Aujourd'hui"
-                        domain="[('start_datetime','&gt;=', datetime.datetime.now().strftime('%Y-%m-%d 00:00:00')),
-                                 ('start_datetime','&lt;', (datetime.datetime.now() + datetime.timedelta(days=1)).strftime('%Y-%m-%d 00:00:00'))]"/>
+                        domain="[('pickup_date','=', context_today().strftime('%Y-%m-%d'))]"/>
+                <filter name="this_week" string="Cette semaine"
+                        domain="[('pickup_date','&gt;=', (context_today() + relativedelta(weekday=0, days=-6)).strftime('%Y-%m-%d')),
+                                 ('pickup_date','&lt;=', (context_today() + relativedelta(weekday=6)).strftime('%Y-%m-%d'))]"/>
                 <group expand="0" string="Grouper par">
                     <filter name="group_location" string="Lieu"
                             context="{'group_by': 'location_id'}"/>
