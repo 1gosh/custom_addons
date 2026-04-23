@@ -292,8 +292,8 @@ class RepairBatch(models.Model):
             if len(so.repair_order_ids) == 1:
                 repair = so.repair_order_ids
                 label = _("Réparation : %s") % (repair.device_id_name or so.name)
-                if repair.serial_number:
-                    label += _(" (S/N: %s)") % repair.serial_number
+                if repair.lot_id:
+                    label += _(" (S/N: %s)") % repair.lot_id.name
             else:
                 label = _("Devis : %s") % so.name
 
