@@ -395,6 +395,12 @@ class Repair(models.Model):
         help="Unité physique. Tape un numéro de série existant pour le retrouver, "
              "ou un nouveau numéro pour le créer à la volée.",
     )
+    product_variant_id = fields.Many2one(
+        'product.product',
+        related='product_tmpl_id.product_variant_id',
+        store=False, readonly=True,
+        string="Variante produit (pour contexte lot)",
+    )
     device_id_name = fields.Char("Appareil", compute="_compute_device_id_name", readonly=True)
     show_lot_field = fields.Boolean(string="Afficher champ unité", compute="_compute_show_lot_field")
 

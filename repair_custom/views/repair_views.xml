@@ -390,19 +390,18 @@
                                         force_save="1"
                                         placeholder="Sélectionner une variante (optionnel)"
                                         invisible ="(not product_tmpl_id) or (not variant_id and (state not in 'draft'))"/>
-                                    <label for="serial_number" string="N° de série"
+                                    <label for="lot_id" string="Appareil physique / N° de série"
                                         invisible="not product_tmpl_id"/>
-                                    <div class="d-flex align-items-center gap-2"
-                                        invisible="not product_tmpl_id">
-                                        <field name="serial_number" nolabel="1"
-                                            placeholder="Numéro de série"
-                                            readonly="state not in 'draft' or lot_id"
-                                            force_save="1"/>
-                                        <button name="action_generate_serial" type="object"
-                                            class="btn-sm" icon="fa-barcode"
-                                            title="Générer N° Série"
-                                            invisible="state != 'draft' or serial_number or lot_id"/>
-                                    </div>
+                                    <field name="lot_id" nolabel="1"
+                                        invisible="not product_tmpl_id"
+                                        readonly="state not in 'draft'"
+                                        options="{'no_quick_create': True}"
+                                        domain="[('product_id.product_tmpl_id', '=', product_tmpl_id),
+                                                 ('is_hifi_unit', '=', True)]"
+                                        context="{'default_product_id': product_variant_id,
+                                                  'default_hifi_partner_id': partner_id,
+                                                  'default_hifi_variant_id': variant_id}"
+                                        placeholder="Tapez le n° de série (existant ou nouveau)"/>
                                 </group>
                                 <group>
                                     <field name="tag_ids"   
@@ -528,13 +527,13 @@
         <field name="model">repair.order</field>
         <field name="arch" type="xml">
             <search string="Search Repair Orders">
-                <field name="name" string="Recherche Globale" 
+                <field name="name" string="Recherche Globale"
                        filter_domain="['|', '|', '|',
-                            ('name', 'ilike', self), 
-                            ('partner_id', 'ilike', self), 
+                            ('name', 'ilike', self),
+                            ('partner_id', 'ilike', self),
                             ('product_tmpl_id', 'ilike', self),
-                            ('serial_number', 'ilike', self)]"/>
-                <field name="serial_number"/>
+                            ('lot_id.name', 'ilike', self)]"/>
+                <field name="lot_id" string="N° de série"/>
                 <filter string="New" domain="[('state', '=', 'draft')]" name="filter_draft" />
                 <filter string="Confirmed" domain="[('state', '=', 'confirmed')]" name="filter_confirmed" />
                 <filter string="Under Repair" name="filter_under_repair" domain="[('state', '=', 'under_repair')]"/>
@@ -869,7 +868,7 @@
                     width="50" widget="datetime" options="{'show_time':false}" />
                 <field name="waiting_time" string="Attente" optional="show" readonly="True"/>
                 <field name="device_id_name" string="Appareil"/>
-                <field name="serial_number" optional="show"/>
+                <field name="lot_id" string="N° de série" optional="show"/>
                 <field name="partner_id" widget="many2one_avatar"/>
                 <field name="quote_required" optional="show"/>
                 <field name="parts_waiting" optional="hide"/>
@@ -904,12 +903,12 @@
         <field name="model">repair.order</field>
         <field name="arch" type="xml">
             <search string="Recherche Atelier">
-                <field name="name" string="Recherche Globale" 
+                <field name="name" string="Recherche Globale"
                        filter_domain="['|', '|', '|',
-                            ('name', 'ilike', self), 
-                            ('partner_id', 'ilike', self), 
+                            ('name', 'ilike', self),
+                            ('partner_id', 'ilike', self),
                             ('product_tmpl_id', 'ilike', self),
-                            ('serial_number', 'ilike', self)]"/>
+                            ('lot_id.name', 'ilike', self)]"/>
 
                 <filter string="Ma Session" name="my_session" domain="[('technician_employee_id', '=', context.get('atelier_employee_id'))]"/>
                 
