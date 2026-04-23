@@ -66,7 +66,11 @@
                 <t t-if="apt.state == 'scheduled'">
                     <p class="mt-3">Votre retrait est confirmé :</p>
                     <ul>
-                        <li><strong>Date :</strong> <t t-out="apt.pickup_date_display"/></li>
+                        <li>
+                            <strong>Date :</strong>
+                            <span t-field="apt.pickup_date"
+                                  t-options="{'widget': 'date', 'format': 'EEEE d MMMM y'}"/>
+                        </li>
                         <li><strong>Lieu :</strong> <t t-out="apt.location_id.display_name"/></li>
                         <li><strong>Horaires :</strong> ouverture de 15h00 à 19h30</li>
                     </ul>
@@ -130,7 +134,8 @@
             <div class="container mt-4 mb-5">
                 <h2>Retrait confirmé</h2>
                 <p>Votre retrait est confirmé pour le
-                   <strong t-out="apt.pickup_date_display"/> à
+                   <strong><span t-field="apt.pickup_date"
+                                 t-options="{'widget': 'date', 'format': 'EEEE d MMMM y'}"/></strong> à
                    <strong t-out="apt.location_id.display_name"/>.</p>
                 <p class="text-muted">Ouverture de 15h00 à 19h30.</p>
                 <p>

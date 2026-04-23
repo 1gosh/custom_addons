@@ -1,7 +1,5 @@
 import uuid
 
-from babel.dates import format_date as babel_format_date
-
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 
@@ -57,10 +55,6 @@ class RepairPickupAppointment(models.Model):
         tracking=True,
     )
     pickup_date = fields.Date('Date de retrait', tracking=True)
-    pickup_date_display = fields.Char(
-        'Date de retrait (affichage)',
-        compute='_compute_pickup_date_display',
-    )
     token = fields.Char(
         required=True, copy=False, readonly=True, index=True,
         default=lambda self: str(uuid.uuid4()),
@@ -111,16 +105,6 @@ class RepairPickupAppointment(models.Model):
                     label = "%s (SN:%s)" % (label, repair.serial_number)
                 parts.append(label)
             apt.device_summary = ", ".join(parts)
-
-    @api.depends('pickup_date')
-    def _compute_pickup_date_display(self):
-        for apt in self:
-            if apt.pickup_date:
-                apt.pickup_date_display = babel_format_date(
-                    apt.pickup_date, format='EEEE d MMMM y', locale='fr_FR',
-                )
-            else:
-                apt.pickup_date_display = ''
 
     @api.constrains('state', 'pickup_date')
     def _check_scheduled_has_date(self):
