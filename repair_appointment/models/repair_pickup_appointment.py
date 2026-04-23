@@ -17,7 +17,7 @@ class RepairPickupAppointment(models.Model):
     _name = 'repair.pickup.appointment'
     _description = 'Rendez-vous de retrait'
     _inherit = ['mail.thread', 'mail.activity.mixin']
-    _order = 'start_datetime desc, id desc'
+    _order = 'pickup_date desc, id desc'
 
     name = fields.Char(
         required=True, copy=False, readonly=True,
@@ -54,8 +54,7 @@ class RepairPickupAppointment(models.Model):
         required=True,
         tracking=True,
     )
-    start_datetime = fields.Datetime('Début', tracking=True)
-    end_datetime = fields.Datetime('Fin', tracking=True)
+    pickup_date = fields.Date('Date de retrait', tracking=True)
     token = fields.Char(
         required=True, copy=False, readonly=True, index=True,
         default=lambda self: str(uuid.uuid4()),
@@ -110,15 +109,12 @@ class RepairPickupAppointment(models.Model):
                 parts.append(_("… (+%s)") % (len(repairs) - 3))
             apt.device_summary = ", ".join(parts)
 
-    @api.constrains('state', 'start_datetime', 'end_datetime')
-    def _check_scheduled_has_dates(self):
+    @api.constrains('state', 'pickup_date')
+    def _check_scheduled_has_date(self):
         for apt in self:
-            if apt.state == 'scheduled' and (
-                not apt.start_datetime or not apt.end_datetime
-            ):
+            if apt.state == 'scheduled' and not apt.pickup_date:
                 raise ValidationError(_(
-                    "Un rendez-vous confirmé doit avoir une date de début "
-                    "et de fin."
+                    "Un rendez-vous confirmé doit avoir une date de retrait."
                 ))
 
     @api.depends('batch_id.repair_ids.pickup_location_id')
