@@ -32,9 +32,9 @@
                                     </t>
                                     <strong>Horaires d'ouverture :</strong> lundi–samedi, 15h00 – 19h30
                                 </p>
+                                <p class="mt-3">Choisissez votre jour de retrait :</p>
                             </div>
                             <div class="col-md-7">
-                                <h4 class="pickup-picker-heading mb-3">Choisissez votre jour de retrait :</h4>
                                 <div class="pickup-picker-wrap">
                                     <input type="text" name="pickup_date" id="pickup-date-input"
                                            class="pickup-date-holder"
@@ -85,12 +85,12 @@
                                         <li><t t-out="r.device_id_name or r.display_name"/></li>
                                     </t>
                                 </ul>
+                                <p class="mt-3">Choisir un nouveau jour :</p>
                                 <p class="text-muted small mt-3">
                                     Pour annuler votre rendez-vous, merci de nous contacter directement.
                                 </p>
                             </div>
                             <div class="col-md-7">
-                                <h4 class="pickup-picker-heading mb-3">Déplacer mon rendez-vous</h4>
                                 <div class="pickup-picker-wrap">
                                     <input type="text" name="pickup_date" id="pickup-date-input"
                                            class="pickup-date-holder"
