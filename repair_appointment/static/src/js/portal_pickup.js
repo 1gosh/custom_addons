@@ -36,8 +36,7 @@
             const fp = window.flatpickr(input, {
                 locale: locale,
                 dateFormat: 'Y-m-d',
-                altInput: true,
-                altFormat: 'l j F Y',
+                inline: true,
                 minDate: first,
                 maxDate: last,
                 disable: disabledDates,

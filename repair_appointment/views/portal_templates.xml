@@ -33,8 +33,7 @@
                         <input type="hidden" name="csrf_token"
                                t-att-value="request.csrf_token()"/>
                         <input type="text" name="pickup_date" id="pickup-date-input"
-                               class="form-control" style="max-width: 260px;"
-                               placeholder="Choisir une date…"
+                               class="pickup-date-holder"
                                t-att-data-token="apt.token"
                                t-att-data-current-date="apt.pickup_date or ''"/>
 
@@ -78,8 +77,7 @@
                         <input type="hidden" name="csrf_token"
                                t-att-value="request.csrf_token()"/>
                         <input type="text" name="pickup_date" id="pickup-date-input"
-                               class="form-control" style="max-width: 260px;"
-                               placeholder="Choisir une nouvelle date…"
+                               class="pickup-date-holder"
                                t-att-data-token="apt.token"
                                t-att-data-current-date="apt.pickup_date or ''"/>
 

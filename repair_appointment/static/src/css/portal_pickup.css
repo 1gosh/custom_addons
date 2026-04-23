@@ -1,3 +1,14 @@
+/* The text input is only a value holder for the form POST; the inline
+   Flatpickr calendar is the visible UI. */
+.pickup-date-holder {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
 /* Padding days from adjacent months that are still selectable must look
    like regular in-month available days, not muted. Disabled padding
    days stay visibly "grey" so users don't try to click them. */
