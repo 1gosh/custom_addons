@@ -274,8 +274,18 @@ class Repair(models.Model):
             if rec.lot_id.warranty_state == 'active':
                 suggested = rec.lot_id.warranty_type
             elif rec.previous_repair_id and rec.previous_repair_id.partner_id == rec.partner_id:
-                # LEGACY FALLBACK — safe to remove once all historical repairs
-                # have been migrated (lot.sar_expiry populated for all past repairs).
+                # LEGACY FALLBACK — safe to remove once all historical repairs                 
+                # have been migrated (lot.sar_expiry populated for all past repairs).          
+                #                                                                              
+                # To remove:                                                                   
+                # 1. Run check query to verify no lots with repair history lack sar_expiry:    
+                #    SELECT sl.id, sl.name FROM stock_lot sl                                   
+                #    JOIN repair_order ro ON ro.lot_id = sl.id                                 
+                #    WHERE ro.state = 'done' AND sl.sar_expiry IS NULL;                        
+                # 2. If results: backfill sar_expiry from last delivered repair's              
+                #    end_date + 3 months                                                       
+                # 3. Once clean, delete this elif branch — suggested_warranty                  
+                #    then only needs to check lot_id.warranty_state 
                 prev_repair = rec.previous_repair_id
                 ref_date = prev_repair.end_date or prev_repair.write_date
                 if ref_date:
@@ -966,7 +976,11 @@ class Repair(models.Model):
             'last_delivered_repair_id': False,
             'last_technician_id': False,
         })
-        self._onchange_lot_workflow()
+        # The repair's cached warranty came from the lot's old owner — reset it
+        # on the server side, then reload the form so every lot.* related value
+        # on the UI (warranty_state, warranty_expiry, sale_date...) re-reads.
+        self.write({'repair_warranty': 'aucune'})
+        return {'type': 'ir.actions.client', 'tag': 'soft_reload'}
 
     def action_validate(self):
         """Confirm repair, create stock.lot if needed, and create intake stock move."""
