@@ -236,16 +236,45 @@ class TestActionQuoteContacted(RepairQuoteCase):
         self.assertGreater(len(repair.message_ids), before)
 
 
-class TestReminderMail(RepairQuoteCase):
+class TestSendQuoteReminderMail(RepairQuoteCase):
     """Test the reminder mail helper in isolation."""
 
-    def test_send_quote_reminder_mail_posts_message(self):
+    def _setup_sent_quote(self):
         repair = self._make_repair()
-        repair._apply_quote_state_transition('sent')
+        repair._apply_quote_state_transition('pending')
+        sale_order = self._make_sale_order_linked(repair)
+        sale_order.state = 'sent'  # triggers the sale.order.write override → quote_state='sent'
+        return repair, sale_order
+
+    def test_send_quote_reminder_posts_audit_line_on_repair(self):
+        repair, _so = self._setup_sent_quote()
         before = len(repair.message_ids)
         repair._send_quote_reminder_mail()
         self.assertGreater(len(repair.message_ids), before,
-                           "Sending the reminder should post a tracked message on the repair")
+                           "Reminder must post an audit chatter line on the repair")
+
+    def test_send_quote_reminder_sends_mail_from_sale_order(self):
+        repair, sale_order = self._setup_sent_quote()
+        before_so = len(sale_order.message_ids)
+        repair._send_quote_reminder_mail()
+        self.assertGreater(len(sale_order.message_ids), before_so,
+                           "Reminder mail must thread on the sale.order, not the repair")
+
+    def test_send_quote_reminder_ensures_access_token(self):
+        repair, sale_order = self._setup_sent_quote()
+        # Pre-condition: freshly created SOs typically have no access_token
+        sale_order.access_token = False
+        repair._send_quote_reminder_mail()
+        self.assertTrue(sale_order.access_token,
+                        "Reminder must ensure the quote has a portal access_token "
+                        "so the link works without a portal login")
+
+    def test_send_quote_reminder_without_sale_order_is_noop(self):
+        repair = self._make_repair()
+        repair._apply_quote_state_transition('pending')
+        # No sale_order_id linked
+        # Should not crash
+        repair._send_quote_reminder_mail()
 
 
 class TestCronReminderPhase(RepairQuoteCase):
