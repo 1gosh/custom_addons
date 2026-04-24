@@ -260,21 +260,22 @@ class Repair(models.Model):
 
         for rec in self:
             suggested = 'aucune'
-            if rec.lot_id and rec.lot_id.warranty_state == 'active':
+            if not (rec.lot_id and rec.partner_id):
+                rec.suggested_warranty = suggested
+                continue
+
+            # Warranty never crosses ownership boundaries — an inherited SAV/SAR
+            # from the previous owner must not apply to a new customer's repair.
+            lot_owner = rec.lot_id.hifi_partner_id
+            if lot_owner and lot_owner != rec.partner_id:
+                rec.suggested_warranty = suggested
+                continue
+
+            if rec.lot_id.warranty_state == 'active':
                 suggested = rec.lot_id.warranty_type
-            # LEGACY FALLBACK — safe to remove once all historical repairs
-            # have been migrated (lot.sar_expiry populated for all past repairs).
-            #
-            # To remove:
-            # 1. Run check query to verify no lots with repair history lack sar_expiry:
-            #    SELECT sl.id, sl.name FROM stock_lot sl
-            #    JOIN repair_order ro ON ro.lot_id = sl.id
-            #    WHERE ro.state = 'done' AND sl.sar_expiry IS NULL;
-            # 2. If results: backfill sar_expiry from last delivered repair's
-            #    end_date + 3 months
-            # 3. Once clean, delete this elif branch — suggested_warranty
-            #    then only needs to check lot_id.warranty_state
-            elif rec.previous_repair_id:
+            elif rec.previous_repair_id and rec.previous_repair_id.partner_id == rec.partner_id:
+                # LEGACY FALLBACK — safe to remove once all historical repairs
+                # have been migrated (lot.sar_expiry populated for all past repairs).
                 prev_repair = rec.previous_repair_id
                 ref_date = prev_repair.end_date or prev_repair.write_date
                 if ref_date:
@@ -360,7 +361,7 @@ class Repair(models.Model):
                 'message': _("Appareil sous garantie jusqu'au %s (Réparé par %s, le %s)") % (expiry_str, tech_name, prev_date_str),
                 'warning_type': 'notification',
             }}
-        elif self.previous_repair_id:
+        elif self.previous_repair_id and self.previous_repair_id.partner_id == self.partner_id:
             prev_repair = self.previous_repair_id
             tech_name = prev_repair.technician_employee_id.name or 'Inconnu'
             prev_date_str = (prev_repair.end_date or prev_repair.write_date).strftime('%d/%m/%Y')
