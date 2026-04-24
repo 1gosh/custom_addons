@@ -15,8 +15,8 @@
                     <field name="device_id_name"/>
                     <field name="technician_employee_id"/>
                     <field name="internal_notes" widget="text" optional="show"/>
-                    <field name="quote_requested_date" widget="datetime" options="{'show_time':false}" optional="show"/>
-                    <field name="quote_sent_date" widget="date" optional="hide"/>
+                    <field name="quote_requested_date" widget="datetime" options="{'show_time':false}"/>
+                    <field name="quote_sent_date" widget="date" optional="show"/>
                     <field name="quote_state" widget="badge"
                            decoration-info="quote_state == 'pending'"
                            decoration-primary="quote_state == 'sent'"/>
