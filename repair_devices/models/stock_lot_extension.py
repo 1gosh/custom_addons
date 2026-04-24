@@ -66,6 +66,26 @@ class StockLot(models.Model):
             return self._search(lot_domain + domain, limit=limit, order=order)
         return super()._name_search(name, domain=domain, operator=operator, limit=limit, order=order)
 
+    @api.model
+    def name_search(self, name='', args=None, operator='ilike', limit=100):
+        """Return rich 'Brand Model – SN: XXX' labels for autocomplete dropdowns
+        that opt in via `context={'lot_display': 'full'}`.
+
+        display_name stays a serial-only, context-invariant value (see above) —
+        this override only affects the per-RPC autocomplete payload, so it can't
+        leak into chip rendering elsewhere on the form.
+        """
+        result = super().name_search(name=name, args=args, operator=operator, limit=limit)
+        if self.env.context.get('lot_display') != 'full' or not result:
+            return result
+        ids = [r[0] for r in result]
+        rich = {
+            rec.id: rec.format_hifi_label(include_serial=True)
+            for rec in self.browse(ids)
+            if rec.is_hifi_unit
+        }
+        return [(rid, rich.get(rid, label)) for rid, label in result]
+
     @api.depends('product_id.product_tmpl_id.is_hifi_device')
     def _compute_is_hifi_unit(self):
         for rec in self:
