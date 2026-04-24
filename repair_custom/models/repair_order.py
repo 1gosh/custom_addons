@@ -6,6 +6,7 @@ from odoo import api, Command, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 from odoo.http import request
 from dateutil.relativedelta import relativedelta
+from markupsafe import Markup
 import secrets
 
 
@@ -935,14 +936,14 @@ class Repair(models.Model):
         last_repair_ref = lot.last_delivered_repair_id.name if lot.last_delivered_repair_id else '—'
         last_tech = lot.last_technician_id.name if lot.last_technician_id else '—'
 
-        body = _(
+        body = Markup(_(
             "Propriété transférée de <strong>%(old)s</strong> vers <strong>%(new)s</strong> "
             "via la réparation %(ref)s.<br/>"
             "Données précédentes archivées : vente du %(sale_date)s (commande %(sale_order)s), "
             "garantie %(warranty_type)s jusqu'au %(warranty_expiry)s, "
             "dernière réparation %(last_repair)s par %(last_tech)s.<br/>"
             "Garantie et liens de vente réinitialisés."
-        ) % {
+        )) % {
             'old': old_partner.display_name,
             'new': self.partner_id.display_name,
             'ref': self.name,
