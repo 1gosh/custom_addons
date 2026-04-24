@@ -391,7 +391,7 @@
                                         force_save="1"
                                         placeholder="Sélectionner une variante (optionnel)"
                                         invisible ="(not product_tmpl_id) or (not variant_id and (state not in 'draft'))"/>
-                                    <label for="lot_id" string="Appareil physique / N° de série"
+                                    <label for="lot_id" string="N° de série"
                                         invisible="not product_tmpl_id"/>
                                     <field name="lot_id" nolabel="1"
                                         invisible="not product_tmpl_id"

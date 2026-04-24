@@ -482,14 +482,11 @@ class Repair(models.Model):
         Lot = self.env['stock.lot']
         for rec in self:
             show = False
-            if rec.state == 'draft':
-                has_partner_lots = False
-                if rec.partner_id:
-                    has_partner_lots = bool(Lot.search([
-                        ('hifi_partner_id', '=', rec.partner_id.id),
-                        ('is_hifi_unit', '=', True),
-                    ], limit=1))
-                show = bool(rec.lot_id) or has_partner_lots
+            if rec.state == 'draft' and not rec.lot_id and rec.partner_id:
+                show = bool(Lot.search([
+                    ('hifi_partner_id', '=', rec.partner_id.id),
+                    ('is_hifi_unit', '=', True),
+                ], limit=1))
             rec.show_lot_field = show
 
     @api.onchange('partner_id')
