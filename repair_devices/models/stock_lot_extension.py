@@ -22,19 +22,6 @@ class StockLot(models.Model):
         string="Variante",
     )
 
-    @api.depends("name", "is_hifi_unit")
-    def _compute_display_name(self):
-        """HiFi lots always display their serial; a single label avoids
-        context-dependent rendering (which leaks between widgets on the
-        same form). Use `format_hifi_label()` below when a richer label
-        is needed (reports, stock move names, sale line descriptions)."""
-        hifi = self.filtered('is_hifi_unit')
-        non_hifi = self - hifi
-        if non_hifi:
-            super(StockLot, non_hifi)._compute_display_name()
-        for rec in hifi:
-            rec.display_name = rec.name or ""
-
     def format_hifi_label(self, include_serial=True):
         """Render a HiFi lot as 'Brand Model (Variant) – SN: XXX'.
 
