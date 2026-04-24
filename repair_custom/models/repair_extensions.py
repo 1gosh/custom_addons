@@ -667,8 +667,7 @@ class SaleOrderLine(models.Model):
             line.lot_id = lot
             line.product_uom_qty = 1
             if lot.is_hifi_unit:
-                device_name = lot.with_context(lot_display='device_only').display_name
-                line.name = f"{device_name} – SN: {lot.name}"
+                line.name = lot.format_hifi_label(include_serial=True)
 
     @api.onchange('product_id')
     def _onchange_product_id_set_categ(self):
@@ -683,8 +682,7 @@ class SaleOrderLine(models.Model):
                 self.product_id = self.lot_id.product_id
                 self.categ_id = self.lot_id.product_id.categ_id
             if self.lot_id.is_hifi_unit:
-                device_name = self.lot_id.with_context(lot_display='device_only').display_name
-                self.name = f"{device_name} – SN: {self.lot_id.name}" if self.lot_id.name else device_name
+                self.name = self.lot_id.format_hifi_label(include_serial=True)
 
     def _prepare_procurement_values(self, group_id=False):
         values = super()._prepare_procurement_values(group_id=group_id)

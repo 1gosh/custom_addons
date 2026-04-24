@@ -22,27 +22,35 @@ class StockLot(models.Model):
         string="Variante",
     )
 
-    @api.depends("product_id", "product_id.brand_id", "product_id.name",
-                 "hifi_variant_id", "hifi_variant_id.name", "name", "is_hifi_unit")
-    @api.depends_context('lot_display')
+    @api.depends("name", "is_hifi_unit")
     def _compute_display_name(self):
+        """HiFi lots always display their serial; a single label avoids
+        context-dependent rendering (which leaks between widgets on the
+        same form). Use `format_hifi_label()` below when a richer label
+        is needed (reports, stock move names, sale line descriptions)."""
         hifi = self.filtered('is_hifi_unit')
         non_hifi = self - hifi
         if non_hifi:
             super(StockLot, non_hifi)._compute_display_name()
-
-        lot_display = self.env.context.get('lot_display', 'serial_only')
         for rec in hifi:
-            if lot_display == 'serial_only':
-                rec.display_name = rec.name or ""
-            else:
-                tmpl = rec.product_id.product_tmpl_id
-                device_name = tmpl.display_name or rec.product_id.name or ""
-                if rec.hifi_variant_id:
-                    device_name += f" ({rec.hifi_variant_id.name})"
-                if lot_display == 'full' and rec.name:
-                    device_name += f" – SN: {rec.name}"
-                rec.display_name = device_name
+            rec.display_name = rec.name or ""
+
+    def format_hifi_label(self, include_serial=True):
+        """Render a HiFi lot as 'Brand Model (Variant) – SN: XXX'.
+
+        include_serial=False → just the device label. Use this anywhere
+        you need the full descriptive form without touching display_name.
+        """
+        self.ensure_one()
+        if not self.is_hifi_unit:
+            return self.display_name
+        tmpl = self.product_id.product_tmpl_id
+        label = tmpl.display_name or self.product_id.name or ""
+        if self.hifi_variant_id:
+            label = f"{label} ({self.hifi_variant_id.name})" if label else self.hifi_variant_id.name
+        if include_serial and self.name:
+            label = f"{label} – SN: {self.name}" if label else self.name
+        return label
 
     @api.model
     def _name_search(self, name, domain=None, operator='ilike', limit=None, order=None):
