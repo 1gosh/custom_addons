@@ -2,7 +2,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 {
     'name': 'repair_custom',
-    'version': '17.0.1.8.0',
+    'version': '17.0.1.10.0',
     'category': 'Inventory/Inventory',
     'summary': 'Custom repair management for workshop',
     "author": "martinl",
