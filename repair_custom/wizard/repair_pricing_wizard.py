@@ -199,7 +199,7 @@ class RepairPricingWizard(models.TransientModel):
 
     def _get_header_label(self):
         device_name = self.device_name or "Appareil Inconnu"
-        sn = self.repair_id.serial_number
+        sn = self.repair_id.lot_id.name or ''
         label = f"Réparation : {device_name}"
         if sn:
             label += f" (S/N: {sn})"

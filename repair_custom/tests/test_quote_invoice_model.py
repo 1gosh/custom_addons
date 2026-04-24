@@ -55,16 +55,30 @@ class TestSectionHeaderInjection(RepairQuoteCase):
 
     def setUp(self):
         super().setUp()
+        # Shared product needed for stock.lot (repairs have no device product by default)
+        lot_product = self.env['product.product'].create({
+            'name': 'Test Device SN',
+            'type': 'product',
+            'tracking': 'serial',
+        })
         # Two repairs in one batch, each with its own sale.order
         self.repair_a = self._make_repair(internal_notes='Diag A')
-        self.repair_a.serial_number = 'SN-AAA'
+        self.repair_a.lot_id = self.env['stock.lot'].create({
+            'name': 'SN-AAA',
+            'product_id': lot_product.id,
+            'company_id': self.repair_a.company_id.id,
+        })
         self.repair_b = self.Repair.create({
             'partner_id': self.partner.id,
             'internal_notes': 'Diag B',
             'quote_required': True,
             'technician_employee_id': self.tech_with_user.id,
             'batch_id': self.repair_a.batch_id.id,
-            'serial_number': 'SN-BBB',
+        })
+        self.repair_b.lot_id = self.env['stock.lot'].create({
+            'name': 'SN-BBB',
+            'product_id': lot_product.id,
+            'company_id': self.repair_b.company_id.id,
         })
         self.repair_b._action_repair_confirm()
         self.so_a = self._make_sale_order_linked(self.repair_a)
@@ -103,15 +117,29 @@ class TestInvoiceApprovedQuotes(RepairQuoteCase):
 
     def setUp(self):
         super().setUp()
+        # Shared product needed for stock.lot (repairs have no device product by default)
+        lot_product = self.env['product.product'].create({
+            'name': 'Test Device SN',
+            'type': 'product',
+            'tracking': 'serial',
+        })
         self.repair_a = self._make_repair()
-        self.repair_a.serial_number = 'SN-A'
+        self.repair_a.lot_id = self.env['stock.lot'].create({
+            'name': 'SN-A',
+            'product_id': lot_product.id,
+            'company_id': self.repair_a.company_id.id,
+        })
         self.repair_b = self.Repair.create({
             'partner_id': self.partner.id,
             'internal_notes': 'Diag B',
             'quote_required': True,
             'technician_employee_id': self.tech_with_user.id,
             'batch_id': self.repair_a.batch_id.id,
-            'serial_number': 'SN-B',
+        })
+        self.repair_b.lot_id = self.env['stock.lot'].create({
+            'name': 'SN-B',
+            'product_id': lot_product.id,
+            'company_id': self.repair_b.company_id.id,
         })
         self.repair_b._action_repair_confirm()
         self.so_a = self._make_sale_order_linked(self.repair_a)

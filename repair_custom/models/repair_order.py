@@ -6,6 +6,7 @@ from odoo import api, Command, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 from odoo.http import request
 from dateutil.relativedelta import relativedelta
+from markupsafe import Markup
 import secrets
 
 
@@ -259,21 +260,32 @@ class Repair(models.Model):
 
         for rec in self:
             suggested = 'aucune'
-            if rec.lot_id and rec.lot_id.warranty_state == 'active':
+            if not (rec.lot_id and rec.partner_id):
+                rec.suggested_warranty = suggested
+                continue
+
+            # Warranty never crosses ownership boundaries — an inherited SAV/SAR
+            # from the previous owner must not apply to a new customer's repair.
+            lot_owner = rec.lot_id.hifi_partner_id
+            if lot_owner and lot_owner != rec.partner_id:
+                rec.suggested_warranty = suggested
+                continue
+
+            if rec.lot_id.warranty_state == 'active':
                 suggested = rec.lot_id.warranty_type
-            # LEGACY FALLBACK — safe to remove once all historical repairs
-            # have been migrated (lot.sar_expiry populated for all past repairs).
-            #
-            # To remove:
-            # 1. Run check query to verify no lots with repair history lack sar_expiry:
-            #    SELECT sl.id, sl.name FROM stock_lot sl
-            #    JOIN repair_order ro ON ro.lot_id = sl.id
-            #    WHERE ro.state = 'done' AND sl.sar_expiry IS NULL;
-            # 2. If results: backfill sar_expiry from last delivered repair's
-            #    end_date + 3 months
-            # 3. Once clean, delete this elif branch — suggested_warranty
-            #    then only needs to check lot_id.warranty_state
-            elif rec.previous_repair_id:
+            elif rec.previous_repair_id and rec.previous_repair_id.partner_id == rec.partner_id:
+                # LEGACY FALLBACK — safe to remove once all historical repairs                 
+                # have been migrated (lot.sar_expiry populated for all past repairs).          
+                #                                                                              
+                # To remove:                                                                   
+                # 1. Run check query to verify no lots with repair history lack sar_expiry:    
+                #    SELECT sl.id, sl.name FROM stock_lot sl                                   
+                #    JOIN repair_order ro ON ro.lot_id = sl.id                                 
+                #    WHERE ro.state = 'done' AND sl.sar_expiry IS NULL;                        
+                # 2. If results: backfill sar_expiry from last delivered repair's              
+                #    end_date + 3 months                                                       
+                # 3. Once clean, delete this elif branch — suggested_warranty                  
+                #    then only needs to check lot_id.warranty_state 
                 prev_repair = rec.previous_repair_id
                 ref_date = prev_repair.end_date or prev_repair.write_date
                 if ref_date:
@@ -289,6 +301,19 @@ class Repair(models.Model):
         ('sar', 'SAR (Retour)'),
         ('sav', 'SAV'),
     ], string="Garantie Suggérée", compute='_compute_suggested_warranty', store=False)
+
+    requires_ownership_transfer = fields.Boolean(
+        compute='_compute_requires_ownership_transfer',
+        help="Vrai quand le lot sélectionné appartient à un autre client que celui de la réparation.",
+    )
+
+    @api.depends('lot_id', 'lot_id.hifi_partner_id', 'partner_id')
+    def _compute_requires_ownership_transfer(self):
+        for rec in self:
+            lot_owner = rec.lot_id.hifi_partner_id
+            rec.requires_ownership_transfer = bool(
+                lot_owner and rec.partner_id and lot_owner != rec.partner_id
+            )
 
     @api.onchange('lot_id', 'entry_date')
     def _onchange_lot_workflow(self):
@@ -307,6 +332,27 @@ class Repair(models.Model):
             return
 
         lot = self.lot_id
+
+        if (lot.hifi_partner_id and self.partner_id
+                and lot.hifi_partner_id != self.partner_id):
+            owner_name = lot.hifi_partner_id.name
+            if lot.warranty_state == 'active':
+                expiry_str = lot.warranty_expiry.strftime('%d/%m/%Y') if lot.warranty_expiry else '?'
+                msg = _(
+                    "Cet appareil appartient à %s (garantie %s active jusqu'au %s). "
+                    "Cliquez sur « Transférer la propriété » pour l'associer à %s "
+                    "et réinitialiser la garantie."
+                ) % (owner_name, lot.warranty_type.upper(), expiry_str, self.partner_id.name)
+            else:
+                msg = _(
+                    "Cet appareil appartient à %s. Cliquez sur « Transférer la propriété » "
+                    "pour l'associer à %s."
+                ) % (owner_name, self.partner_id.name)
+            return {'warning': {
+                'title': _("Changement de propriétaire requis"),
+                'message': msg,
+            }}
+
         if lot.warranty_state == 'active' and lot.warranty_type == 'sav':
             sale_date_str = lot.sale_date.strftime('%d/%m/%Y') if lot.sale_date else '?'
             expiry_str = lot.warranty_expiry.strftime('%d/%m/%Y') if lot.warranty_expiry else '?'
@@ -325,7 +371,7 @@ class Repair(models.Model):
                 'message': _("Appareil sous garantie jusqu'au %s (Réparé par %s, le %s)") % (expiry_str, tech_name, prev_date_str),
                 'warning_type': 'notification',
             }}
-        elif self.previous_repair_id:
+        elif self.previous_repair_id and self.previous_repair_id.partner_id == self.partner_id:
             prev_repair = self.previous_repair_id
             tech_name = prev_repair.technician_employee_id.name or 'Inconnu'
             prev_date_str = (prev_repair.end_date or prev_repair.write_date).strftime('%d/%m/%Y')
@@ -388,11 +434,35 @@ class Repair(models.Model):
         if self.product_tmpl_id and self.product_tmpl_id.categ_id:
             self.category_id = self.product_tmpl_id.categ_id
 
-    serial_number = fields.Char("N° de série")
-    lot_id = fields.Many2one('stock.lot', string="Appareil physique", readonly=True, index=True,
-                              domain=[('is_hifi_unit', '=', True)])
-    device_id_name = fields.Char("Appareil", compute="_compute_device_id_name", store=True, readonly=True)
+    lot_id = fields.Many2one(
+        'stock.lot', string="Appareil physique",
+        index=True,
+        domain=[('is_hifi_unit', '=', True)],
+        help="Unité physique. Tape un numéro de série existant pour le retrouver, "
+             "ou un nouveau numéro pour le créer à la volée.",
+    )
+    product_variant_id = fields.Many2one(
+        'product.product',
+        related='product_tmpl_id.product_variant_id',
+        store=False, readonly=True,
+        string="Variante produit (pour contexte lot)",
+    )
+    device_id_name = fields.Char("Appareil", compute="_compute_device_id_name", readonly=True)
+    lot_full_label = fields.Char(
+        "Appareil & numéro de série",
+        compute="_compute_lot_full_label",
+        readonly=True,
+        help="Libellé complet 'Marque Modèle (Variante) – SN: XXX' pour affichage "
+             "dans les vues qui veulent plus que le numéro de série seul.",
+    )
     show_lot_field = fields.Boolean(string="Afficher champ unité", compute="_compute_show_lot_field")
+
+    @api.depends('lot_id', 'lot_id.name', 'lot_id.is_hifi_unit',
+                 'lot_id.product_id', 'lot_id.product_id.product_tmpl_id.display_name',
+                 'lot_id.hifi_variant_id', 'lot_id.hifi_variant_id.name')
+    def _compute_lot_full_label(self):
+        for rec in self:
+            rec.lot_full_label = rec.lot_id.format_hifi_label(include_serial=True) if rec.lot_id else ''
 
     @api.depends('lot_id', 'lot_id.product_id', 'lot_id.hifi_variant_id', 'product_tmpl_id', 'product_tmpl_id.display_name', 'variant_id')
     def _compute_device_id_name(self):
@@ -419,7 +489,6 @@ class Repair(models.Model):
             self.variant_id = False
             if self.lot_id:
                 self.lot_id = False
-                self.serial_number = False
 
     @api.onchange('category_id')
     def _onchange_category_id(self):
@@ -452,7 +521,6 @@ class Repair(models.Model):
     def _onchange_lot_id(self):
         for rec in self:
             if rec.lot_id:
-                rec.serial_number = rec.lot_id.name
                 rec.product_tmpl_id = rec.lot_id.product_id.product_tmpl_id
                 rec.variant_id = rec.lot_id.hifi_variant_id
 
@@ -474,14 +542,11 @@ class Repair(models.Model):
         Lot = self.env['stock.lot']
         for rec in self:
             show = False
-            if rec.state == 'draft':
-                has_partner_lots = False
-                if rec.partner_id:
-                    has_partner_lots = bool(Lot.search([
-                        ('hifi_partner_id', '=', rec.partner_id.id),
-                        ('is_hifi_unit', '=', True),
-                    ], limit=1))
-                show = bool(rec.lot_id) or has_partner_lots
+            if rec.state == 'draft' and not rec.lot_id and rec.partner_id:
+                show = bool(Lot.search([
+                    ('hifi_partner_id', '=', rec.partner_id.id),
+                    ('is_hifi_unit', '=', True),
+                ], limit=1))
             rec.show_lot_field = show
 
     @api.onchange('partner_id')
@@ -504,7 +569,6 @@ class Repair(models.Model):
         store=False,
         string="État livraison dossier",
     )
-    batch_count = fields.Integer(compute='_compute_batch_count', string="Autres appareils")
     sibling_repair_ids = fields.Many2many(
         'repair.order',
         string="Autres réparations du dossier",
@@ -513,15 +577,15 @@ class Repair(models.Model):
     has_siblings = fields.Boolean(
         compute='_compute_sibling_repair_ids',
     )
-    batch_sibling_count = fields.Integer(
-        compute='_compute_batch_sibling_count',
+    batch_count = fields.Integer(
+        compute='_compute_batch_count',
         string="Réparations dans le dossier",
     )
 
     @api.depends('batch_id.repair_ids')
-    def _compute_batch_sibling_count(self):
+    def _compute_batch_count(self):
         for rec in self:
-            rec.batch_sibling_count = len(rec.batch_id.repair_ids) if rec.batch_id else 0
+            rec.batch_count = len(rec.batch_id.repair_ids) if rec.batch_id else 0
 
     def action_open_batch(self):
         self.ensure_one()
@@ -534,15 +598,6 @@ class Repair(models.Model):
             'view_mode': 'form',
             'target': 'current',
         }
-
-    @api.depends('batch_id')
-    def _compute_batch_count(self):
-        for rec in self:
-            if rec.batch_id:
-                domain = [('batch_id', '=', rec.batch_id.id)]
-                rec.batch_count = self.env['repair.order'].search_count(domain)
-            else:
-                rec.batch_count = 0
 
     @api.depends('batch_id', 'batch_id.repair_ids')
     def _compute_sibling_repair_ids(self):
@@ -885,20 +940,72 @@ class Repair(models.Model):
                 })
         return self.write({'state': 'confirmed'})
 
-    def action_generate_serial(self):
-        """Auto-generate a serial number (without creating the lot — action_validate handles that)."""
+    def action_transfer_ownership(self):
+        """Transfer the selected lot to the repair's customer and reset sale/warranty data.
+
+        The original sale and warranty fields are archived into the lot's chatter
+        before being cleared, so the history remains auditable.
+        """
         self.ensure_one()
-        if self.serial_number or self.lot_id:
+        lot = self.lot_id
+        if not lot or not self.partner_id:
             return
-        if not self.product_tmpl_id:
-            raise UserError(_("Veuillez sélectionner un appareil avant de générer un numéro de série."))
-        self.serial_number = self.env['ir.sequence'].next_by_code('stock.lot.hifi')
+        old_partner = lot.hifi_partner_id
+        if not old_partner or old_partner == self.partner_id:
+            return
+
+        sale_date_str = lot.sale_date.strftime('%d/%m/%Y') if lot.sale_date else '—'
+        sale_order_ref = lot.sale_order_id.name if lot.sale_order_id else '—'
+        warranty_type = (lot.warranty_type or 'none').upper()
+        warranty_expiry_str = lot.warranty_expiry.strftime('%d/%m/%Y') if lot.warranty_expiry else '—'
+        last_repair_ref = lot.last_delivered_repair_id.name if lot.last_delivered_repair_id else '—'
+        last_tech = lot.last_technician_id.name if lot.last_technician_id else '—'
+
+        body = Markup(_(
+            "Propriété transférée de <strong>%(old)s</strong> vers <strong>%(new)s</strong> "
+            "via la réparation %(ref)s.<br/>"
+            "Données précédentes archivées : vente du %(sale_date)s (commande %(sale_order)s), "
+            "garantie %(warranty_type)s jusqu'au %(warranty_expiry)s, "
+            "dernière réparation %(last_repair)s par %(last_tech)s.<br/>"
+            "Garantie et liens de vente réinitialisés."
+        )) % {
+            'old': old_partner.display_name,
+            'new': self.partner_id.display_name,
+            'ref': self.name,
+            'sale_date': sale_date_str,
+            'sale_order': sale_order_ref,
+            'warranty_type': warranty_type,
+            'warranty_expiry': warranty_expiry_str,
+            'last_repair': last_repair_ref,
+            'last_tech': last_tech,
+        }
+        lot.message_post(body=body)
+
+        lot.write({
+            'hifi_partner_id': self.partner_id.id,
+            'sale_date': False,
+            'sale_order_id': False,
+            'sav_expiry': False,
+            'sar_expiry': False,
+            'last_delivered_repair_id': False,
+            'last_technician_id': False,
+        })
+        # The repair's cached warranty came from the lot's old owner — reset it
+        # on the server side, then reload the form so every lot.* related value
+        # on the UI (warranty_state, warranty_expiry, sale_date...) re-reads.
+        self.write({'repair_warranty': 'aucune'})
+        return {'type': 'ir.actions.client', 'tag': 'soft_reload'}
 
     def action_validate(self):
         """Confirm repair, create stock.lot if needed, and create intake stock move."""
         self.ensure_one()
         if self.delivery_state == 'abandoned':
             raise UserError(_("Impossible de modifier l'état d'une réparation abandonnée."))
+        if self.requires_ownership_transfer:
+            raise UserError(_(
+                "L'appareil sélectionné appartient à un autre client. "
+                "Cliquez sur « Transférer la propriété » avant de confirmer la réparation."
+            ))
         if self.variant_id and self.variant_id not in self.product_tmpl_id.hifi_variant_ids:
             self.product_tmpl_id.write({'hifi_variant_ids': [(4, self.variant_id.id)]})
 
@@ -921,13 +1028,13 @@ class Repair(models.Model):
             return self._action_repair_confirm()
 
         if self.product_tmpl_id and self.partner_id:
-            # Create stock.lot for the device
+            # Fallback lot creation for programmatic callers / imports that
+            # didn't set lot_id. Interactive users now set lot_id directly.
             product = self.product_tmpl_id.product_variant_id
             if not product:
                 raise UserError(_("Aucun produit trouvé pour cet appareil."))
-            sn = self.serial_number or False
             lot_vals = {
-                'name': sn or f"REP-{self.name}",
+                'name': f"REP-{self.name}",
                 'product_id': product.id,
                 'company_id': self.company_id.id,
                 'hifi_partner_id': self.partner_id.id,
@@ -935,8 +1042,7 @@ class Repair(models.Model):
             if self.variant_id:
                 lot_vals['hifi_variant_id'] = self.variant_id.id
             new_lot = self.env['stock.lot'].create(lot_vals)
-            self.write({'lot_id': new_lot.id, 'serial_number': new_lot.name})
-            # Seed quant at customer location and move to workshop
+            self.write({'lot_id': new_lot.id})
             Quant._update_available_quantity(product, customer_location, 1.0, lot_id=new_lot)
             self._create_repair_picking(customer_location, workshop_location)
         return self._action_repair_confirm()
@@ -1042,7 +1148,7 @@ class Repair(models.Model):
                     "Un dossier de dépôt est obligatoire une fois la réparation confirmée."
                 ))
 
-    @api.constrains('lot_id', 'product_tmpl_id', 'variant_id', 'serial_number')
+    @api.constrains('lot_id', 'product_tmpl_id', 'variant_id')
     def _check_unit_consistency(self):
         for rec in self:
             if rec.lot_id:

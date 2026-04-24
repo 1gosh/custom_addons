@@ -22,27 +22,22 @@ class StockLot(models.Model):
         string="Variante",
     )
 
-    @api.depends("product_id", "product_id.brand_id", "product_id.name",
-                 "hifi_variant_id", "hifi_variant_id.name", "name", "is_hifi_unit")
-    @api.depends_context('lot_display')
-    def _compute_display_name(self):
-        hifi = self.filtered('is_hifi_unit')
-        non_hifi = self - hifi
-        if non_hifi:
-            super(StockLot, non_hifi)._compute_display_name()
+    def format_hifi_label(self, include_serial=True):
+        """Render a HiFi lot as 'Brand Model (Variant) – SN: XXX'.
 
-        lot_display = self.env.context.get('lot_display', 'full')
-        for rec in hifi:
-            if lot_display == 'serial_only':
-                rec.display_name = rec.name or ""
-            else:
-                tmpl = rec.product_id.product_tmpl_id
-                device_name = tmpl.display_name or rec.product_id.name or ""
-                if rec.hifi_variant_id:
-                    device_name += f" ({rec.hifi_variant_id.name})"
-                if lot_display == 'full' and rec.name:
-                    device_name += f" – SN: {rec.name}"
-                rec.display_name = device_name
+        include_serial=False → just the device label. Use this anywhere
+        you need the full descriptive form without touching display_name.
+        """
+        self.ensure_one()
+        if not self.is_hifi_unit:
+            return self.display_name
+        tmpl = self.product_id.product_tmpl_id
+        label = tmpl.display_name or self.product_id.name or ""
+        if self.hifi_variant_id:
+            label = f"{label} ({self.hifi_variant_id.name})" if label else self.hifi_variant_id.name
+        if include_serial and self.name:
+            label = f"{label} – SN: {self.name}" if label else self.name
+        return label
 
     @api.model
     def _name_search(self, name, domain=None, operator='ilike', limit=None, order=None):
@@ -57,6 +52,26 @@ class StockLot(models.Model):
             ]
             return self._search(lot_domain + domain, limit=limit, order=order)
         return super()._name_search(name, domain=domain, operator=operator, limit=limit, order=order)
+
+    @api.model
+    def name_search(self, name='', args=None, operator='ilike', limit=100):
+        """Return rich 'Brand Model – SN: XXX' labels for autocomplete dropdowns
+        that opt in via `context={'lot_display': 'full'}`.
+
+        display_name stays a serial-only, context-invariant value (see above) —
+        this override only affects the per-RPC autocomplete payload, so it can't
+        leak into chip rendering elsewhere on the form.
+        """
+        result = super().name_search(name=name, args=args, operator=operator, limit=limit)
+        if self.env.context.get('lot_display') != 'full' or not result:
+            return result
+        ids = [r[0] for r in result]
+        rich = {
+            rec.id: rec.format_hifi_label(include_serial=True)
+            for rec in self.browse(ids)
+            if rec.is_hifi_unit
+        }
+        return [(rid, rich.get(rid, label)) for rid, label in result]
 
     @api.depends('product_id.product_tmpl_id.is_hifi_device')
     def _compute_is_hifi_unit(self):

@@ -184,7 +184,17 @@
                 <field name="delivery_state" invisible="1"/>
                 <field name="has_siblings" invisible="1"/>
                 <field name="is_quote_invoiceable" invisible="1"/>
+                <field name="batch_id" invisible="1"/>
+                <field name="product_variant_id" invisible="1"/>
                 <header>
+                    <button name="action_transfer_ownership"
+                            type="object"
+                            string="Transférer la propriété"
+                            class="btn-warning"
+                            icon="fa-exchange"
+                            invisible="not requires_ownership_transfer"
+                            groups="repair_custom.group_repair_manager"/>
+                    <field name="requires_ownership_transfer" invisible="1"/>
                     <button name="action_validate" groups="repair_custom.group_repair_manager" invisible="state not in 'draft'" type="object" string="Confirmer la réparation" class="oe_highlight" data-hotkey="v"/>
                     <button name="action_repair_start" invisible="state not in 'confirmed'" type="object" string="Commencer" class="oe_highlight" data-hotkey="q"/>
                     <button name="action_repair_end" invisible="state not in 'under_repair'" type="object" string="Terminer la réparation" class="btn-success" data-hotkey="x"/>
@@ -296,7 +306,7 @@
                                 class="oe_stat_button"
                                 icon="fa-folder-open"
                                 invisible="not batch_id">
-                            <field name="batch_sibling_count" widget="statinfo" string="Dossier"/>
+                            <field name="batch_count" widget="statinfo" string="Dossier"/>
                         </button>
                         <button name="action_open_unit"
                                 string="Fiche Appareil"
@@ -319,9 +329,6 @@
                         </button>
                     </div>
                     <div class="oe_title">
-                        <h4 invisible="not batch_id" class="text-muted">
-                            <i class="fa fa-folder-open"/> <span invisible="batch_count == 0"></span>(1/<span class="o_stat_value"><field name="batch_count"/></span>) Dossier : <field name="batch_id" readonly="1" class="oe_inline"/>
-                        </h4>
                         <label class="o_form_label" invisible="lot_id" for="entry_date"/>
                         <field name="entry_date" invisible="not lot_id" class="o_form_label" string="Date d'entrée" widget="datetime" options="{'show_time':false}" readonly="state not in 'draft'" />
                         <h1 class="d-flex">
@@ -392,19 +399,17 @@
                                         force_save="1"
                                         placeholder="Sélectionner une variante (optionnel)"
                                         invisible ="(not product_tmpl_id) or (not variant_id and (state not in 'draft'))"/>
-                                    <label for="serial_number" string="N° de série"
+                                    <label for="lot_id" string="N° de série"
                                         invisible="not product_tmpl_id"/>
-                                    <div class="d-flex align-items-center gap-2"
-                                        invisible="not product_tmpl_id">
-                                        <field name="serial_number" nolabel="1"
-                                            placeholder="Numéro de série"
-                                            readonly="state not in 'draft' or lot_id"
-                                            force_save="1"/>
-                                        <button name="action_generate_serial" type="object"
-                                            class="btn-sm" icon="fa-barcode"
-                                            title="Générer N° Série"
-                                            invisible="state != 'draft' or serial_number or lot_id"/>
-                                    </div>
+                                    <field name="lot_id" nolabel="1"
+                                        invisible="not product_tmpl_id"
+                                        readonly="state not in 'draft'"
+                                        domain="[('product_id.product_tmpl_id', '=', product_tmpl_id),
+                                                 ('is_hifi_unit', '=', True)]"
+                                        context="{'default_product_id': product_variant_id,
+                                                  'default_hifi_partner_id': partner_id,
+                                                  'default_hifi_variant_id': variant_id}"
+                                        placeholder="Tapez le n° de série (existant ou nouveau)"/>
                                 </group>
                                 <group>
                                     <field name="tag_ids"   
@@ -434,11 +439,11 @@
                                         style="background: #f0f0f0; font-family: monospace; padding: 10px; border: 1px solid #ccc; min-height: 150px;"/>
                                 </group>
                                 <group>
-                                    <field name="lot_id"
+                                    <field name="lot_id" invisible="1"/>
+                                    <field name="lot_full_label"
                                             invisible="not lot_id"
                                             readonly="1"
-                                            string="Appareil"
-                                            context="{'lot_display': 'full'}"/>
+                                            string="Appareil"/>
                                     <field name="technician_employee_id" 
                                         groups="repair_custom.group_repair_manager" 
                                         options="{'no_open':True}"
@@ -530,13 +535,13 @@
         <field name="model">repair.order</field>
         <field name="arch" type="xml">
             <search string="Search Repair Orders">
-                <field name="name" string="Recherche Globale" 
+                <field name="name" string="Recherche Globale"
                        filter_domain="['|', '|', '|',
-                            ('name', 'ilike', self), 
-                            ('partner_id', 'ilike', self), 
+                            ('name', 'ilike', self),
+                            ('partner_id', 'ilike', self),
                             ('product_tmpl_id', 'ilike', self),
-                            ('serial_number', 'ilike', self)]"/>
-                <field name="serial_number"/>
+                            ('lot_id.name', 'ilike', self)]"/>
+                <field name="lot_id" string="N° de série"/>
                 <filter string="New" domain="[('state', '=', 'draft')]" name="filter_draft" />
                 <filter string="Confirmed" domain="[('state', '=', 'confirmed')]" name="filter_confirmed" />
                 <filter string="Under Repair" name="filter_under_repair" domain="[('state', '=', 'under_repair')]"/>
@@ -871,7 +876,7 @@
                     width="50" widget="datetime" options="{'show_time':false}" />
                 <field name="waiting_time" string="Attente" optional="show" readonly="True"/>
                 <field name="device_id_name" string="Appareil"/>
-                <field name="serial_number" optional="show"/>
+                <field name="lot_id" string="N° de série" optional="show"/>
                 <field name="partner_id" widget="many2one_avatar"/>
                 <field name="quote_required" optional="show"/>
                 <field name="parts_waiting" optional="hide"/>
@@ -906,12 +911,12 @@
         <field name="model">repair.order</field>
         <field name="arch" type="xml">
             <search string="Recherche Atelier">
-                <field name="name" string="Recherche Globale" 
+                <field name="name" string="Recherche Globale"
                        filter_domain="['|', '|', '|',
-                            ('name', 'ilike', self), 
-                            ('partner_id', 'ilike', self), 
+                            ('name', 'ilike', self),
+                            ('partner_id', 'ilike', self),
                             ('product_tmpl_id', 'ilike', self),
-                            ('serial_number', 'ilike', self)]"/>
+                            ('lot_id.name', 'ilike', self)]"/>
 
                 <filter string="Ma Session" name="my_session" domain="[('technician_employee_id', '=', context.get('atelier_employee_id'))]"/>
                 

@@ -119,8 +119,19 @@ class TestStateMachine(RepairAppointmentCase):
 
     def test_device_summary_lists_repairs(self):
         batch = self._make_batch(repair_count=2)
-        batch.repair_ids[0].serial_number = 'SN123'
-        batch.repair_ids[1].serial_number = 'SN456'
+        product = self.env['product.product'].create({'name': 'Test Device'})
+        lot123 = self.env['stock.lot'].create({
+            'name': 'SN123',
+            'product_id': product.id,
+            'company_id': batch.repair_ids[0].company_id.id,
+        })
+        batch.repair_ids[0].lot_id = lot123
+        lot456 = self.env['stock.lot'].create({
+            'name': 'SN456',
+            'product_id': product.id,
+            'company_id': batch.repair_ids[1].company_id.id,
+        })
+        batch.repair_ids[1].lot_id = lot456
         apt = self.Appointment.create({'batch_id': batch.id})
         self.assertEqual(apt.device_count, 2)
         self.assertIn('SN123', apt.device_summary)
