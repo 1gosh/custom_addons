@@ -439,7 +439,7 @@
                                         style="background: #f0f0f0; font-family: monospace; padding: 10px; border: 1px solid #ccc; min-height: 150px;"/>
                                 </group>
                                 <group>
-                                    <field name="lot_id"
+                                    <field name="lot_full_label"
                                             invisible="not lot_id"
                                             readonly="1"
                                             string="Appareil"/>

@@ -448,7 +448,21 @@ class Repair(models.Model):
         string="Variante produit (pour contexte lot)",
     )
     device_id_name = fields.Char("Appareil", compute="_compute_device_id_name", readonly=True)
+    lot_full_label = fields.Char(
+        "Appareil & numéro de série",
+        compute="_compute_lot_full_label",
+        readonly=True,
+        help="Libellé complet 'Marque Modèle (Variante) – SN: XXX' pour affichage "
+             "dans les vues qui veulent plus que le numéro de série seul.",
+    )
     show_lot_field = fields.Boolean(string="Afficher champ unité", compute="_compute_show_lot_field")
+
+    @api.depends('lot_id', 'lot_id.name', 'lot_id.is_hifi_unit',
+                 'lot_id.product_id', 'lot_id.product_id.product_tmpl_id.display_name',
+                 'lot_id.hifi_variant_id', 'lot_id.hifi_variant_id.name')
+    def _compute_lot_full_label(self):
+        for rec in self:
+            rec.lot_full_label = rec.lot_id.format_hifi_label(include_serial=True) if rec.lot_id else ''
 
     @api.depends('lot_id', 'lot_id.product_id', 'lot_id.hifi_variant_id', 'product_tmpl_id', 'product_tmpl_id.display_name', 'variant_id')
     def _compute_device_id_name(self):
