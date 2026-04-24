@@ -290,6 +290,19 @@ class Repair(models.Model):
         ('sav', 'SAV'),
     ], string="Garantie Suggérée", compute='_compute_suggested_warranty', store=False)
 
+    requires_ownership_transfer = fields.Boolean(
+        compute='_compute_requires_ownership_transfer',
+        help="Vrai quand le lot sélectionné appartient à un autre client que celui de la réparation.",
+    )
+
+    @api.depends('lot_id', 'lot_id.hifi_partner_id', 'partner_id')
+    def _compute_requires_ownership_transfer(self):
+        for rec in self:
+            lot_owner = rec.lot_id.hifi_partner_id
+            rec.requires_ownership_transfer = bool(
+                lot_owner and rec.partner_id and lot_owner != rec.partner_id
+            )
+
     @api.onchange('lot_id', 'entry_date')
     def _onchange_lot_workflow(self):
         """UI updates: Apply suggested warranty and show history popup."""
@@ -307,6 +320,27 @@ class Repair(models.Model):
             return
 
         lot = self.lot_id
+
+        if (lot.hifi_partner_id and self.partner_id
+                and lot.hifi_partner_id != self.partner_id):
+            owner_name = lot.hifi_partner_id.name
+            if lot.warranty_state == 'active':
+                expiry_str = lot.warranty_expiry.strftime('%d/%m/%Y') if lot.warranty_expiry else '?'
+                msg = _(
+                    "Cet appareil appartient à %s (garantie %s active jusqu'au %s). "
+                    "Cliquez sur « Transférer la propriété » pour l'associer à %s "
+                    "et réinitialiser la garantie."
+                ) % (owner_name, lot.warranty_type.upper(), expiry_str, self.partner_id.name)
+            else:
+                msg = _(
+                    "Cet appareil appartient à %s. Cliquez sur « Transférer la propriété » "
+                    "pour l'associer à %s."
+                ) % (owner_name, self.partner_id.name)
+            return {'warning': {
+                'title': _("Changement de propriétaire requis"),
+                'message': msg,
+            }}
+
         if lot.warranty_state == 'active' and lot.warranty_type == 'sav':
             sale_date_str = lot.sale_date.strftime('%d/%m/%Y') if lot.sale_date else '?'
             expiry_str = lot.warranty_expiry.strftime('%d/%m/%Y') if lot.warranty_expiry else '?'
@@ -880,11 +914,68 @@ class Repair(models.Model):
                 })
         return self.write({'state': 'confirmed'})
 
+    def action_transfer_ownership(self):
+        """Transfer the selected lot to the repair's customer and reset sale/warranty data.
+
+        The original sale and warranty fields are archived into the lot's chatter
+        before being cleared, so the history remains auditable.
+        """
+        self.ensure_one()
+        lot = self.lot_id
+        if not lot or not self.partner_id:
+            return
+        old_partner = lot.hifi_partner_id
+        if not old_partner or old_partner == self.partner_id:
+            return
+
+        sale_date_str = lot.sale_date.strftime('%d/%m/%Y') if lot.sale_date else '—'
+        sale_order_ref = lot.sale_order_id.name if lot.sale_order_id else '—'
+        warranty_type = (lot.warranty_type or 'none').upper()
+        warranty_expiry_str = lot.warranty_expiry.strftime('%d/%m/%Y') if lot.warranty_expiry else '—'
+        last_repair_ref = lot.last_delivered_repair_id.name if lot.last_delivered_repair_id else '—'
+        last_tech = lot.last_technician_id.name if lot.last_technician_id else '—'
+
+        body = _(
+            "Propriété transférée de <strong>%(old)s</strong> vers <strong>%(new)s</strong> "
+            "via la réparation %(ref)s.<br/>"
+            "Données précédentes archivées : vente du %(sale_date)s (commande %(sale_order)s), "
+            "garantie %(warranty_type)s jusqu'au %(warranty_expiry)s, "
+            "dernière réparation %(last_repair)s par %(last_tech)s.<br/>"
+            "Garantie et liens de vente réinitialisés."
+        ) % {
+            'old': old_partner.display_name,
+            'new': self.partner_id.display_name,
+            'ref': self.name,
+            'sale_date': sale_date_str,
+            'sale_order': sale_order_ref,
+            'warranty_type': warranty_type,
+            'warranty_expiry': warranty_expiry_str,
+            'last_repair': last_repair_ref,
+            'last_tech': last_tech,
+        }
+        lot.message_post(body=body)
+
+        lot.write({
+            'hifi_partner_id': self.partner_id.id,
+            'sale_date': False,
+            'sale_order_id': False,
+            'sav_expiry': False,
+            'sar_expiry': False,
+            'last_delivered_repair_id': False,
+            'last_technician_id': False,
+        })
+        self._onchange_lot_workflow()
+
     def action_validate(self):
         """Confirm repair, create stock.lot if needed, and create intake stock move."""
         self.ensure_one()
         if self.delivery_state == 'abandoned':
             raise UserError(_("Impossible de modifier l'état d'une réparation abandonnée."))
+        if self.requires_ownership_transfer:
+            raise UserError(_(
+                "L'appareil sélectionné appartient à un autre client. "
+                "Cliquez sur « Transférer la propriété » avant de confirmer la réparation."
+            ))
         if self.variant_id and self.variant_id not in self.product_tmpl_id.hifi_variant_ids:
             self.product_tmpl_id.write({'hifi_variant_ids': [(4, self.variant_id.id)]})
 

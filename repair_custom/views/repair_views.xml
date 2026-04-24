@@ -187,6 +187,14 @@
                 <field name="batch_id" invisible="1"/>
                 <field name="product_variant_id" invisible="1"/>
                 <header>
+                    <button name="action_transfer_ownership"
+                            type="object"
+                            string="Transférer la propriété"
+                            class="btn-warning"
+                            icon="fa-exchange"
+                            invisible="not requires_ownership_transfer"
+                            groups="repair_custom.group_repair_manager"/>
+                    <field name="requires_ownership_transfer" invisible="1"/>
                     <button name="action_validate" groups="repair_custom.group_repair_manager" invisible="state not in 'draft'" type="object" string="Confirmer la réparation" class="oe_highlight" data-hotkey="v"/>
                     <button name="action_repair_start" invisible="state not in 'confirmed'" type="object" string="Commencer" class="oe_highlight" data-hotkey="q"/>
                     <button name="action_repair_end" invisible="state not in 'under_repair'" type="object" string="Terminer la réparation" class="btn-success" data-hotkey="x"/>
