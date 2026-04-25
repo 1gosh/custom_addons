@@ -46,7 +46,7 @@
                             invisible="not escalation_activity_id"/>
                     <button name="action_send_reminder_now" type="object"
                             string="Renvoyer le rappel"
-                            invisible="state != 'pending'"/>
+                            invisible="not notification_sent_at or state != 'pending'"/>
                     <button name="action_open_reset_pickup_cycle_wizard" type="object"
                             string="Réinitialiser le cycle de relance"
                             invisible="not notification_sent_at or state in ('done','no_show','cancelled')"/>

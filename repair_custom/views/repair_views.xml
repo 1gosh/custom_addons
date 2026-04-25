@@ -229,7 +229,7 @@
                             string="Réinitialiser le cycle de relance"
                             class="btn-secondary"
                             groups="repair_custom.group_repair_manager"
-                            invisible="not quote_sent_date"/>
+                            invisible="quote_state in 'approved' or not quote_sent_date"/>
                     <button name="action_notify_client_ready_from_repair"
                             type="object"
                             string="Notifier client"
