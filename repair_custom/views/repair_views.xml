@@ -224,6 +224,11 @@
                             invisible="not is_quote_invoiceable"/>
                     <button name="action_add_device_to_batch" string="Ajouter appareil" type="object" class="btn-secondary" icon="fa-plus-square" invisible="state not in 'confirmed'"/>
                     <button name="action_quote_contacted" string="Client contacté" type="object" class="btn-secondary" groups="repair_custom.group_repair_manager" invisible="not has_open_escalation"/>
+                    <button name="action_open_reset_quote_cycle_wizard"
+                            type="object"
+                            string="Réinitialiser le cycle de relance"
+                            class="btn-secondary"
+                            invisible="quote_state != 'sent' and not quote_sent_date"/>
                     <button name="action_notify_client_ready_from_repair"
                             type="object"
                             string="Notifier client"

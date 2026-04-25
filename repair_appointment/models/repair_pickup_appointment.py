@@ -508,6 +508,54 @@ class RepairPickupAppointment(models.Model):
             apt.last_reminder_sent_at = fields.Datetime.now()
             apt.message_post(body=_("Rappel envoyé manuellement."))
 
+    def _reset_pickup_cycle(self, send_initial=False):
+        """Clear pickup-reminder cycle anchors. Optionally re-fire the initial
+        ready-for-pickup mail and re-stamp notification_sent_at."""
+        self.ensure_one()
+        if self.escalation_activity_id and self.escalation_activity_id.state != 'done':
+            self.escalation_activity_id.action_feedback(
+                feedback=_("Fermée automatiquement (cycle réinitialisé)")
+            )
+        self.write({
+            'notification_sent_at': False,
+            'last_reminder_sent_at': False,
+            'contacted': False,
+            'contacted_at': False,
+        })
+        if send_initial:
+            template = self.env.ref(
+                'repair_appointment.mail_template_pickup_ready',
+                raise_if_not_found=False,
+            )
+            if not template:
+                raise UserError(_(
+                    "Modèle de notification initiale introuvable."
+                ))
+            attachment_ids = (
+                self.batch_id._build_pickup_quote_attachments()
+                if self.batch_id else []
+            )
+            email_values = (
+                {'attachment_ids': [(4, aid) for aid in attachment_ids]}
+                if attachment_ids else None
+            )
+            template.send_mail(self.id, force_send=True, email_values=email_values)
+            self.notification_sent_at = fields.Datetime.now()
+
+    def action_open_reset_pickup_cycle_wizard(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _("Réinitialiser le cycle de relance"),
+            'res_model': 'repair.cycle.reset.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_res_model_name': 'repair.pickup.appointment',
+                'default_res_id': self.id,
+            },
+        }
+
     # ------------------------------------------------------------------
     # UI actions
     # ------------------------------------------------------------------
