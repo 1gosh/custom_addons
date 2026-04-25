@@ -1426,6 +1426,9 @@ class Repair(models.Model):
                 default_template_id=template.id,
                 default_composition_mode='comment',
                 default_email_layout_xmlid='mail.mail_notification_layout_with_responsible_signature',
+                # mark_so_as_sent flips draft → sent on the SO; here it's a no-op
+                # because the CRON's domain filters quote_state='sent' (SO already
+                # 'sent'). Kept for layout-parity with action_quotation_send.
                 mark_so_as_sent=True,
                 force_email=True,
                 model_description=so.with_context(lang=lang).type_name,

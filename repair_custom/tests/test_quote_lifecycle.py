@@ -253,6 +253,25 @@ class TestSendQuoteReminderMail(RepairQuoteCase):
         self.assertGreater(len(sale_order.message_ids), before_so,
                            "Reminder mail must thread on the sale.order, not the repair")
 
+    def test_send_quote_reminder_attaches_quote_pdf(self):
+        repair, sale_order = self._setup_sent_quote()
+        repair._send_quote_reminder_mail()
+        last_msg = sale_order.message_ids[0]
+        self.assertTrue(
+            any(a.mimetype == 'application/pdf' for a in last_msg.attachment_ids),
+            "Reminder mail must attach the quote PDF (sale.action_report_saleorder)",
+        )
+
+    def test_send_quote_reminder_email_from_is_company(self):
+        repair, sale_order = self._setup_sent_quote()
+        repair._send_quote_reminder_mail()
+        last_msg = sale_order.message_ids[0]
+        self.assertEqual(
+            last_msg.email_from,
+            sale_order.company_id.email_formatted,
+            "Reminder mail From must resolve to the company's formatted email",
+        )
+
     def test_send_quote_reminder_without_sale_order_is_noop(self):
         repair = self._make_repair()
         repair._apply_quote_state_transition('pending')
