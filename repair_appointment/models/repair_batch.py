@@ -93,20 +93,25 @@ class RepairBatch(models.Model):
         return [attachment.id]
 
     def action_create_pickup_appointment(self, notify=True):
-        """Create a pending appointment for this batch. Idempotent:
-        returns the existing non-terminal appointment if one exists.
-        If `notify=True` and a mail template for the initial notification
-        is configured, send it and stamp `notification_sent_at`.
+        """Create a pending appointment for this batch and optionally fire the
+        initial pickup-ready mail.
 
-        The initial notification template itself is owned by sub-project 3.
-        This method only provides the hook.
+        Idempotency rules:
+        - If a non-terminal appointment already has `notification_sent_at`
+          stamped, this is a true no-op — return it as-is.
+        - If a non-terminal appointment exists but `notification_sent_at` is
+          empty (e.g. after a cycle reset), reuse it as the send target so
+          the existing record's history is preserved.
+        - Otherwise, create a fresh appointment.
         """
         self.ensure_one()
-        if self.current_appointment_id:
-            return self.current_appointment_id
-        apt = self.env['repair.pickup.appointment'].create({
-            'batch_id': self.id,
-        })
+        apt = self.current_appointment_id
+        if apt and apt.notification_sent_at:
+            return apt
+        if not apt:
+            apt = self.env['repair.pickup.appointment'].create({
+                'batch_id': self.id,
+            })
         if notify:
             template = self.env.ref(
                 'repair_appointment.mail_template_pickup_ready',

@@ -45,6 +45,7 @@ The following topics are covered by this module:
         'views/repair_manager_wizard_views.xml',
         'views/repair_pickup_notify_wizard_views.xml',
         'views/repair_pickup_deliver_wizard_views.xml',
+        'views/repair_cycle_reset_wizard_views.xml',
         'views/device_stock_wizard_views.xml',
         'views/hifi_inventory_wizard_views.xml',
         'views/stock_lot_views.xml',

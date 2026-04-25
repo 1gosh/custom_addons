@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_repair_cycle_reset_wizard_form" model="ir.ui.view">
+        <field name="name">repair.cycle.reset.wizard.form</field>
+        <field name="model">repair.cycle.reset.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Réinitialiser le cycle de relance">
+                <field name="res_model_name" invisible="1"/>
+                <field name="res_id" invisible="1"/>
+                <group>
+                    <field name="target_label" readonly="1" string="Cible"/>
+                    <field name="mode" widget="radio"/>
+                </group>
+                <div class="text-muted">
+                    <p>
+                        <strong>Réinitialiser uniquement</strong> : efface l'ancre
+                        de cycle (date d'envoi initiale, dernier rappel, statut "contacté")
+                        et clôt l'activité d'escalade éventuelle. Le CRON ne reprendra
+                        plus cet enregistrement tant qu'une nouvelle notification initiale
+                        n'aura pas été envoyée.
+                    </p>
+                    <p>
+                        <strong>Réinitialiser ET renvoyer</strong> : effectue la
+                        réinitialisation puis envoie/ouvre le composeur de la
+                        notification initiale.
+                    </p>
+                </div>
+                <footer>
+                    <button name="action_confirm" type="object"
+                            string="Confirmer" class="btn-primary"/>
+                    <button string="Annuler" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+</odoo>

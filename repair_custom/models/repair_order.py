@@ -1385,6 +1385,32 @@ class Repair(models.Model):
                     date_deadline=fields.Date.today(),
                 )
 
+    def _reset_quote_cycle(self):
+        """Clear quote-reminder cycle anchors and close any open escalation.
+        Does not touch quote_state nor send mail — caller decides resend path."""
+        self.ensure_one()
+        self._close_escalation_activities()
+        self.write({
+            'quote_sent_date': False,
+            'last_reminder_sent_at': False,
+            'contacted': False,
+            'contacted_at': False,
+        })
+
+    def action_open_reset_quote_cycle_wizard(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _("Réinitialiser le cycle de relance"),
+            'res_model': 'repair.cycle.reset.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_res_model_name': 'repair.order',
+                'default_res_id': self.id,
+            },
+        }
+
     def action_quote_contacted(self):
         """Manager button: mark the client as contacted, close escalation activities,
         reset the CRON escalation clock.
