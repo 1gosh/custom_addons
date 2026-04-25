@@ -13,15 +13,15 @@ from odoo import api, SUPERUSER_ID
 _logger = logging.getLogger(__name__)
 
 
-NEW_SUBJECT = "Rappel : votre devis de réparation {{ object.repair_id.name or object.name }}"
+NEW_SUBJECT = "Rappel : votre devis de réparation {{ (object.repair_order_ids and object.repair_order_ids[0].name) or object.name }}"
 
 NEW_BODY = """
                 <div style="margin: 0px; padding: 0px;">
                     <p>Bonjour <t t-out="object.partner_id.name or ''"/>,</p>
                     <p>
                         Nous vous avons adressé il y a quelques jours un devis pour la réparation de votre
-                        <t t-out="(object.repair_id.device_id_name if object.repair_id else False) or 'appareil'"/>
-                        (<t t-out="(object.repair_id.name if object.repair_id else object.name) or ''"/>).
+                        <t t-out="(object.repair_order_ids[:1].device_id_name if object.repair_order_ids else False) or 'appareil'"/>
+                        (<t t-out="(object.repair_order_ids[:1].name if object.repair_order_ids else object.name) or ''"/>).
                     </p>
                     <p>
                         N'hésitez pas à nous revenir avec votre décision afin que nous puissions planifier
