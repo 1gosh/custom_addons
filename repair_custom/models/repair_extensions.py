@@ -369,6 +369,26 @@ class SaleOrder(models.Model):
             self._sync_repair_quote_state(state_before)
         return res
 
+    def _message_post_after_hook(self, message, msg_vals):
+        """When a quote mail is sent via the native composer (mark_so_as_sent),
+        sale.order.state only changes draft→sent on the FIRST send. Subsequent
+        sends (e.g. after _reset_quote_cycle) leave state at 'sent', so the
+        write-hook above never fires and quote_sent_date stays cleared. Detect
+        the re-send via the `mark_so_as_sent` context and re-stamp linked
+        repairs whose cycle anchor is missing."""
+        result = super()._message_post_after_hook(message, msg_vals)
+        if self.env.context.get('mark_so_as_sent'):
+            for order in self:
+                stale = order.repair_order_ids.filtered(
+                    lambda r: r.quote_state == 'sent' and not r.quote_sent_date
+                )
+                for rec in stale:
+                    rec.quote_sent_date = fields.Datetime.now()
+                    rec.message_post(body=_(
+                        "📧 Devis renvoyé au client (cycle relancé)."
+                    ))
+        return result
+
     def _sync_repair_quote_state(self, state_before):
         """Propagate sale.order.state changes to linked repair.quote_state."""
         mapping = {
