@@ -412,11 +412,13 @@
                                     <field name="lot_id" nolabel="1"
                                         invisible="not product_tmpl_id"
                                         readonly="state not in 'draft'"
+                                        options="{'no_create_edit': True, 'no_open': True}"
                                         domain="[('product_id.product_tmpl_id', '=', product_tmpl_id),
                                                  ('is_hifi_unit', '=', True)]"
                                         context="{'default_product_id': product_variant_id,
                                                   'default_hifi_partner_id': partner_id,
-                                                  'default_hifi_variant_id': variant_id}"
+                                                  'default_hifi_variant_id': variant_id,
+                                                  'default_is_hifi_unit': True}"
                                         placeholder="Tapez le n° de série (existant ou nouveau)"/>
                                 </group>
                                 <group>

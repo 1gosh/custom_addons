@@ -404,16 +404,17 @@ class Repair(models.Model):
     category_short_name = fields.Char(compute='_compute_category_short_name')
 
     @api.depends(
-        'category_id',
-        'category_id.name',
-        'category_id.short_name',
-        'category_id.parent_id',
-        'category_id.parent_id.name',
-        'category_id.parent_id.short_name',
+        'product_tmpl_id',
+        'product_tmpl_id.categ_id',
+        'product_tmpl_id.categ_id.name',
+        'product_tmpl_id.categ_id.short_name',
+        'product_tmpl_id.categ_id.parent_id',
+        'product_tmpl_id.categ_id.parent_id.name',
+        'product_tmpl_id.categ_id.parent_id.short_name',
     )
     def _compute_category_short_name(self):
         for rec in self:
-            category = rec.category_id
+            category = rec.product_tmpl_id.categ_id
             if not category:
                 rec.category_short_name = False
                 continue

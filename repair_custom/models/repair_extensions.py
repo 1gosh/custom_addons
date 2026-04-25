@@ -151,6 +151,7 @@ class StockLot(models.Model):
                     'name': name,
                     'product_id': product_id,
                     'company_id': self.env.company.id,
+                    'is_hifi_unit': True,
                 })
                 return lot.id, lot.display_name
         return super().name_create(name)
