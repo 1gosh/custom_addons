@@ -1397,19 +1397,40 @@ class Repair(models.Model):
         return True
 
     def _send_quote_reminder_mail(self):
-        """Send the quote reminder mail. Threaded on the linked sale.order so
-        the reminder lives in the quote's mail history alongside the original
-        send (matches where staff and client expect quote correspondence)."""
+        """Send the quote reminder mail through the same plumbing as
+        sale.order.action_quotation_send (sale_order.py:870): drive the
+        mail.compose.message wizard with the responsible-signature layout
+        + mark_so_as_sent / force_email / model_description context.
+
+        Going through the composer (which posts via message_post) is what
+        triggers sale.order._notify_get_recipients_groups (sale_order.py:1504)
+        — the override that fills in the portal access button's title
+        ("Accepter & Signer le devis"). A direct template.send_mail() bypasses
+        that classification path, so the button frame renders empty.
+        """
         template = self.env.ref(
             'repair_custom.mail_template_repair_quote_reminder',
             raise_if_not_found=False,
         )
         if not template:
             return
+        Composer = self.env['mail.compose.message']
         for rec in self:
             if not rec.sale_order_id:
                 continue
-            template.send_mail(rec.sale_order_id.id, force_send=False)
+            so = rec.sale_order_id
+            lang = template._render_lang(so.ids).get(so.id)
+            composer = Composer.with_context(
+                default_model='sale.order',
+                default_res_ids=so.ids,
+                default_template_id=template.id,
+                default_composition_mode='comment',
+                default_email_layout_xmlid='mail.mail_notification_layout_with_responsible_signature',
+                mark_so_as_sent=True,
+                force_email=True,
+                model_description=so.with_context(lang=lang).type_name,
+            ).create({})
+            composer._action_send_mail()
 
     @api.model
     def _cron_process_pending_quotes(self):
