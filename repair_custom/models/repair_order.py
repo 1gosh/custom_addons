@@ -1397,11 +1397,9 @@ class Repair(models.Model):
         return True
 
     def _send_quote_reminder_mail(self):
-        """Send the quote reminder mail, mirroring sale.order.action_quotation_send
-        plumbing: mail is rendered against (and threaded on) the sale.order with a
-        signed portal access_token on the view-quote link. A short audit line is
-        posted on the repair thread so staff tracking the repair still see it.
-        """
+        """Send the quote reminder mail. Threaded on the linked sale.order so
+        the reminder lives in the quote's mail history alongside the original
+        send (matches where staff and client expect quote correspondence)."""
         template = self.env.ref(
             'repair_custom.mail_template_repair_quote_reminder',
             raise_if_not_found=False,
@@ -1411,15 +1409,7 @@ class Repair(models.Model):
         for rec in self:
             if not rec.sale_order_id:
                 continue
-            rec.sale_order_id._portal_ensure_token()
-            template.send_mail(
-                rec.sale_order_id.id,
-                force_send=False,
-                email_layout_xmlid='mail.mail_notification_light',
-            )
-            rec.message_post(body=_(
-                "📧 Rappel de devis envoyé au client (devis %s)."
-            ) % rec.sale_order_id.name)
+            template.send_mail(rec.sale_order_id.id, force_send=False)
 
     @api.model
     def _cron_process_pending_quotes(self):
