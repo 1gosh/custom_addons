@@ -1445,50 +1445,26 @@ class Repair(models.Model):
             ('quote_sent_date', '!=', False),
         ])
 
-        # [QA-5c] Remove before merge once diagnosis is filed.
-        _logger.info(
-            "[QA-5c] _cron_process_pending_quotes: %d candidate(s); "
-            "reminder_delay=%d escalation_delay=%d today=%s",
-            len(sent_repairs), reminder_delay, escalation_delay, today,
-        )
-        for r in sent_repairs:
-            _logger.info(
-                "[QA-5c] candidate repair=%s quote_sent_date=%s last_reminder_sent_at=%s "
-                "contacted=%s contacted_at=%s has_open_escalation=%s",
-                r.name, r.quote_sent_date, r.last_reminder_sent_at,
-                r.contacted, r.contacted_at, r.has_open_escalation,
-            )
-
         for repair in sent_repairs:
             # Phase 1: the single reminder mail
             if (not repair.last_reminder_sent_at
                     and not repair.contacted
                     and today >= repair.quote_sent_date + timedelta(days=reminder_delay)):
-                _logger.info("[QA-5c] %s: phase-1 reminder fires", repair.name)
                 repair._send_quote_reminder_mail()
                 repair.last_reminder_sent_at = today
                 continue
 
             # Phase 2: escalation activity
             if repair.has_open_escalation:
-                _logger.info("[QA-5c] %s: phase-2 skipped — has_open_escalation=True", repair.name)
                 continue
 
             if repair.contacted:
                 if repair.contacted_at and today >= repair.contacted_at + timedelta(days=escalation_delay):
-                    _logger.info("[QA-5c] %s: phase-2 escalating (after contacted_at)", repair.name)
                     repair._create_quote_escalation_activity()
                     repair.contacted = False
-                else:
-                    _logger.info("[QA-5c] %s: phase-2 deferred (contacted, waiting escalation_delay)", repair.name)
             elif repair.last_reminder_sent_at:
                 if today >= repair.last_reminder_sent_at + timedelta(days=escalation_delay):
-                    _logger.info("[QA-5c] %s: phase-2 escalating (after last_reminder_sent_at)", repair.name)
                     repair._create_quote_escalation_activity()
-                else:
-                    _logger.info("[QA-5c] %s: phase-2 deferred (reminder sent, waiting escalation_delay)", repair.name)
-            else:
-                _logger.info("[QA-5c] %s: phase-2 skipped — no reminder sent yet", repair.name)
 
     def _create_quote_escalation_activity(self):
         """Create one escalation activity per manager in group_repair_manager."""
