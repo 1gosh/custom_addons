@@ -49,9 +49,10 @@ def migrate(cr, version):
         )
         return
     sale_order_model = env.ref('sale.model_sale_order')
+    sale_report = env.ref('sale.action_report_saleorder', raise_if_not_found=False)
     # Write every field that experimentation may have touched, so re-runs
     # converge to a single known state regardless of prior drift.
-    template.write({
+    vals = {
         'model_id': sale_order_model.id,
         'subject': NEW_SUBJECT,
         'body_html': NEW_BODY,
@@ -59,8 +60,9 @@ def migrate(cr, version):
         'email_to': "{{ object.partner_id.email }}",
         'partner_to': False,
         'auto_delete': False,
-        'report_template_ids': [(5, 0, 0)],
-    })
+    }
+    vals['report_template_ids'] = [(6, 0, [sale_report.id])] if sale_report else [(5, 0, 0)]
+    template.write(vals)
     _logger.info(
         "post-migrate 17.0.1.10.0: rewrote mail_template_repair_quote_reminder to sale.order"
     )
