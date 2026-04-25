@@ -103,13 +103,35 @@ class RepairPickupAppointment(models.Model):
             ]
             apt.device_summary = ", ".join(parts)
 
-    @api.depends('name', 'partner_id')
+    @api.depends('name', 'partner_id', 'device_count')
     def _compute_display_name(self):
-        """Show the customer name as the record label — this is what
+        """Show "Client (N Appareils)" as the record label — this is what
         Odoo's calendar view, many2one dropdowns and breadcrumbs render.
         The sequence ref (self.name) stays visible in form/tree views."""
         for apt in self:
-            apt.display_name = apt.partner_id.name or apt.name or ''
+            partner = apt.partner_id.name or apt.name or ''
+            if apt.device_count:
+                apt.display_name = _("%(partner)s (%(count)d Appareils)") % {
+                    'partner': partner,
+                    'count': apt.device_count,
+                }
+            else:
+                apt.display_name = partner
+
+    @api.constrains('batch_id', 'state')
+    def _check_single_active_per_batch(self):
+        for apt in self:
+            if apt.state not in ('pending', 'scheduled'):
+                continue
+            duplicate = self.search([
+                ('batch_id', '=', apt.batch_id.id),
+                ('state', 'in', ('pending', 'scheduled')),
+                ('id', '!=', apt.id),
+            ], limit=1)
+            if duplicate:
+                raise ValidationError(_(
+                    "Ce dossier a déjà un rendez-vous de retrait actif (%s)."
+                ) % duplicate.name)
 
     @api.constrains('state', 'pickup_date')
     def _check_scheduled_has_date(self):

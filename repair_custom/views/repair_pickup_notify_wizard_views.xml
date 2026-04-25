@@ -5,15 +5,23 @@
         <field name="model">repair.pickup.notify.wizard</field>
         <field name="arch" type="xml">
             <form string="Notifier le client">
-                <p>
-                    Le dossier <field name="batch_id" readonly="1"/>
-                    (<field name="repair_count"/> appareil(s)) est maintenant complet.
-                </p>
-                <p>
-                    Souhaitez-vous notifier
-                    <field name="partner_name" readonly="1"/>
-                    que son dossier est prêt pour le retrait ?
-                </p>
+                <div invisible="repair_count > 1">
+                    <p>
+                        Le dossier <field name="batch_id" readonly="1"/> (<field name="repair_count"/> appareil) est maintenant complet.
+                    </p>
+                    <p>
+                        Souhaitez-vous notifier <field name="partner_name" readonly="1"/> que son appareil est prêt pour le retrait ?
+                    </p>
+                    
+                </div>
+                <div invisible="repair_count == 1">
+                    <p>
+                        Le dossier <field name="batch_id" readonly="1"/> (<field name="repair_count"/> appareils) est maintenant complet.
+                    </p>
+                    <p>
+                        Souhaitez-vous notifier <field name="partner_name" readonly="1"/> que ses appareils sont prêts pour le retrait ?
+                    </p>
+                </div>
                 <footer>
                     <button name="action_send" type="object"
                             string="Envoyer la notification"

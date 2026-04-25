@@ -191,6 +191,24 @@ class AccountMove(models.Model):
         moves._auto_stamp_repair_metadata()
         return moves
 
+    def action_open_repair(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'repair.order',
+            'view_mode': 'form',
+            'res_id': self.repair_id.id,
+        }
+
+    def action_open_batch(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'repair.batch',
+            'view_mode': 'form',
+            'res_id': self.batch_id.id,
+        }
+
     def _auto_stamp_repair_metadata(self):
         """Defensively populate repair_id / batch_id on repair-linked invoices
         regardless of origin (our button, native sale.order button, list-view

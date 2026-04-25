@@ -4,21 +4,28 @@
         <field name="model">account.move</field>
         <field name="inherit_id" ref="account.view_move_form"/>
         <field name="arch" type="xml">
-            
-            <xpath expr="//sheet" position="before">
-                <div class="alert alert-info text-center" invisible="not repair_id and not batch_id" role="alert">
-                    <div class="d-flex justify-content-center align-items-center">
-                        <a invisible="batch_id"><strong><i class="fa fa-wrench"/> Réparation liée : </strong> 
-                           <field name="repair_id" readonly="1" class="fw-bold"/>
-                        </a>
-                        <a invisible="not batch_id"><strong><i class="fa fa-wrench"/> Dossier lié : </strong> 
-                           <field name="batch_id" readonly="1" class="fw-bold"/>
-                        </a>
+
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_open_repair"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-wrench"
+                        invisible="not repair_id or batch_id">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">Réparation</span>
+                        <field name="repair_id" nolabel="1" readonly="1" class="o_stat_value"/>
                     </div>
-                    <!-- <hr style="margin: 5px 0; border-top: 1px solid #badbcc;"/>
-                    <strong>Notes Atelier :</strong><br/>
-                    <field name="repair_notes" readonly="1" style="white-space: pre-wrap; font-style: italic;"/> -->
-                </div>
+                </button>
+                <button name="action_open_batch"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-folder-open-o"
+                        invisible="not batch_id">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">Dossier de réparation</span>
+                        <field name="batch_id" nolabel="1" readonly="1" class="o_stat_value"/>
+                    </div>
+                </button>
             </xpath>
 
             <xpath expr="//field[@name='partner_id']" position="after">

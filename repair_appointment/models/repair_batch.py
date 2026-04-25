@@ -19,7 +19,6 @@ class RepairBatch(models.Model):
 
     ready_for_pickup_notification = fields.Boolean(
         compute='_compute_ready_for_pickup_notification',
-        store=True,
     )
 
     @api.depends(

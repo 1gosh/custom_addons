@@ -29,7 +29,7 @@
             <form>
                 <header>
                     <button name="action_confirm_manual" type="object"
-                            string="Confirmer le rendez-vous" class="btn-primary"
+                            string="Confirmer le rendez-vous" class="btn-success"
                             invisible="state != 'pending' or not pickup_date"/>
                     <button name="action_mark_done" type="object"
                             string="Marquer terminé" class="btn-primary"
@@ -79,7 +79,6 @@
                                 <tree>
                                     <field name="device_id_name" string="Appareil"/>
                                     <field name="lot_id" string="N° de série"/>
-                                    <field name="product_tmpl_id" string="Modèle" optional="show"/>
                                     <field name="variant_id" optional="hide"/>
                                     <field name="category_id" optional="hide"/>
                                     <field name="pickup_location_id" string="Lieu d'origine" optional="show"/>
@@ -107,7 +106,7 @@
                                                         SN: <field name="lot_id"/>
                                                     </div>
                                                     <div class="text-muted">
-                                                        <field name="name"/> · <field name="pickup_location_id"/>
+                                                        <field name="pickup_location_id"/>
                                                     </div>
                                                     <div>
                                                         <field name="state" widget="badge"/>

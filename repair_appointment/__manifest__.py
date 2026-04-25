@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'repair_appointment',
-    'version': '17.0.1.1.0',
+    'version': '17.0.1.2.0',
     'category': 'Inventory/Inventory',
     'summary': 'Pickup appointment scheduling for repair batches',
     'author': 'martinl',

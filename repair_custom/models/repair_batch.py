@@ -13,6 +13,33 @@ class RepairBatch(models.Model):
     partner_id = fields.Many2one('res.partner', string="Client")
     company_id = fields.Many2one('res.company', string="Société", default=lambda self: self.env.company)
     repair_count = fields.Integer(string="Nb Appareils", compute='_compute_repair_count', store=True)
+    invoice_ids = fields.One2many('account.move', 'batch_id', string="Factures")
+    invoice_count = fields.Integer(string="Nb Factures", compute='_compute_invoice_count')
+
+    @api.depends('invoice_ids')
+    def _compute_invoice_count(self):
+        for rec in self:
+            rec.invoice_count = len(rec.invoice_ids)
+
+    def action_view_invoices(self):
+        self.ensure_one()
+        action = {
+            'type': 'ir.actions.act_window',
+            'name': _("Factures"),
+            'res_model': 'account.move',
+            'context': {'create': False},
+        }
+        if len(self.invoice_ids) == 1:
+            action.update({
+                'view_mode': 'form',
+                'res_id': self.invoice_ids.id,
+            })
+        else:
+            action.update({
+                'view_mode': 'tree,form',
+                'domain': [('id', 'in', self.invoice_ids.ids)],
+            })
+        return action
     state = fields.Selection([('draft', 'Brouillon'), 
                             ('confirmed', 'En attente'), 
                             ('under_repair', 'En cours'), 
@@ -77,7 +104,6 @@ class RepairBatch(models.Model):
     ready_for_pickup_notification = fields.Boolean(
         string="Prêt à notifier",
         compute='_compute_ready_for_pickup_notification',
-        store=True,
     )
 
     @api.depends(
@@ -99,7 +125,10 @@ class RepairBatch(models.Model):
                 batch.ready_for_pickup_notification = False
                 continue
             current_apt = getattr(batch, 'current_appointment_id', False)
-            if current_apt and current_apt.notification_sent_at:
+            if current_apt and (
+                current_apt.notification_sent_at
+                or current_apt.state == 'scheduled'
+            ):
                 batch.ready_for_pickup_notification = False
                 continue
             batch.ready_for_pickup_notification = True

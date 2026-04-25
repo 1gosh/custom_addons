@@ -5,11 +5,20 @@
         <field name="model">repair.batch</field>
         <field name="inherit_id" ref="repair_custom.view_repair_batch_form"/>
         <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_open_new_pickup_appointment"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-calendar-check-o"
+                        invisible="not current_appointment_id">
+                    <field name="current_appointment_id" invisible="1"/>
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">RDV en cours</span>
+                    </div>
+                </button>
+            </xpath>
             <xpath expr="//notebook" position="inside">
                 <page string="Retrait">
-                    <group>
-                        <field name="current_appointment_id" readonly="1"/>
-                    </group>
                     <field name="appointment_ids" readonly="1">
                         <tree>
                             <field name="pickup_date"/>
