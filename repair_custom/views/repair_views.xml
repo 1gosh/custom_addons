@@ -212,8 +212,8 @@
                     <button name="action_open_abandon_wizard" string="Abandon" type="object" class="btn-warning" invisible="delivery_state != 'none' or state in ['draft', 'confirmed']" groups="repair_custom.group_repair_manager"/>
                     <button name="action_repair_cancel_draft" groups="repair_custom.group_repair_manager" invisible="state in 'draft'" string="Marquer comme brouillon" type="object" data-hotkey="z"/>
                     <button name="action_repair_cancel" groups="repair_custom.group_repair_manager" string="Annuler" type="object" invisible="state in ('done', 'cancel')" data-hotkey="l" class="btn-danger"/>
-                    <button name="action_print_repair_order" string="Bon" type="object" icon="fa-regular fa-print" invisible="state in 'draft, done, delivered'" class="btn-info"/>
-                    <button name="%(action_report_repair_label)d" string="Etiquette" type="action" icon="fa-regular fa-print" invisible="state in 'draft, done, delivered'" class="btn-info"/>
+                    <button name="action_print_repair_order" string="Bon" type="object" icon="fa-regular fa-print" invisible="state not in 'confirmed'" class="btn-info"/>
+                    <button name="%(action_report_repair_label)d" string="Etiquette" type="action" icon="fa-regular fa-print" invisible="state not in 'confirmed'" class="btn-info"/>
                     <button name="action_create_quotation_wizard" icon="fa-file"
                             string="Devis" type="object"
                             invisible="state == 'draft' or sale_order_id"/>
@@ -229,7 +229,7 @@
                             string="Réinitialiser le cycle de relance"
                             class="btn-secondary"
                             groups="repair_custom.group_repair_manager"
-                            invisible="quote_state != 'sent' and not quote_sent_date"/>
+                            invisible="not quote_sent_date"/>
                     <button name="action_notify_client_ready_from_repair"
                             type="object"
                             string="Notifier client"

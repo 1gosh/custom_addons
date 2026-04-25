@@ -1297,6 +1297,13 @@ class Repair(models.Model):
 
         for rec in self:
             old = rec.quote_state
+            # Post-reset re-send: state stays 'sent' but the cycle anchor
+            # was cleared by _reset_quote_cycle. Re-stamp + chatter so the
+            # reminder CRON picks the repair up again.
+            if old == new_state == 'sent' and not rec.quote_sent_date:
+                rec.quote_sent_date = fields.Datetime.now()
+                rec.message_post(body=_("📧 Devis renvoyé au client (cycle relancé)."))
+                continue
             if old == new_state:
                 continue
             rec.quote_state = new_state
