@@ -112,6 +112,122 @@ class TestSectionHeaderInjection(RepairQuoteCase):
                         "Header must include both serial numbers")
 
 
+class TestSectionHeaderInjectionWizardSOs(RepairQuoteCase):
+    """Regression: SOs built by repair.pricing.wizard already carry their own
+    section/note structure (header section + products + 'Détails' section +
+    note). Consolidation must preserve that structure rather than duplicating
+    headers or interleaving lines across SOs."""
+
+    def setUp(self):
+        super().setUp()
+        lot_product = self.env['product.product'].create({
+            'name': 'Test Device SN',
+            'type': 'product',
+            'tracking': 'serial',
+        })
+        self.repair_a = self._make_repair(internal_notes='Diag A')
+        self.repair_a.lot_id = self.env['stock.lot'].create({
+            'name': 'SN-AAA',
+            'product_id': lot_product.id,
+            'company_id': self.repair_a.company_id.id,
+        })
+        self.repair_b = self.Repair.create({
+            'partner_id': self.partner.id,
+            'internal_notes': 'Diag B',
+            'quote_required': True,
+            'technician_employee_id': self.tech_with_user.id,
+            'batch_id': self.repair_a.batch_id.id,
+        })
+        self.repair_b.lot_id = self.env['stock.lot'].create({
+            'name': 'SN-BBB',
+            'product_id': lot_product.id,
+            'company_id': self.repair_b.company_id.id,
+        })
+        self.repair_b._action_repair_confirm()
+        self.so_a = self._make_wizard_so(self.repair_a, total=120.0)
+        self.so_b = self._make_wizard_so(self.repair_b, total=80.0)
+        self.so_a.action_confirm()
+        self.so_b.action_confirm()
+        self.batch = self.repair_a.batch_id
+
+    def _make_wizard_so(self, repair, total):
+        wizard = self.env['repair.pricing.wizard'].with_context(
+            default_repair_id=repair.id,
+        ).create({
+            'repair_id': repair.id,
+            'target_total_amount': total,
+            'manual_product_id': self.service_product.id,
+            'manual_label': "Forfait Atelier / Main d'œuvre",
+            'add_work_details': True,
+            'work_details': "Détails travaux %s" % repair.id,
+        })
+        wizard.action_confirm()
+        return repair.sale_order_id
+
+    def test_no_duplicate_repair_section_per_so(self):
+        result = self.batch._invoice_approved_quotes(
+            self.repair_a + self.repair_b
+        )
+        move = self.env['account.move'].browse(result['res_id'])
+        repair_sections = move.invoice_line_ids.filtered(
+            lambda l: l.display_type == 'line_section'
+                      and l.name and l.name.startswith('Réparation')
+        )
+        self.assertEqual(
+            len(repair_sections), 2,
+            "Exactly one 'Réparation : ...' header per SO — no duplicates",
+        )
+
+    def test_per_so_lines_are_contiguous(self):
+        result = self.batch._invoice_approved_quotes(
+            self.repair_a + self.repair_b
+        )
+        move = self.env['account.move'].browse(result['res_id'])
+        sorted_lines = move.invoice_line_ids.sorted('sequence')
+        positions_a, positions_b = [], []
+        for idx, line in enumerate(sorted_lines):
+            sos = line.sale_line_ids.mapped('order_id')
+            if self.so_a in sos:
+                positions_a.append(idx)
+            elif self.so_b in sos:
+                positions_b.append(idx)
+        self.assertTrue(positions_a and positions_b,
+                        "Both SOs contributed invoice lines")
+        self.assertEqual(
+            positions_a, list(range(positions_a[0], positions_a[-1] + 1)),
+            "SO_A's invoice lines must form a contiguous block",
+        )
+        self.assertEqual(
+            positions_b, list(range(positions_b[0], positions_b[-1] + 1)),
+            "SO_B's invoice lines must form a contiguous block",
+        )
+
+    def test_wizard_section_note_structure_preserved(self):
+        result = self.batch._invoice_approved_quotes(
+            self.repair_a + self.repair_b
+        )
+        move = self.env['account.move'].browse(result['res_id'])
+        sorted_lines = move.invoice_line_ids.sorted('sequence')
+        types_by_so = {}
+        for line in sorted_lines:
+            so = line.sale_line_ids.mapped('order_id')[:1]
+            if not so:
+                continue
+            types_by_so.setdefault(so.id, []).append(
+                line.display_type or 'product'
+            )
+        self.assertEqual(set(types_by_so), {self.so_a.id, self.so_b.id})
+        for so_id, types in types_by_so.items():
+            self.assertEqual(
+                types[0], 'line_section',
+                "SO %s's block starts with its 'Réparation : ...' header" % so_id,
+            )
+            self.assertEqual(
+                types[-1], 'line_note',
+                "SO %s's block ends with the work-details note" % so_id,
+            )
+
+
 class TestInvoiceApprovedQuotes(RepairQuoteCase):
     """Core consolidation helper used by all three button surfaces."""
 
