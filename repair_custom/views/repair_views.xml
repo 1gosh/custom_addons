@@ -390,12 +390,21 @@
                         <page string="Appareil" groups="repair_custom.group_repair_manager">
                             <group>
                                 <group>
+                                    <!-- This is the FIRST <field name="lot_id"/> in the form, so its
+                                         context wins for activeFields.lot_id.context (Odoo 17's
+                                         patchActiveFields merges modifiers but not context). The
+                                         default_* keys below feed name_create on the *intake* field
+                                         lower in this view; create is blocked here by no_create. -->
                                     <field name="lot_id"
                                         domain="[('hifi_partner_id', '=', partner_id), ('is_hifi_unit', '=', True)]"
                                         options="{'no_create': True, 'no_open': True}"
                                         invisible="not show_lot_field"
                                         readonly="state not in 'draft'"
-                                        context="{'lot_display': 'full'}"
+                                        context="{'lot_display': 'full',
+                                                  'default_product_id': product_variant_id,
+                                                  'default_product_tmpl_id': product_tmpl_id,
+                                                  'default_hifi_partner_id': partner_id,
+                                                  'default_hifi_variant_id': variant_id}"
                                         string="Appareil(s) existant(s)"/>
                                     <field name="category_id" readonly="state not in 'draft' or lot_id" force_save="1"
                                         domain="[('id', 'child_of', %(repair_devices.product_category_hifi)d)]"/>
@@ -422,9 +431,9 @@
                                         domain="[('product_id.product_tmpl_id', '=', product_tmpl_id),
                                                  ('is_hifi_unit', '=', True)]"
                                         context="{'default_product_id': product_variant_id,
+                                                  'default_product_tmpl_id': product_tmpl_id,
                                                   'default_hifi_partner_id': partner_id,
-                                                  'default_hifi_variant_id': variant_id,
-                                                  'default_is_hifi_unit': True}"
+                                                  'default_hifi_variant_id': variant_id}"
                                         placeholder="Tapez le n° de série (existant ou nouveau)"/>
                                 </group>
                                 <group>

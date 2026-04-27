@@ -143,17 +143,18 @@ class StockLot(models.Model):
 
     @api.model
     def name_create(self, name):
-        product_id = self.env.context.get('default_product_id')
-        if product_id:
-            product = self.env['product.product'].browse(product_id)
-            if product.product_tmpl_id.is_hifi_device:
-                lot = self.create({
-                    'name': name,
-                    'product_id': product_id,
-                    'company_id': self.env.company.id,
-                    'is_hifi_unit': True,
-                })
-                return lot.id, lot.display_name
+        ctx = self.env.context
+        product = self.env['product.product'].browse(ctx.get('default_product_id') or [])
+        if not product:
+            tmpl = self.env['product.template'].browse(ctx.get('default_product_tmpl_id') or [])
+            product = tmpl.product_variant_ids[:1]
+        if product and product.product_tmpl_id.is_hifi_device:
+            lot = self.create({
+                'name': name,
+                'product_id': product.id,
+                'company_id': self.env.company.id,
+            })
+            return lot.id, lot.display_name
         return super().name_create(name)
 
     def action_view_repairs(self):
