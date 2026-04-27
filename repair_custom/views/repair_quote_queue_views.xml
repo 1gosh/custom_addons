@@ -95,20 +95,15 @@
         </record>
 
         <!-- Top-level menu "Devis" -->
-        <!-- sequence=25: comes after repair_order_menu (Orders, seq 20) so
-             clicking the "Repairs" app still lands on the Orders list, and
-             before repair_menu_batch (Dossiers, seq 30). -->
+        <!-- sequence=35: comes after repair_order_menu (Orders, seq 20) and
+             before repair_menu_batch (Dossiers, seq 30 placement).
+             Action attached directly so a single click lands on the queue. -->
         <menuitem id="menu_repair_quote"
                   name="Devis"
                   parent="menu_repair_order"
+                  action="action_repair_quote_manager_queue"
                   sequence="35"
                   groups="repair_custom.group_repair_manager"/>
-
-        <menuitem id="menu_repair_quote_queue"
-                  name="Devis à préparer"
-                  parent="menu_repair_quote"
-                  action="action_repair_quote_manager_queue"
-                  sequence="10"/>
 
     </data>
 </odoo>
