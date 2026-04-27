@@ -449,15 +449,28 @@ class SaleOrder(models.Model):
             lambda l: l and l.is_hifi_unit
         )
 
+    def _get_warehouse(self):
+        """Return the order's warehouse, falling back to the first WH of the
+        order's company. Raises if none exists."""
+        self.ensure_one()
+        warehouse = self.warehouse_id or self.env['stock.warehouse'].search([
+            ('company_id', '=', self.company_id.id)
+        ], limit=1)
+        if not warehouse:
+            raise UserError(_(
+                "Aucun entrepôt trouvé pour cette société.\n"
+                "Veuillez configurer un entrepôt avant de poursuivre."
+            ))
+        return warehouse
+
     def _seed_hifi_quants(self):
         """Seed stock.quant at WH/Stock for HiFi lots without available quantity."""
         for order in self:
             if not order._requires_special_stock_handling():
                 continue
-            warehouse = order.warehouse_id or self.env['stock.warehouse'].search([
-                ('company_id', '=', order.company_id.id)
-            ], limit=1)
-            if not warehouse:
+            try:
+                warehouse = order._get_warehouse()
+            except UserError:
                 continue
             stock_location = warehouse.lot_stock_id
             for line in order.order_line.filtered(lambda l: l.lot_id and l.lot_id.is_hifi_unit):
@@ -499,56 +512,14 @@ class SaleOrder(models.Model):
                         "Veuillez réinstaller le module repair_custom."
                     ))
 
-                warehouse = order.warehouse_id or self.env['stock.warehouse'].search([
-                    ('company_id', '=', order.company_id.id)
-                ], limit=1)
-                if not warehouse:
-                    raise UserError(_(
-                        "Aucun entrepôt trouvé pour cette société.\n"
-                        "Veuillez configurer un entrepôt avant de confirmer des locations."
-                    ))
-
+                warehouse = order._get_warehouse()
                 stock_location = warehouse.lot_stock_id
-                internal_type = warehouse.int_type_id
 
-                picking_vals = {
-                    'picking_type_id': internal_type.id,
-                    'location_id': stock_location.id,
-                    'location_dest_id': rented_location.id,
-                    'origin': order.name,
-                    'partner_id': order.partner_id.id,
-                    'sale_id': order.id,
-                }
-                picking = self.env['stock.picking'].create(picking_vals)
-
-                for line in order.order_line.filtered(lambda l: l.lot_id and l.lot_id.is_hifi_unit):
-                    move_vals = {
-                        'name': line.name,
-                        'product_id': line.product_id.id,
-                        'product_uom': line.product_uom.id,
-                        'product_uom_qty': 1.0,
-                        'location_id': stock_location.id,
-                        'location_dest_id': rented_location.id,
-                        'picking_id': picking.id,
-                    }
-
-                    if line.lot_id:
-                        move_vals['lot_ids'] = [(4, line.lot_id.id)]
-
-                    move = self.env['stock.move'].create(move_vals)
-                    move._action_confirm()
-                    move._action_assign()
-
-                    if move.state != 'assigned':
-                        raise UserError(_(
-                            "Stock insuffisant pour la location.\n"
-                            "Appareil: %s\n"
-                            "L'appareil doit être disponible en stock avant de confirmer la location."
-                        ) % line.lot_id.display_name)
-
-                    if line.lot_id and move.move_line_ids:
-                        move.move_line_ids.write({'lot_id': line.lot_id.id})
-
+                picking = order._make_rental_transfer(
+                    src=stock_location,
+                    dst=rented_location,
+                    sale_id=order.id,
+                )
                 if all(move.state == 'assigned' for move in picking.move_ids):
                     picking.button_validate()
 
@@ -581,53 +552,68 @@ class SaleOrder(models.Model):
 
         return res
 
+    def _make_rental_transfer(self, src, dst, sale_id=False):
+        """Create + confirm + assign an internal transfer of the order's HiFi
+        lots from `src` to `dst`. Returns the picking. Caller is responsible
+        for validating it.
+
+        Used both for the outgoing transfer at confirm (Stock → Rented),
+        the return transfer (Rented → Stock), and the cancel-rollback.
+        """
+        self.ensure_one()
+        warehouse = self._get_warehouse()
+        picking_vals = {
+            'picking_type_id': warehouse.int_type_id.id,
+            'location_id': src.id,
+            'location_dest_id': dst.id,
+            'origin': self.name,
+            'partner_id': self.partner_id.id,
+        }
+        if sale_id:
+            picking_vals['sale_id'] = sale_id
+        picking = self.env['stock.picking'].create(picking_vals)
+
+        for line in self.order_line.filtered(lambda l: l.lot_id and l.lot_id.is_hifi_unit):
+            move = self.env['stock.move'].create({
+                'name': line.name or line.product_id.display_name,
+                'product_id': line.product_id.id,
+                'product_uom': line.product_uom.id,
+                'product_uom_qty': 1.0,
+                'location_id': src.id,
+                'location_dest_id': dst.id,
+                'picking_id': picking.id,
+                'lot_ids': [(4, line.lot_id.id)],
+            })
+            move._action_confirm()
+            move._action_assign()
+
+            if move.state != 'assigned':
+                raise UserError(_(
+                    "Stock insuffisant pour le transfert.\n"
+                    "Appareil: %s\n"
+                    "L'appareil doit être présent à l'emplacement source (%s)."
+                ) % (line.lot_id.display_name, src.display_name))
+
+            if move.move_line_ids:
+                move.move_line_ids.write({'lot_id': line.lot_id.id})
+
+        return picking
+
     def action_return_rental(self):
         """Mark rental as returned and restore stock with internal transfer."""
         for order in self:
             if not order._is_rental():
                 continue
-
-            lots = order._get_hifi_lots_from_lines()
+            if order.rental_state not in ('active', 'overdue'):
+                continue
 
             rented_location = self.env.ref('repair_custom.stock_location_rented', raise_if_not_found=False)
-            warehouse = order.warehouse_id or self.env['stock.warehouse'].search([
-                ('company_id', '=', order.company_id.id)
-            ], limit=1)
-
-            if rented_location and warehouse:
-                stock_location = warehouse.lot_stock_id
-                internal_type = warehouse.int_type_id
-
-                picking_vals = {
-                    'picking_type_id': internal_type.id,
-                    'location_id': rented_location.id,
-                    'location_dest_id': stock_location.id,
-                    'origin': order.name,
-                    'partner_id': order.partner_id.id,
-                }
-                picking = self.env['stock.picking'].create(picking_vals)
-
-                for line in order.order_line.filtered(lambda l: l.lot_id and l.lot_id.is_hifi_unit):
-                    move_vals = {
-                        'name': line.name,
-                        'product_id': line.product_id.id,
-                        'product_uom': line.product_uom.id,
-                        'product_uom_qty': 1.0,
-                        'location_id': rented_location.id,
-                        'location_dest_id': stock_location.id,
-                        'picking_id': picking.id,
-                    }
-
-                    if line.lot_id:
-                        move_vals['lot_ids'] = [(4, line.lot_id.id)]
-
-                    move = self.env['stock.move'].create(move_vals)
-                    move._action_confirm()
-                    move._action_assign()
-
-                    if line.lot_id and move.move_line_ids:
-                        move.move_line_ids.write({'lot_id': line.lot_id.id})
-
+            if rented_location:
+                warehouse = order._get_warehouse()
+                picking = order._make_rental_transfer(
+                    src=rented_location,
+                    dst=warehouse.lot_stock_id,
+                )
                 if all(move.state == 'assigned' for move in picking.move_ids):
                     picking.button_validate()
 
@@ -637,6 +623,59 @@ class SaleOrder(models.Model):
             })
 
         return True
+
+    # ============================================================
+    # Cancellation rollback (issue B)
+    # ============================================================
+
+    def _action_cancel(self):
+        """Reverse confirm-time side effects before letting Odoo cancel.
+
+        Equipment sale: clear SAV/sale stamps from the lots so the unit no
+        longer shows as 'sold' / under SAV. Ownership (`hifi_partner_id`) is
+        cleared because we set it ourselves on confirm and have no snapshot
+        of any prior owner; the convention for refurb stock is shop-owned
+        (NULL).
+
+        Rental: if the unit is still in the Rented location (i.e. not yet
+        returned manually), emit the reverse internal transfer and reset
+        rental_state to 'draft'.
+        """
+        rented_location = self.env.ref(
+            'repair_custom.stock_location_rented', raise_if_not_found=False
+        )
+        for order in self:
+            if order.state == 'cancel':
+                continue
+            if order._is_equipment_sale():
+                lots = order._get_hifi_lots_from_lines().filtered(
+                    lambda l: l.sale_order_id == order
+                )
+                if lots:
+                    body = _(
+                        "Vente annulée (%s) : effacement des données SAV et propriété."
+                    ) % order.name
+                    for lot in lots:
+                        lot.message_post(body=body)
+                    lots.write({
+                        'sale_date': False,
+                        'sav_expiry': False,
+                        'sale_order_id': False,
+                        'hifi_partner_id': False,
+                    })
+            elif order._is_rental():
+                if (rented_location
+                        and order.rental_state in ('active', 'overdue')):
+                    warehouse = order._get_warehouse()
+                    picking = order._make_rental_transfer(
+                        src=rented_location,
+                        dst=warehouse.lot_stock_id,
+                    )
+                    if all(move.state == 'assigned' for move in picking.move_ids):
+                        picking.button_validate()
+                order.write({'rental_state': 'draft'})
+
+        return super()._action_cancel()
 
     @api.model
     def _cron_check_overdue_rentals(self):
@@ -729,24 +768,26 @@ class SaleOrderLine(models.Model):
         return values
 
     def _action_launch_stock_rule(self, previous_product_uom_qty=False):
-        rental_lines = self.filtered(lambda l: l.order_id._is_rental())
-        non_rental_lines = self - rental_lines
-        if non_rental_lines:
-            res = super(SaleOrderLine, non_rental_lines)._action_launch_stock_rule(
-                previous_product_uom_qty=previous_product_uom_qty
-            )
-        else:
-            res = True
-        return res
+        # Rental orders bypass the standard delivery picking — the rental
+        # transfer (Stock → Rented) is created manually in
+        # SaleOrder.action_confirm via _make_rental_transfer.
+        non_rental_lines = self.filtered(
+            lambda l: not l.order_id._is_rental()
+        )
+        if not non_rental_lines:
+            return True
+        return super(SaleOrderLine, non_rental_lines)._action_launch_stock_rule(
+            previous_product_uom_qty=previous_product_uom_qty
+        )
 
 
 class StockRule(models.Model):
     _inherit = 'stock.rule'
 
     def _get_custom_move_fields(self):
-        fields = super()._get_custom_move_fields()
-        fields.append('restrict_lot_id')
-        return fields
+        move_fields = super()._get_custom_move_fields()
+        move_fields.append('restrict_lot_id')
+        return move_fields
 
 
 class StockMove(models.Model):
