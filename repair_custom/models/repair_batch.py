@@ -298,42 +298,56 @@ class RepairBatch(models.Model):
         }
 
     def _inject_repair_section_headers(self, move):
-        """Insert a display_type='line_section' header before each source SO's
-        lines on a consolidated invoice. Labels mirror today's wizard format.
+        """Re-sequence the consolidated move's lines so each source SO's lines
+        form a contiguous block, preserving the section/note structure already
+        built by repair.pricing.wizard (header section + products + 'Détails'
+        section + note).
 
-        Legacy SOs (linked to N repairs) fall back to the SO name — forward
-        decision: no post-migration split, handle gracefully at read time."""
+        A fallback 'Réparation : ...' / 'Devis : ...' header is injected only
+        when an SO did not bring its own leading section — typically legacy
+        multi-repair SOs or SOs created outside the pricing wizard. Lines that
+        cannot be tied back to a sale.order (manual additions) are kept up top.
+        """
         self.ensure_one()
+        AccountMoveLine = self.env['account.move.line']
+
         lines_by_so = {}
+        orphans = []
         for line in move.invoice_line_ids.sorted('sequence'):
-            if line.display_type in ('line_section', 'line_note'):
+            so = line.sale_line_ids.mapped('order_id')[:1]
+            if not so:
+                orphans.append(line)
                 continue
-            sos = line.sale_line_ids.mapped('order_id')
-            if not sos:
-                continue
-            so = sos[:1]
             lines_by_so.setdefault(so.id, []).append(line)
 
         seq = 0
-        AccountMoveLine = self.env['account.move.line']
-        for so_id, lines in lines_by_so.items():
-            so = self.env['sale.order'].browse(so_id)
-            if len(so.repair_order_ids) == 1:
-                repair = so.repair_order_ids
-                label = _("Réparation : %s") % (repair.device_id_name or so.name)
-                if repair.lot_id:
-                    label += _(" (S/N: %s)") % repair.lot_id.name
-            else:
-                label = _("Devis : %s") % so.name
-
+        for line in orphans:
             seq += 1
-            AccountMoveLine.create({
-                'move_id': move.id,
-                'display_type': 'line_section',
-                'name': label,
-                'sequence': seq,
-            })
-            for line in lines:
+            line.sequence = seq
+
+        for so_id, so_lines in lines_by_so.items():
+            so = self.env['sale.order'].browse(so_id)
+            already_headed = bool(
+                so_lines and so_lines[0].display_type == 'line_section'
+            )
+            if not already_headed:
+                if len(so.repair_order_ids) == 1:
+                    repair = so.repair_order_ids
+                    label = _("Réparation : %s") % (
+                        repair.device_id_name or so.name
+                    )
+                    if repair.lot_id:
+                        label += _(" (S/N: %s)") % repair.lot_id.name
+                else:
+                    label = _("Devis : %s") % so.name
+                seq += 1
+                AccountMoveLine.create({
+                    'move_id': move.id,
+                    'display_type': 'line_section',
+                    'name': label,
+                    'sequence': seq,
+                })
+            for line in so_lines:
                 seq += 1
                 line.sequence = seq
 
