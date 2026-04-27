@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <menuitem id="menu_repair_appointment_root"
-              name="Rendez-vous"
-              parent="repair_custom.menu_repair_order"
+              name="Agenda Réparations"
+              web_icon="repair_appointment,static/description/icon.png"
               sequence="45"/>
-
-    <menuitem id="menu_repair_appointment_calendar"
-              name="Calendrier des retraits"
-              parent="menu_repair_appointment_root"
-              action="action_repair_pickup_appointment"
-              sequence="10"/>
 
     <menuitem id="menu_repair_appointment_daily_agenda"
               name="Agenda du jour"
               parent="menu_repair_appointment_root"
               action="action_repair_pickup_appointment_daily_agenda"
+              sequence="10"/>
+
+    <menuitem id="menu_repair_appointment_calendar"
+              name="Calendrier des retraits"
+              parent="menu_repair_appointment_root"
+              action="action_repair_pickup_appointment"
               sequence="20"/>
 
     <menuitem id="menu_repair_appointment_config_root"

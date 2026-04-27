@@ -43,5 +43,5 @@ repair.batch.
         ],
     },
     'installable': True,
-    'application': False,
+    'application': True,
 }

@@ -82,6 +82,15 @@ class RepairPickupAppointment(models.Model):
         compute='_compute_device_summary',
         help="Identification rapide des appareils à préparer pour le retrait.",
     )
+    location_color = fields.Integer(
+        'Couleur lieu',
+        compute='_compute_location_color',
+    )
+
+    @api.depends('location_id')
+    def _compute_location_color(self):
+        for apt in self:
+            apt.location_color = (apt.location_id.id or 0) % 11
     _sql_constraints = [
         ('token_unique', 'UNIQUE(token)', "Jeton déjà utilisé."),
     ]
