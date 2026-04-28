@@ -479,9 +479,9 @@
                         <page string="Suivi devis" groups="repair_custom.group_repair_manager">
                             <group>
                                 <group string="Cycle de relance">
-                                    <field name="quote_requested_date"/>
-                                    <field name="quote_sent_date" />
-                                    <field name="last_reminder_sent_at"/>
+                                    <field name="quote_requested_date" readonly="1"/>
+                                    <field name="quote_sent_date" readonly="1"/>
+                                    <field name="last_reminder_sent_at" readonly="1"/>
                                     <field name="contacted" readonly="1"/>
                                     <field name="contacted_at"
                                         invisible="not contacted" readonly="1"/>

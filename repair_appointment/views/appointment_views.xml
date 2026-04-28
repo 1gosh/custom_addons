@@ -67,7 +67,7 @@
                         <group>
                             <field name="batch_id"/>
                             <field name="partner_id" readonly="1"/>
-                            <field name="location_id" readonly="1"/>
+                            <field name="location_id"/>
                             <field name="device_count" readonly="1"/>
                             <field name="device_summary" readonly="1"/>
                         </group>

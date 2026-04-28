@@ -1473,6 +1473,8 @@ class Repair(models.Model):
         sent_repairs = self.search([
             ('quote_state', '=', 'sent'),
             ('quote_sent_date', '!=', False),
+            ('state', 'in', ('confirmed', 'under_repair')),
+            ('delivery_state', 'not in', ('delivered', 'abandoned')),
         ])
 
         for repair in sent_repairs:
