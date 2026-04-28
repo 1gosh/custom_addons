@@ -5,7 +5,7 @@
             <field name="name">Appareil prêt : prendre un RDV de retrait</field>
             <field name="model_id" ref="model_repair_pickup_appointment"/>
             <field name="subject">Votre appareil est prêt à être récupéré</field>
-            <field name="email_from">{{ (object.company_id.email or user.email) }}</field>
+            <field name="email_from">{{ object.company_id.email_formatted or user.email_formatted }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="body_html" type="html">
                 <div style="font-family: Arial, sans-serif; color: #222;">
@@ -79,7 +79,7 @@
             <field name="name">Rappel : RDV retrait non pris</field>
             <field name="model_id" ref="model_repair_pickup_appointment"/>
             <field name="subject">Rappel : votre appareil est prêt à être récupéré</field>
-            <field name="email_from">{{ (object.company_id.email or user.email) }}</field>
+            <field name="email_from">{{ object.company_id.email_formatted or user.email_formatted }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="body_html" type="html">
                 <div>
@@ -101,7 +101,7 @@
             <field name="name">RDV retrait : déplacement</field>
             <field name="model_id" ref="model_repair_pickup_appointment"/>
             <field name="subject">Votre rendez-vous de retrait a été déplacé</field>
-            <field name="email_from">{{ (object.company_id.email or user.email) }}</field>
+            <field name="email_from">{{ object.company_id.email_formatted or user.email_formatted }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="body_html" type="html">
                 <div>
