@@ -269,9 +269,9 @@ class RepairPickupAppointment(models.Model):
 
     def action_mark_done(self):
         for apt in self:
-            if apt.state != 'scheduled':
+            if apt.state not in ('pending', 'scheduled'):
                 raise UserError(_(
-                    "Seuls les rendez-vous confirmés peuvent être marqués comme terminés."
+                    "Seuls les rendez-vous en attente ou confirmés peuvent être marqués comme terminés."
                 ))
             apt.state = 'done'
             apt.message_post(body=_("Rendez-vous terminé."))

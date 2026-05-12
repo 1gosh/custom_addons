@@ -212,7 +212,7 @@ class RepairBatch(models.Model):
             normal_pickup.action_repair_delivered()
 
         current_apt = getattr(self, 'current_appointment_id', None)
-        if current_apt and current_apt.state == 'scheduled':
+        if current_apt and current_apt.state in ('pending', 'scheduled'):
             current_apt.action_mark_done()
 
         self.message_post(body=_(

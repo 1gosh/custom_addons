@@ -49,10 +49,19 @@ class TestStateMachine(RepairAppointmentCase):
         self.assertEqual(apt.pickup_date, d2)
         self.assertEqual(apt.reschedule_count, 1)
 
-    def test_action_mark_done_requires_scheduled(self):
+    def test_action_mark_done_rejects_terminal_state(self):
         apt = self._make_pending()
+        apt.action_cancel()
         with self.assertRaises(UserError):
             apt.action_mark_done()
+
+    def test_action_mark_done_from_pending(self):
+        # Walk-in / phone pickup: customer collects without ever booking a
+        # slot. The batch delivery flow must still be able to close the
+        # appointment so the reminder cron stops firing.
+        apt = self._make_pending()
+        apt.action_mark_done()
+        self.assertEqual(apt.state, 'done')
 
     def test_action_mark_done_from_scheduled(self):
         apt = self._make_pending()
