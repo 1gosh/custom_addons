@@ -4,9 +4,9 @@
             <meta charset="utf-8"/>
             <t t-foreach="docs" t-as="o">
                 
-                <t t-set="is_batch" t-value="o._name == 'repair.batch'"/>
-                
-                <t t-set="repairs_to_print" t-value="o.repair_ids if is_batch else [o]"/>
+                <t t-set="repairs_to_print" t-value="o.repair_ids if o._name == 'repair.batch' else [o]"/>
+
+                <t t-set="is_batch" t-value="len(repairs_to_print) &gt; 1"/>
                 
                 <t t-set="main_info" t-value="repairs_to_print[0]"/>
 
@@ -46,6 +46,8 @@
                                 <span t-field="repair.device_id_name" style="font-weight: bold;"/>
                                 <br/>
                                 <span style="font-size: 11px;">N° de série: <span t-out="repair.lot_id.name or ''"/></span>
+                                <br/>
+                                <span t-if="repair.category_short_name" style="font-size: 11px;" t-field="repair.category_short_name"/>
                                 <span t-if="is_batch" style="font-size: 10px; float: right;" t-field="repair.name"/>
                             </div>
                             

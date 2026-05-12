@@ -4,99 +4,121 @@
         <record id="mail_template_pickup_ready" model="mail.template">
             <field name="name">Appareil prêt : prendre un RDV de retrait</field>
             <field name="model_id" ref="model_repair_pickup_appointment"/>
-            <field name="subject">Votre appareil est prêt à être récupéré</field>
+            <field name="subject">Votre dépot est prêt à être récupéré</field>
             <field name="email_from">{{ object.company_id.email_formatted or user.email_formatted }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="body_html" type="html">
-                <div style="font-family: Arial, sans-serif; color: #222;">
-                    <p>Bonjour <t t-out="object.partner_id.name or ''"/>,</p>
+                <div style="font-family: Arial, Helvetica, sans-serif; color: #000; max-width: 600px; font-size: 14px; line-height: 1.5;">
+                    <p style="margin: 0 0 16px;">Bonjour,</p>
 
-                    <p>Bonne nouvelle : votre dossier
-                        <strong t-out="object.batch_id.name or ''"/>
-                        est prêt pour le retrait.
+                    <t t-set="ready_repairs" t-value="object.batch_id.repair_ids.filtered(lambda r: r.delivery_state != 'abandoned' and r.state in ('done', 'irreparable'))"/>
+                    <t t-set="done_count" t-value="len(ready_repairs.filtered(lambda r: r.state == 'done'))"/>
+                    <p style="margin: 0 0 16px;">
+                        <t t-if="done_count == 1">Votre appareil est réparé et prêt à être récupéré.</t>
+                        <t t-elif="done_count &gt; 1">Vos appareils sont réparés et prêts à être récupérés.</t>
+                        <t t-else="">Votre dossier <strong t-out="object.batch_id.name or ''"/> est prêt pour le retrait.</t>
                     </p>
 
-                    <h3>Récapitulatif de votre dépôt</h3>
-                    <ul>
-                        <li>
-                            <strong>Date de dépôt :</strong>
-                            <t t-out="object.batch_id.date and object.batch_id.date.strftime('%d/%m/%Y') or ''"/>
-                        </li>
-                        <li>
-                            <strong>Lieu de retrait :</strong>
-                            <t t-out="object.location_id.name or ''"/>
-                        </li>
-                    </ul>
+                    <p style="margin: 24px 0 16px;">
+                        Planifiez le retrait via notre calendrier en ligne en cliquant sur le bouton ci-dessous.
+                    </p>
+                    <p style="margin: 24px 0;">
+                        <a t-att-href="object._portal_url()"
+                           style="display: inline-block; padding: 12px 28px; background: #000; color: #fff;
+                                  text-decoration: none; font-weight: bold; letter-spacing: 1px;
+                                  text-transform: uppercase; font-size: 13px;">
+                            Prendre rendez-vous
+                        </a>
+                    </p>
 
-                    <h3>Appareils</h3>
+                    <p style="margin: 24px 0 8px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #000; padding-bottom: 4px;">
+                        Récapitulatif du dépôt
+                    </p>
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+                        <tr>
+                            <td style="padding: 4px 0; width: 40%;"><strong>Date de dépôt</strong></td>
+                            <td style="padding: 4px 0;"><t t-out="object.batch_id.date and object.batch_id.date.strftime('%d/%m/%Y') or ''"/></td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 4px 0;"><strong>Lieu de retrait</strong></td>
+                            <td style="padding: 4px 0;"><t t-out="object.location_id.display_name or ''"/></td>
+                        </tr>
+                    </table>
+
+                    <p style="margin: 24px 0 8px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #000; padding-bottom: 4px;">
+                        Appareils
+                    </p>
                     <t t-foreach="object.batch_id.repair_ids.filtered(lambda r: r.delivery_state != 'abandoned' and r.state in ('done', 'irreparable'))" t-as="repair">
-                        <div style="margin-bottom: 16px; padding: 12px; border-left: 3px solid #875A7B;">
-                            <p><strong t-out="repair.device_id_name or ''"/></p>
+                        <div style="margin: 0 0 16px; padding: 12px 0 12px 16px; border-left: 2px solid #000;">
+                            <p style="margin: 0 0 8px; font-weight: bold;" t-out="repair.device_id_name or ''"/>
 
                             <t t-if="repair.tag_ids">
-                                <p><em>Pannes constatées :</em>
+                                <p style="margin: 0 0 6px;"><em>Pannes constatées :</em>
                                     <t t-out="', '.join(repair.tag_ids.mapped('name'))"/>
                                 </p>
                             </t>
 
                             <t t-if="repair.state == 'done' and repair.internal_notes">
-                                <p><em>Intervention :</em></p>
-                                <p t-out="repair.internal_notes or ''"/>
+                                <p style="margin: 0 0 4px;"><em>Intervention :</em></p>
+                                <p style="margin: 0 0 6px;" t-out="repair.internal_notes or ''"/>
                             </t>
                             <t t-if="repair.state == 'irreparable'">
-                                <p><em>Diagnostic :</em> cet appareil n'a pas pu être réparé.</p>
+                                <p style="margin: 0 0 6px;"><em>Diagnostic :</em> cet appareil n'a pas pu être réparé.</p>
                                 <t t-if="repair.internal_notes">
-                                    <p t-out="repair.internal_notes or ''"/>
+                                    <p style="margin: 0 0 6px;" t-out="repair.internal_notes or ''"/>
                                 </t>
                             </t>
 
                             <t t-if="repair.notes">
-                                <p><em>Informations complémentaires :</em></p>
-                                <p t-out="repair.notes or ''"/>
+                                <p style="margin: 0 0 4px;"><em>Informations complémentaires :</em></p>
+                                <p style="margin: 0;" t-out="repair.notes or ''"/>
                             </t>
                         </div>
                     </t>
 
-                    <p>
-                        Pour choisir le créneau qui vous convient le mieux, cliquez sur
-                        le lien ci-dessous :
+                    <p style="margin: 32px 0 0;">À très bientôt,<br/>L’équipe Hifi Vintage Paris</p>
+                </div>
+            </field>
+            <field name="lang">{{ object.partner_id.lang or 'fr_FR' }}</field>
+            <field name="auto_delete" eval="False"/>
+        </record>
+
+        <record id="mail_template_pickup_reminder" model="mail.template">
+            <field name="name">Rappel : RDV retrait</field>
+            <field name="model_id" ref="model_repair_pickup_appointment"/>
+            <field name="subject">DÉPOT PRÊT — relance</field>
+            <field name="email_from">{{ object.company_id.email_formatted or user.email_formatted }}</field>
+            <field name="email_to">{{ object.partner_id.email }}</field>
+            <field name="body_html" type="html">
+                <div style="font-family: Arial, Helvetica, sans-serif; color: #000; max-width: 600px; font-size: 14px; line-height: 1.5;">
+                    <p style="margin: 0 0 16px;">Bonjour,</p>
+
+                    <p style="margin: 0 0 16px;">
+                        <t t-if="done_count == 1">Votre appareil est réparé.</t>
+                        <t t-elif="done_count &gt; 1">Vos appareils sont réparés.</t>
+                        <t t-else="">Votre dossier <strong t-out="object.batch_id.name or ''"/> est prêt pour le retrait.</t>
                     </p>
-                    <p style="text-align: center; margin: 24px 0;">
+                    
+                    <p style="margin: 0 0 16px;">
+                        Nous vous invitons à planifier son retrait via notre calendrier en ligne, cliquez sur le bouton ci-dessous.
+                    </p>
+
+                    <p style="margin: 24px 0;">
                         <a t-att-href="object._portal_url()"
-                           style="background-color: #875A7B; color: white; padding: 12px 24px;
-                                  text-decoration: none; border-radius: 4px; display: inline-block;">
+                           style="display: inline-block; padding: 12px 28px; background: #000; color: #fff;
+                                  text-decoration: none; font-weight: bold; letter-spacing: 1px;
+                                  text-transform: uppercase; font-size: 13px;">
                             Prendre rendez-vous
                         </a>
                     </p>
 
-                    <p>À très bientôt,<br/>L'équipe de réparation</p>
+                    <p style="margin: 32px 0 0;">Bien à vous,<br/>L’équipe Hifi Vintage Paris</p>
                 </div>
             </field>
             <field name="lang">{{ object.partner_id.lang or 'fr_FR' }}</field>
             <field name="auto_delete" eval="False"/>
         </record>
-        <record id="mail_template_pickup_reminder" model="mail.template">
-            <field name="name">Rappel : RDV retrait non pris</field>
-            <field name="model_id" ref="model_repair_pickup_appointment"/>
-            <field name="subject">Rappel : votre appareil est prêt à être récupéré</field>
-            <field name="email_from">{{ object.company_id.email_formatted or user.email_formatted }}</field>
-            <field name="email_to">{{ object.partner_id.email }}</field>
-            <field name="body_html" type="html">
-                <div>
-                    <p>Bonjour <t t-out="object.partner_id.name or ''"/>,</p>
-                    <p>Nous n'avons pas encore reçu de rendez-vous de votre part pour
-                       récupérer votre appareil qui est prêt à être retiré.</p>
-                    <p>Pour choisir un créneau, cliquez sur le lien suivant :</p>
-                    <p>
-                        <a t-att-href="object._portal_url()">Prendre rendez-vous</a>
-                    </p>
-                    <p>Merci de prendre contact avec nous rapidement.</p>
-                    <p>Cordialement,<br/>L'équipe de réparation</p>
-                </div>
-            </field>
-            <field name="lang">{{ object.partner_id.lang or 'fr_FR' }}</field>
-            <field name="auto_delete" eval="False"/>
-        </record>
+
         <record id="mail_template_pickup_reschedule" model="mail.template">
             <field name="name">RDV retrait : déplacement</field>
             <field name="model_id" ref="model_repair_pickup_appointment"/>
@@ -104,14 +126,24 @@
             <field name="email_from">{{ object.company_id.email_formatted or user.email_formatted }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="body_html" type="html">
-                <div>
-                    <p>Bonjour <t t-out="object.partner_id.name or ''"/>,</p>
-                    <p>Votre rendez-vous a été déplacé au
-                       <strong t-out="object.pickup_date and object.pickup_date.strftime('%d/%m/%Y') or ''"/>.</p>
-                    <p>
-                        <a t-att-href="object._portal_url()">Voir mon rendez-vous</a>
+                <div style="font-family: Arial, Helvetica, sans-serif; color: #000; max-width: 600px; font-size: 14px; line-height: 1.5;">
+                    <p style="margin: 0 0 16px;">Bonjour,</p>
+
+                    <p style="margin: 0 0 16px;">
+                        Votre rendez-vous de retrait a été déplacé au
+                        <strong t-out="object.pickup_date and object.pickup_date.strftime('%d/%m/%Y') or ''"/>.
                     </p>
-                    <p>Cordialement,<br/>L'équipe de réparation</p>
+
+                    <p style="margin: 24px 0;">
+                        <a t-att-href="object._portal_url()"
+                           style="display: inline-block; padding: 12px 28px; background: #000; color: #fff;
+                                  text-decoration: none; font-weight: bold; letter-spacing: 1px;
+                                  text-transform: uppercase; font-size: 13px;">
+                            Voir mon rendez-vous
+                        </a>
+                    </p>
+
+                    <p style="margin: 32px 0 0;">Bien à vous,<br/>L’équipe Hifi Vintage Paris</p>
                 </div>
             </field>
             <field name="lang">{{ object.partner_id.lang or 'fr_FR' }}</field>

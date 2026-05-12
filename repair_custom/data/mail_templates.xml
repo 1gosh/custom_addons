@@ -5,29 +5,67 @@
         <record id="mail_template_repair_quote_reminder" model="mail.template">
             <field name="name">Rappel devis de réparation</field>
             <field name="model_id" ref="sale.model_sale_order"/>
-            <field name="subject">Rappel : votre devis de réparation {{ (object.repair_order_ids and object.repair_order_ids[0].name) or object.name }}</field>
+            <field name="subject">Relance : votre devis de réparation {{ (object.repair_order_ids and object.repair_order_ids[0].name) or object.name }}</field>
             <field name="email_from">{{ object.company_id.email_formatted or user.email_formatted }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
             <field name="report_template_ids" eval="[(4, ref('sale.action_report_saleorder'))]"/>
             <field name="body_html" type="html">
-                <div style="margin: 0px; padding: 0px;">
-                    <p>Bonjour <t t-out="object.partner_id.name or ''"/>,</p>
-                    <p>
-                        Nous vous avons adressé il y a quelques jours un devis pour la réparation de votre
-                        <t t-out="(object.repair_order_ids[:1].device_id_name if object.repair_order_ids else False) or 'appareil'"/>
-                        (<t t-out="(object.repair_order_ids[:1].name if object.repair_order_ids else object.name) or ''"/>).
+                <div style="font-family: Arial, Helvetica, sans-serif; color: #000; max-width: 600px; font-size: 14px; line-height: 1.5;">
+                    <p style="margin: 0 0 16px;">Bonjour,</p>
+
+                    <p style="margin: 0 0 16px;">
+                        Sauf erreur de notre part, notre devis est toujours en attente de validation.
                     </p>
-                    <p>
-                        N'hésitez pas à nous revenir avec votre décision afin que nous puissions planifier
-                        les travaux.
+
+                    <p style="margin: 0 0 16px;">
+                        Nous restons à votre écoute pour toute question.
                     </p>
-                    <p>
-                        Vous pouvez consulter et valider le devis directement en ligne :
-                        <a t-att-href="object.get_portal_url()">Voir le devis</a>
+
+                    <!-- <p style="margin: 24px 0;">
+                        <a t-att-href="object.get_portal_url()"
+                           style="display: inline-block; padding: 12px 28px; background: #000; color: #fff;
+                                  text-decoration: none; font-weight: bold; letter-spacing: 1px;
+                                  text-transform: uppercase; font-size: 13px;">
+                            Voir le devis
+                        </a>
+                    </p> -->
+
+                    <p style="margin: 32px 0 0;">Bien à vous,<br/>L’équipe Hifi Vintage Paris</p>
+                </div>
+            </field>
+        </record>
+
+    </data>
+
+    <data noupdate="0">
+
+        <record id="sale.email_template_edi_sale" model="mail.template">
+            <field name="name">Sales: Send Quotation</field>
+            <field name="model_id" ref="sale.model_sale_order"/>
+            <field name="subject">{{ object.company_id.name }} {{ object.state in ('draft', 'sent') and (ctx.get('proforma') and 'Proforma' or 'Devis') or 'Commande' }} (Réf. {{ object.name or 'n/a' }})</field>
+            <field name="email_from">{{ (object.user_id.email_formatted or object.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="partner_to">{{ object.partner_id.id }}</field>
+            <field name="description">Used by salespeople when they send quotations or proforma to prospects</field>
+            <field name="report_template_ids" eval="[(4, ref('sale.action_report_saleorder'))]"/>
+            <field name="lang">{{ object.partner_id.lang }}</field>
+            <field name="auto_delete" eval="True"/>
+            <field name="template_fs">repair_custom/data/mail_templates.xml</field>
+            <field name="body_html" type="html">
+                <div style="font-family: Arial, Helvetica, sans-serif; color: #000; max-width: 600px; font-size: 14px; line-height: 1.5;">
+                    <t t-set="doc_name" t-value="'devis' if object.state in ('draft', 'sent') else 'commande'"/>
+
+                    <p style="margin: 0 0 16px;">Bonjour,</p>
+
+                    <p style="margin: 0 0 16px;">
+                        Le devis de réparation pour votre appareil est disponible, vous pouvez le consulter et le valider via le bouton ci-dessus.
                     </p>
-                    <p>Cordialement,</p>
-                    <p><t t-out="user.company_id.name or ''"/></p>
+
+                    <p style="margin: 0 0 16px;">
+                        N'hésitez pas à nous contacter si vous avez la moindre question.
+                    </p>
+
+                    <p style="margin: 32px 0 0;">Bien à vous,<br/>L’équipe Hifi Vintage Paris</p>
                 </div>
             </field>
         </record>
