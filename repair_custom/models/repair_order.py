@@ -921,6 +921,21 @@ class Repair(models.Model):
             if activities:
                 activities.action_feedback(feedback="Client livré (Appareil récupéré)")
 
+        # Close the batch's pickup appointment once the batch has nothing
+        # left to deliver. Covers the per-repair "Livrer" button path, which
+        # bypasses repair.batch.action_mark_delivered. Idempotent: skipped
+        # when no open appointment, or when other repairs are still pending
+        # delivery on the same batch.
+        for batch in self.mapped('batch_id'):
+            apt = getattr(batch, 'current_appointment_id', None)
+            if not apt or apt.state not in ('pending', 'scheduled'):
+                continue
+            still_to_deliver = batch.repair_ids.filtered(
+                lambda r: r.delivery_state == 'none'
+            )
+            if not still_to_deliver:
+                apt.action_mark_done()
+
         return True
 
     def action_repair_start(self):
