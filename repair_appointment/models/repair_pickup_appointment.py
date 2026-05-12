@@ -46,7 +46,6 @@ class RepairPickupAppointment(models.Model):
         string='Lieu de retrait',
         compute='_compute_location_id',
         store=True,
-        readonly=True,
     )
     state = fields.Selection(
         STATE_SELECTION,

@@ -109,7 +109,7 @@
                                 <button type="submit" class="btn btn-primary" id="pickup-submit-btn" disabled="1">
                                     Valider le nouveau jour
                                 </button>
-                                <button type="button" class="btn btn-outline-secondary" id="pickup-cancel-btn">
+                                <button type="button" class="btn btn-secondary" id="pickup-cancel-btn">
                                     Annuler
                                 </button>
                             </div>
