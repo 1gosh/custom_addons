@@ -157,6 +157,14 @@ class RepairOrder(models.Model):
                 repair.message_post(
                     body=_("Échec envoi SMS d'avis : %s") % e)
 
+    def action_cancel_review_sms(self):
+        for rec in self:
+            if rec.review_sms_state != 'pending':
+                continue
+            rec.write({'review_sms_state': 'cancelled'})
+            rec.message_post(body=_("SMS d'avis Google annulé manuellement."))
+        return True
+
     def write(self, vals):
         if 'delivery_state' not in vals:
             return super().write(vals)

@@ -209,6 +209,11 @@
                     <field name="batch_ready_for_pickup_notification" invisible="1"/>
                     <field name="batch_delivery_state" invisible="1"/>
                     <button name="action_repair_delivered" string="Livrer" type="object" class="btn-secondary" invisible="delivery_state != 'none' or state not in ['done', 'irreparable']"/>
+                    <button name="action_cancel_review_sms"
+                            type="object"
+                            string="Annuler SMS d'avis"
+                            class="btn-secondary"
+                            invisible="review_sms_state != 'pending'"/>
                     <button name="action_open_abandon_wizard" string="Abandon" type="object" class="btn-warning" invisible="delivery_state != 'none' or state in ['draft', 'confirmed']" groups="repair_custom.group_repair_manager"/>
                     <button name="action_repair_cancel_draft" groups="repair_custom.group_repair_manager" invisible="state in 'draft'" string="Marquer comme brouillon" type="object" data-hotkey="z"/>
                     <button name="action_repair_cancel" groups="repair_custom.group_repair_manager" string="Annuler" type="object" invisible="state in ('done', 'cancel')" data-hotkey="l" class="btn-danger"/>
@@ -382,6 +387,18 @@
                             <field name="repair_warranty" widget="radio" options="{'horizontal': True}" readonly="state not in 'draft'"/>
                             <field name="pickup_location_id" placeholder="Sélectionner un lieu..." readonly="state not in 'draft' or batch_id"/>
                         </group>
+                    </group>
+                    <group string="SMS d'avis Google" name="review_sms_group" invisible="review_sms_state == 'none'">
+                        <field name="review_sms_state" widget="badge"
+                               decoration-success="review_sms_state == 'sent'"
+                               decoration-info="review_sms_state == 'pending'"
+                               decoration-muted="review_sms_state in ('cancelled', 'skipped', 'none')"/>
+                        <field name="review_sms_eligible_date"
+                               invisible="review_sms_state != 'pending'"/>
+                        <field name="review_sms_sent_date"
+                               invisible="review_sms_state != 'sent'"/>
+                        <field name="review_sms_skip_reason"
+                               invisible="review_sms_state != 'skipped'"/>
                     </group>
                     <!-- <p class="text-muted small">
                         Réf. 

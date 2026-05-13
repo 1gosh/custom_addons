@@ -131,3 +131,18 @@ class ReviewSmsCase(TransactionCase):
         with patch.object(type(self.template), 'send_sms', side_effect=Exception("IAP fail")):
             self.Repair._cron_send_review_sms()
         self.assertEqual(repair.review_sms_state, 'pending')
+
+    def test_cancel_action_marks_cancelled(self):
+        repair = self._make_delivered_repair()
+        self.assertEqual(repair.review_sms_state, 'pending')
+        repair.action_cancel_review_sms()
+        self.assertEqual(repair.review_sms_state, 'cancelled')
+
+    def test_cancel_then_cron_skips(self):
+        repair = self._make_delivered_repair()
+        self._force_eligible(repair)
+        repair.action_cancel_review_sms()
+        with patch.object(type(self.template), 'send_sms') as mock_send:
+            self.Repair._cron_send_review_sms()
+            mock_send.assert_not_called()
+        self.assertEqual(repair.review_sms_state, 'cancelled')
