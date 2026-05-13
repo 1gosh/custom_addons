@@ -39,6 +39,20 @@
                             <field name="auto_validate_equipment_sale"/>
                         </setting>
                     </block>
+                    <block title="SMS d'avis Google">
+                        <setting string="Délai avant SMS d'avis Google (jours)"
+                                 help="Nombre de jours après la livraison avant l'envoi automatique du SMS d'avis Google.">
+                            <field name="review_sms_delay_days"/>
+                        </setting>
+                        <setting string="Délai anti-doublon SMS d'avis (mois)"
+                                 help="Ne pas renvoyer de SMS d'avis si le client en a reçu un dans les X derniers mois.">
+                            <field name="review_sms_dedup_months"/>
+                        </setting>
+                        <setting string="Modèle SMS d'avis Google"
+                                 help="Modèle utilisé pour le SMS d'avis. Modifier le corps pour mettre à jour le lien Google Review.">
+                            <field name="review_sms_template_id"/>
+                        </setting>
+                    </block>
                 </app>
             </xpath>
         </field>
