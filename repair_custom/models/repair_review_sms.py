@@ -51,15 +51,27 @@ class RepairOrder(models.Model):
         self.ensure_one()
         return bool(self.partner_id.mobile or self.partner_id.phone)
 
-    def _review_sms_recently_sent(self):
+    def _review_sms_recently_handled(self):
+        """True if the partner already has another repair where a review
+        SMS has been sent within the dedup window OR is currently
+        scheduled (pending). Avoids double-SMS for back-to-back repairs."""
         self.ensure_one()
         months = self._get_review_sms_dedup_months()
         cutoff = fields.Datetime.now() - relativedelta(months=months)
-        return bool(self.env['repair.order'].search_count([
+        Repair = self.env['repair.order']
+        already_sent = Repair.search_count([
             ('id', '!=', self.id),
             ('partner_id', '=', self.partner_id.id),
             ('review_sms_sent_date', '>=', cutoff),
-        ]))
+        ])
+        if already_sent:
+            return True
+        pending = Repair.search_count([
+            ('id', '!=', self.id),
+            ('partner_id', '=', self.partner_id.id),
+            ('review_sms_state', '=', 'pending'),
+        ])
+        return bool(pending)
 
     def _schedule_review_sms(self):
         """Called when delivery_state flips to 'delivered'. Decides
@@ -73,7 +85,7 @@ class RepairOrder(models.Model):
                     'review_sms_skip_reason': rec.SKIP_REASON_NO_PHONE,
                 })
                 continue
-            if rec._review_sms_recently_sent():
+            if rec._review_sms_recently_handled():
                 rec.write({
                     'review_sms_state': 'skipped',
                     'review_sms_skip_reason': rec.SKIP_REASON_DEDUP,
@@ -90,6 +102,9 @@ class RepairOrder(models.Model):
     def write(self, vals):
         if 'delivery_state' not in vals:
             return super().write(vals)
+        # Inner writes performed by _schedule_review_sms must NEVER include
+        # 'delivery_state' — they would recurse into this branch. Keep that
+        # invariant if you add new inner writes.
         # Snapshot per-record previous state so we can detect transitions
         prev = {rec.id: rec.delivery_state for rec in self}
         res = super().write(vals)

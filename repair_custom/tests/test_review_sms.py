@@ -74,3 +74,13 @@ class ReviewSmsCase(TransactionCase):
         self.assertEqual(repair.review_sms_state, 'pending')
         repair.write({'delivery_state': 'none'})
         self.assertEqual(repair.review_sms_state, 'none')
+
+    def test_skipped_when_sibling_pending(self):
+        # First delivery → pending
+        first = self._make_delivered_repair()
+        self.assertEqual(first.review_sms_state, 'pending')
+        # Second delivery for same partner before first SMS fires → skipped
+        second = self.Repair.create({'partner_id': self.partner_with_mobile.id})
+        second.write({'delivery_state': 'delivered'})
+        self.assertEqual(second.review_sms_state, 'skipped')
+        self.assertEqual(second.review_sms_skip_reason, "SMS envoyé récemment au client")
