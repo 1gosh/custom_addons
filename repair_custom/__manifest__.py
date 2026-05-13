@@ -28,6 +28,7 @@ The following topics are covered by this module:
         'data/repair_data.xml',
         'data/dashboard_data.xml',
         'data/mail_activity_data.xml',
+        'data/mail_layout.xml',
         'data/mail_templates.xml',
         'data/stock_data.xml',
         'data/cron_data.xml',

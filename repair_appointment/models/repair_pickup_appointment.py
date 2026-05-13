@@ -2,6 +2,7 @@ import uuid
 
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
+from odoo.tools import clean_context
 
 
 STATE_SELECTION = [
@@ -191,7 +192,11 @@ class RepairPickupAppointment(models.Model):
                         and old_dates.get(apt.id)
                         and old_dates.get(apt.id) != apt.pickup_date):
                     if template:
-                        template.send_mail(apt.id, force_send=False)
+                        apt.with_context(clean_context(apt.env.context), force_send=False).message_post_with_source(
+                            template,
+                            email_layout_xmlid='repair_custom.mail_notification_layout',
+                            subtype_xmlid='mail.mt_comment',
+                        )
                     apt.message_post(body=_(
                         "RDV déplacé — notification client envoyée."
                     ))
@@ -508,7 +513,11 @@ class RepairPickupAppointment(models.Model):
             raise_if_not_found=False,
         )
         if template:
-            template.send_mail(self.id, force_send=False)
+            self.with_context(clean_context(self.env.context), force_send=False).message_post_with_source(
+                template,
+                email_layout_xmlid='repair_custom.mail_notification_layout',
+                subtype_xmlid='mail.mt_comment',
+            )
 
     def action_send_reminder_now(self):
         for apt in self:
@@ -543,11 +552,12 @@ class RepairPickupAppointment(models.Model):
                 self.batch_id._build_pickup_quote_attachments()
                 if self.batch_id else []
             )
-            email_values = (
-                {'attachment_ids': [(4, aid) for aid in attachment_ids]}
-                if attachment_ids else None
+            self.with_context(clean_context(self.env.context), force_send=True).message_post_with_source(
+                template,
+                email_layout_xmlid='repair_custom.mail_notification_layout',
+                subtype_xmlid='mail.mt_comment',
+                attachment_ids=attachment_ids or None,
             )
-            template.send_mail(self.id, force_send=True, email_values=email_values)
             self.notification_sent_at = fields.Datetime.now()
 
     def action_open_reset_pickup_cycle_wizard(self):

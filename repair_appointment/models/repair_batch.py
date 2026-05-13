@@ -1,6 +1,7 @@
 import base64
 
 from odoo import api, fields, models, _
+from odoo.tools import clean_context
 
 
 class RepairBatch(models.Model):
@@ -119,9 +120,11 @@ class RepairBatch(models.Model):
             )
             if template:
                 attachment_ids = self._build_pickup_quote_attachments()
-                email_values = None
-                if attachment_ids:
-                    email_values = {'attachment_ids': [(4, aid) for aid in attachment_ids]}
-                template.send_mail(apt.id, force_send=False, email_values=email_values)
+                apt.with_context(clean_context(apt.env.context), force_send=False).message_post_with_source(
+                    template,
+                    email_layout_xmlid='repair_custom.mail_notification_layout',
+                    subtype_xmlid='mail.mt_comment',
+                    attachment_ids=attachment_ids or None,
+                )
                 apt.notification_sent_at = fields.Datetime.now()
         return apt

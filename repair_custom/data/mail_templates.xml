@@ -3,13 +3,14 @@
     <data noupdate="1">
 
         <record id="mail_template_repair_quote_reminder" model="mail.template">
-            <field name="name">Rappel devis de réparation</field>
+            <field name="name">Devis de réparation - relance</field>
             <field name="model_id" ref="sale.model_sale_order"/>
-            <field name="subject">Relance : votre devis de réparation {{ (object.repair_order_ids and object.repair_order_ids[0].name) or object.name }}</field>
+            <field name="subject">Relance : votre devis de réparation ({{ (object.repair_order_ids and object.repair_order_ids[0].name) or object.name }})</field>
             <field name="email_from">{{ object.company_id.email_formatted or user.email_formatted }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
-            <field name="lang">{{ object.partner_id.lang }}</field>
+            <field name="lang">{{ object.partner_id.lang or 'fr_FR' }}</field>
             <field name="report_template_ids" eval="[(4, ref('sale.action_report_saleorder'))]"/>
+            <field name="auto_delete" eval="False"/>
             <field name="body_html" type="html">
                 <div style="font-family: Arial, Helvetica, sans-serif; color: #000; max-width: 600px; font-size: 14px; line-height: 1.5;">
                     <p style="margin: 0 0 16px;">Bonjour,</p>
@@ -22,14 +23,14 @@
                         Nous restons à votre écoute pour toute question.
                     </p>
 
-                    <!-- <p style="margin: 24px 0;">
+                    <p style="margin: 24px 0;">
                         <a t-att-href="object.get_portal_url()"
-                           style="display: inline-block; padding: 12px 28px; background: #000; color: #fff;
+                           style="display: inline-block; padding: 12px 28px; background-color: #000; color: #fff;
                                   text-decoration: none; font-weight: bold; letter-spacing: 1px;
                                   text-transform: uppercase; font-size: 13px;">
                             Voir le devis
                         </a>
-                    </p> -->
+                    </p>
 
                     <p style="margin: 32px 0 0;">Bien à vous,<br/>L’équipe Hifi Vintage Paris</p>
                 </div>
@@ -43,13 +44,13 @@
         <record id="sale.email_template_edi_sale" model="mail.template">
             <field name="name">Sales: Send Quotation</field>
             <field name="model_id" ref="sale.model_sale_order"/>
-            <field name="subject">{{ object.company_id.name }} {{ object.state in ('draft', 'sent') and (ctx.get('proforma') and 'Proforma' or 'Devis') or 'Commande' }} (Réf. {{ object.name or 'n/a' }})</field>
-            <field name="email_from">{{ (object.user_id.email_formatted or object.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="subject">Votre devis de réparation ({{ (object.repair_order_ids and object.repair_order_ids[0].name) or object.name }})</field>
+            <field name="email_from">{{ object.company_id.email_formatted or user.email_formatted }}</field>
             <field name="partner_to">{{ object.partner_id.id }}</field>
             <field name="description">Used by salespeople when they send quotations or proforma to prospects</field>
             <field name="report_template_ids" eval="[(4, ref('sale.action_report_saleorder'))]"/>
-            <field name="lang">{{ object.partner_id.lang }}</field>
-            <field name="auto_delete" eval="True"/>
+            <field name="lang">{{ object.partner_id.lang or 'fr_FR' }}</field>
+            <field name="auto_delete" eval="False"/>
             <field name="template_fs">repair_custom/data/mail_templates.xml</field>
             <field name="body_html" type="html">
                 <div style="font-family: Arial, Helvetica, sans-serif; color: #000; max-width: 600px; font-size: 14px; line-height: 1.5;">
@@ -58,7 +59,17 @@
                     <p style="margin: 0 0 16px;">Bonjour,</p>
 
                     <p style="margin: 0 0 16px;">
-                        Le devis de réparation pour votre appareil est disponible, vous pouvez le consulter et le valider via le bouton ci-dessus.
+                        Le devis de réparation pour votre appareil est disponible.
+                        Vous pouvez le consulter et le valider via le bouton ci-dessous.
+                    </p>
+
+                    <p style="margin: 24px 0;">
+                        <a t-att-href="object.get_portal_url()"
+                           style="display: inline-block; padding: 12px 28px; background-color: #000; color: #fff;
+                                  text-decoration: none; font-weight: bold; letter-spacing: 1px;
+                                  text-transform: uppercase; font-size: 13px;">
+                            Voir le devis
+                        </a>
                     </p>
 
                     <p style="margin: 0 0 16px;">
