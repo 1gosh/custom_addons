@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="sms_template_review_request" model="sms.template">
+            <field name="name">Demande d'avis Google après livraison</field>
+            <field name="model_id" ref="model_repair_order"/>
+            <field name="body">Bonjour {{ object.partner_id.name }}, merci de nous avoir confié votre {{ object.device_id.display_name }}. Votre avis compte beaucoup pour nous : [LIEN_GOOGLE_REVIEW]</field>
+        </record>
+    </data>
+</odoo>
