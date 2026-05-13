@@ -13,3 +13,4 @@ from . import sale_order
 from . import sale_order_template_extension
 from . import mail_compose_message
 from . import res_config_settings
+from . import repair_review_sms

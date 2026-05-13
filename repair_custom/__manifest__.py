@@ -18,7 +18,7 @@ The following topics are covered by this module:
     * Repair quotation report
     * Notes for the technician and for the final customer
 """,
-    'depends': ['repair_devices', 'web', 'stock', 'sale_management', 'account'],
+    'depends': ['repair_devices', 'web', 'stock', 'sale_management', 'account', 'sms'],
     'post_init_hook': '_post_init_tag_repair_orders',
     'data': [
         'security/ir.model.access.csv',
@@ -32,6 +32,8 @@ The following topics are covered by this module:
         'data/mail_templates.xml',
         'data/stock_data.xml',
         'data/cron_data.xml',
+        'data/review_sms_template_data.xml',
+        'data/review_sms_cron_data.xml',
         'data/account_tax_data.xml',
         'data/account_fiscal_position_data.xml',
         'views/res_config_settings_views.xml',
