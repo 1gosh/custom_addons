@@ -10,7 +10,7 @@ _logger = logging.getLogger(__name__)
 class SmsTemplate(models.Model):
     _inherit = 'sms.template'
 
-    def send_sms(self, res_id):
+    def _send_review_sms(self, res_id):
         """Send this SMS template to the given record id (uses IAP)."""
         self.ensure_one()
         record = self.env[self.model].browse(res_id)
@@ -132,30 +132,31 @@ class RepairOrder(models.Model):
             ('review_sms_eligible_date', '<=', fields.Datetime.now()),
         ])
         for repair in repairs:
-            if not repair._has_review_sms_phone():
-                repair.write({
-                    'review_sms_state': 'skipped',
-                    'review_sms_skip_reason': repair.SKIP_REASON_NO_PHONE,
-                })
-                continue
-            if repair._review_sms_recently_handled():
-                repair.write({
-                    'review_sms_state': 'skipped',
-                    'review_sms_skip_reason': repair.SKIP_REASON_DEDUP,
-                })
-                continue
-            try:
-                template.send_sms(repair.id)
-                repair.write({
-                    'review_sms_state': 'sent',
-                    'review_sms_sent_date': fields.Datetime.now(),
-                })
-                repair.message_post(body=_("SMS d'avis Google envoyé."))
-            except Exception as e:
-                _logger.exception(
-                    "Review SMS send failed for repair %s", repair.id)
-                repair.message_post(
-                    body=_("Échec envoi SMS d'avis : %s") % e)
+            with self.env.cr.savepoint():
+                if not repair._has_review_sms_phone():
+                    repair.write({
+                        'review_sms_state': 'skipped',
+                        'review_sms_skip_reason': repair.SKIP_REASON_NO_PHONE,
+                    })
+                    continue
+                if repair._review_sms_recently_handled():
+                    repair.write({
+                        'review_sms_state': 'skipped',
+                        'review_sms_skip_reason': repair.SKIP_REASON_DEDUP,
+                    })
+                    continue
+                try:
+                    template._send_review_sms(repair.id)
+                    repair.write({
+                        'review_sms_state': 'sent',
+                        'review_sms_sent_date': fields.Datetime.now(),
+                    })
+                    repair.message_post(body=_("SMS d'avis Google envoyé."))
+                except Exception as e:
+                    _logger.exception(
+                        "Review SMS send failed for repair %s", repair.id)
+                    repair.message_post(
+                        body=_("Échec envoi SMS d'avis : %s") % e)
 
     def action_cancel_review_sms(self):
         for rec in self:

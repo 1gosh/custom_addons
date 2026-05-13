@@ -95,7 +95,7 @@ class ReviewSmsCase(TransactionCase):
         repair.write({
             'review_sms_eligible_date': fields.Datetime.now() + relativedelta(days=1),
         })
-        with patch.object(type(self.template), 'send_sms') as mock_send:
+        with patch.object(type(self.template), '_send_review_sms') as mock_send:
             self.Repair._cron_send_review_sms()
             mock_send.assert_not_called()
         self.assertEqual(repair.review_sms_state, 'pending')
@@ -103,7 +103,7 @@ class ReviewSmsCase(TransactionCase):
     def test_cron_sends_eligible_repair(self):
         repair = self._make_delivered_repair()
         self._force_eligible(repair)
-        with patch.object(type(self.template), 'send_sms') as mock_send:
+        with patch.object(type(self.template), '_send_review_sms') as mock_send:
             self.Repair._cron_send_review_sms()
             mock_send.assert_called_once_with(repair.id)
         self.assertEqual(repair.review_sms_state, 'sent')
@@ -119,7 +119,7 @@ class ReviewSmsCase(TransactionCase):
             'review_sms_state': 'sent',
             'review_sms_sent_date': fields.Datetime.now(),
         })
-        with patch.object(type(self.template), 'send_sms') as mock_send:
+        with patch.object(type(self.template), '_send_review_sms') as mock_send:
             self.Repair._cron_send_review_sms()
             mock_send.assert_not_called()
         self.assertEqual(repair.review_sms_state, 'skipped')
@@ -128,7 +128,7 @@ class ReviewSmsCase(TransactionCase):
     def test_cron_send_failure_keeps_pending(self):
         repair = self._make_delivered_repair()
         self._force_eligible(repair)
-        with patch.object(type(self.template), 'send_sms', side_effect=Exception("IAP fail")):
+        with patch.object(type(self.template), '_send_review_sms', side_effect=Exception("IAP fail")):
             self.Repair._cron_send_review_sms()
         self.assertEqual(repair.review_sms_state, 'pending')
 
@@ -142,7 +142,7 @@ class ReviewSmsCase(TransactionCase):
         repair = self._make_delivered_repair()
         self._force_eligible(repair)
         repair.action_cancel_review_sms()
-        with patch.object(type(self.template), 'send_sms') as mock_send:
+        with patch.object(type(self.template), '_send_review_sms') as mock_send:
             self.Repair._cron_send_review_sms()
             mock_send.assert_not_called()
         self.assertEqual(repair.review_sms_state, 'cancelled')
