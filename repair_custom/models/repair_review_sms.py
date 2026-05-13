@@ -7,6 +7,16 @@ from odoo import api, fields, models, _
 _logger = logging.getLogger(__name__)
 
 
+class SmsTemplate(models.Model):
+    _inherit = 'sms.template'
+
+    def send_sms(self, res_id):
+        """Send this SMS template to the given record id (uses IAP)."""
+        self.ensure_one()
+        record = self.env[self.model].browse(res_id)
+        record._message_sms_with_template(template=self)
+
+
 class RepairOrder(models.Model):
     _inherit = 'repair.order'
 
@@ -98,6 +108,54 @@ class RepairOrder(models.Model):
                 'review_sms_eligible_date': eligible,
                 'review_sms_skip_reason': False,
             })
+
+    @api.model
+    def _get_review_sms_template(self):
+        param = self.env['ir.config_parameter'].sudo().get_param(
+            'repair_custom.review_sms_template_id')
+        if param:
+            template = self.env['sms.template'].browse(int(param)).exists()
+            if template:
+                return template
+        return self.env.ref(
+            'repair_custom.sms_template_review_request',
+            raise_if_not_found=False)
+
+    @api.model
+    def _cron_send_review_sms(self):
+        template = self._get_review_sms_template()
+        if not template:
+            _logger.warning("Review SMS template not configured, skipping cron")
+            return
+        repairs = self.search([
+            ('review_sms_state', '=', 'pending'),
+            ('review_sms_eligible_date', '<=', fields.Datetime.now()),
+        ])
+        for repair in repairs:
+            if not repair._has_review_sms_phone():
+                repair.write({
+                    'review_sms_state': 'skipped',
+                    'review_sms_skip_reason': repair.SKIP_REASON_NO_PHONE,
+                })
+                continue
+            if repair._review_sms_recently_handled():
+                repair.write({
+                    'review_sms_state': 'skipped',
+                    'review_sms_skip_reason': repair.SKIP_REASON_DEDUP,
+                })
+                continue
+            try:
+                template.send_sms(repair.id)
+                repair.write({
+                    'review_sms_state': 'sent',
+                    'review_sms_sent_date': fields.Datetime.now(),
+                })
+                repair.message_post(body=_("SMS d'avis Google envoyé."))
+            except Exception as e:
+                _logger.exception(
+                    "Review SMS send failed for repair %s", repair.id)
+                repair.message_post(
+                    body=_("Échec envoi SMS d'avis : %s") % e)
 
     def write(self, vals):
         if 'delivery_state' not in vals:

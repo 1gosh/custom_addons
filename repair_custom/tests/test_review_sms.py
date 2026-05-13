@@ -84,3 +84,50 @@ class ReviewSmsCase(TransactionCase):
         second.write({'delivery_state': 'delivered'})
         self.assertEqual(second.review_sms_state, 'skipped')
         self.assertEqual(second.review_sms_skip_reason, "SMS envoyé récemment au client")
+
+    def _force_eligible(self, repair, when=None):
+        repair.write({
+            'review_sms_eligible_date': when or (fields.Datetime.now() - relativedelta(minutes=1)),
+        })
+
+    def test_cron_skips_not_yet_eligible(self):
+        repair = self._make_delivered_repair()
+        repair.write({
+            'review_sms_eligible_date': fields.Datetime.now() + relativedelta(days=1),
+        })
+        with patch.object(type(self.template), 'send_sms') as mock_send:
+            self.Repair._cron_send_review_sms()
+            mock_send.assert_not_called()
+        self.assertEqual(repair.review_sms_state, 'pending')
+
+    def test_cron_sends_eligible_repair(self):
+        repair = self._make_delivered_repair()
+        self._force_eligible(repair)
+        with patch.object(type(self.template), 'send_sms') as mock_send:
+            self.Repair._cron_send_review_sms()
+            mock_send.assert_called_once_with(repair.id)
+        self.assertEqual(repair.review_sms_state, 'sent')
+        self.assertTrue(repair.review_sms_sent_date)
+
+    def test_cron_dedup_recheck_at_send_time(self):
+        # Eligible repair, but a sibling got sent in between
+        repair = self._make_delivered_repair()
+        self._force_eligible(repair)
+        sibling = self.Repair.create({'partner_id': self.partner_with_mobile.id})
+        sibling.write({
+            'delivery_state': 'delivered',
+            'review_sms_state': 'sent',
+            'review_sms_sent_date': fields.Datetime.now(),
+        })
+        with patch.object(type(self.template), 'send_sms') as mock_send:
+            self.Repair._cron_send_review_sms()
+            mock_send.assert_not_called()
+        self.assertEqual(repair.review_sms_state, 'skipped')
+        self.assertEqual(repair.review_sms_skip_reason, "SMS envoyé récemment au client")
+
+    def test_cron_send_failure_keeps_pending(self):
+        repair = self._make_delivered_repair()
+        self._force_eligible(repair)
+        with patch.object(type(self.template), 'send_sms', side_effect=Exception("IAP fail")):
+            self.Repair._cron_send_review_sms()
+        self.assertEqual(repair.review_sms_state, 'pending')
