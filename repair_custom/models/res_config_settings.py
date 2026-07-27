@@ -46,3 +46,23 @@ class ResConfigSettings(models.TransientModel):
         default=True,
         help="Valider automatiquement les bons de livraison lors de la confirmation d'une vente d'équipement.",
     )
+
+    review_sms_delay_days = fields.Integer(
+        string="Délai avant SMS d'avis Google (jours)",
+        config_parameter='repair_custom.review_sms_delay_days',
+        default=7,
+        help="Nombre de jours après la livraison avant l'envoi automatique du SMS d'avis Google.",
+    )
+    review_sms_dedup_months = fields.Integer(
+        string="Délai anti-doublon SMS d'avis (mois)",
+        config_parameter='repair_custom.review_sms_dedup_months',
+        default=6,
+        help="Ne pas renvoyer de SMS d'avis si le client en a reçu un dans les X derniers mois.",
+    )
+    review_sms_template_id = fields.Many2one(
+        'sms.template',
+        string="Modèle SMS d'avis Google",
+        config_parameter='repair_custom.review_sms_template_id',
+        domain=[('model', '=', 'repair.order')],
+        help="Modèle utilisé pour le SMS d'avis. Modifier le corps pour mettre à jour le lien Google Review.",
+    )
