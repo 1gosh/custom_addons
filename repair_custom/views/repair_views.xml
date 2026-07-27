@@ -598,9 +598,11 @@
         <field name="arch" type="xml">
             <search string="Search Repair Orders">
                 <field name="name" string="Recherche Globale"
-                       filter_domain="['|', '|', '|',
+                       filter_domain="['|', '|', '|', '|', '|',
                             ('name', 'ilike', self),
                             ('partner_id', 'ilike', self),
+                            ('partner_id.phone', 'ilike', self),
+                            ('partner_id.mobile', 'ilike', self),
                             ('product_tmpl_id', 'ilike', self),
                             ('lot_id.name', 'ilike', self)]"/>
                 <field name="lot_id" string="N° de série"/>
@@ -974,9 +976,11 @@
         <field name="arch" type="xml">
             <search string="Recherche Atelier">
                 <field name="name" string="Recherche Globale"
-                       filter_domain="['|', '|', '|',
+                       filter_domain="['|', '|', '|', '|', '|',
                             ('name', 'ilike', self),
                             ('partner_id', 'ilike', self),
+                            ('partner_id.phone', 'ilike', self),
+                            ('partner_id.mobile', 'ilike', self),
                             ('product_tmpl_id', 'ilike', self),
                             ('lot_id.name', 'ilike', self)]"/>
 

@@ -1,16 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <data noupdate="1">
+    <data noupdate="0">
 
         <record id="mail_template_repair_quote_reminder" model="mail.template">
             <field name="name">Devis de réparation - relance</field>
             <field name="model_id" ref="sale.model_sale_order"/>
-            <field name="subject">Relance : votre devis de réparation ({{ (object.repair_order_ids and object.repair_order_ids[0].name) or object.name }})</field>
+            <field name="subject">{{ {'repair_quote': 'Relance : votre devis de réparation', 'rental': 'Relance : votre devis de location'}.get(object.sale_order_template_id.template_type, 'Relance : votre devis') }} ({{ (object.repair_order_ids and object.repair_order_ids[0].name) or object.name }})</field>
             <field name="email_from">{{ object.company_id.email_formatted or user.email_formatted }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang or 'fr_FR' }}</field>
             <field name="report_template_ids" eval="[(5, 0, 0)]"/>
             <field name="auto_delete" eval="False"/>
+            <field name="template_fs">repair_custom/data/mail_templates.xml</field>
             <field name="body_html" type="html">
                 <div style="font-family: Arial, Helvetica, sans-serif; color: #000; max-width: 600px; font-size: 14px; line-height: 1.5;">
                     <p style="margin: 0 0 16px;">Bonjour,</p>
@@ -34,14 +35,11 @@
             </field>
         </record>
 
-    </data>
-
-    <data noupdate="1">
 
         <record id="sale.email_template_edi_sale" model="mail.template">
             <field name="name">Sales: Send Quotation</field>
             <field name="model_id" ref="sale.model_sale_order"/>
-            <field name="subject">Votre devis de réparation ({{ (object.repair_order_ids and object.repair_order_ids[0].name) or object.name }})</field>
+            <field name="subject">{{ {'repair_quote': 'Votre devis de réparation', 'rental': 'Votre devis de location'}.get(object.sale_order_template_id.template_type, 'Votre devis') }} ({{ (object.repair_order_ids and object.repair_order_ids[0].name) or object.name }})</field>
             <field name="email_from">{{ object.company_id.email_formatted or user.email_formatted }}</field>
             <field name="partner_to">{{ object.partner_id.id }}</field>
             <field name="description">Used by salespeople when they send quotations or proforma to prospects</field>
@@ -51,12 +49,15 @@
             <field name="template_fs">repair_custom/data/mail_templates.xml</field>
             <field name="body_html" type="html">
                 <div style="font-family: Arial, Helvetica, sans-serif; color: #000; max-width: 600px; font-size: 14px; line-height: 1.5;">
-                    <t t-set="doc_name" t-value="'devis' if object.state in ('draft', 'sent') else 'commande'"/>
+                    <t t-set="doc_label" t-value="{
+                        'repair_quote': 'Le devis de réparation pour votre appareil est disponible',
+                        'rental': 'Le devis pour la location est disponible',
+                    }.get(object.sale_order_template_id.template_type, 'Votre devis est disponible')"/>
 
                     <p style="margin: 0 0 16px;">Bonjour,</p>
 
                     <p style="margin: 0 0 16px;">
-                        Le devis de réparation pour votre appareil est disponible.<br/>
+                        <t t-out="doc_label"/><br/>
                         Vous pouvez le consulter et le valider via le bouton ci-dessous.
                     </p>
 
@@ -69,11 +70,68 @@
                         </a>
                     </p>
 
+                    <p style="margin: 32px 0 0;">Bien à vous,<br/>L’équipe Hifi Vintage Paris</p>
+                </div>
+            </field>
+        </record>
+
+
+        <record id="sale.mail_template_sale_confirmation" model="mail.template">
+            <field name="name">Sales: Order Confirmation</field>
+            <field name="model_id" ref="sale.model_sale_order"/>
+            <field name="subject">Confirmation de commande ({{ (object.repair_order_ids and object.repair_order_ids[0].name) or object.name }})</field>
+            <field name="email_from">{{ object.company_id.email_formatted or user.email_formatted }}</field>
+            <field name="partner_to">{{ object.partner_id.id }}</field>
+            <field name="description">Sent to customers on order confirmation</field>
+            <field name="report_template_ids" eval="[(4, ref('sale.action_report_saleorder'))]"/>
+            <field name="lang">{{ object.partner_id.lang or 'fr_FR' }}</field>
+            <field name="auto_delete" eval="False"/>
+            <field name="template_fs">repair_custom/data/mail_templates.xml</field>
+            <field name="body_html" type="html">
+                <div style="font-family: Arial, Helvetica, sans-serif; color: #000; max-width: 600px; font-size: 14px; line-height: 1.5;">
+                    <p style="margin: 0 0 16px;">Bonjour,</p>
+
+                    <p style="margin: 0 0 16px;">
+                        Votre commande <strong t-out="object.name or ''"/> d'un montant de
+                        <strong t-out="format_amount(object.amount_total, object.currency_id) or ''"/> a bien été confirmée.
+                    </p>
+
                     <p style="margin: 0 0 16px;">
                         N'hésitez pas à nous contacter si vous avez la moindre question.
                     </p>
 
-                    <p style="margin: 32px 0 0;">Bien à vous,<br/>L’équipe Hifi Vintage Paris</p>
+                    <p style="margin: 32px 0 0;">Bien à vous,<br/>L'équipe Hifi Vintage Paris</p>
+                </div>
+            </field>
+        </record>
+
+
+        <record id="sale.mail_template_sale_cancellation" model="mail.template">
+            <field name="name">Sales: Order Cancellation</field>
+            <field name="model_id" ref="sale.model_sale_order"/>
+            <field name="subject">Annulation de votre commande ({{ object.name or 'n/a' }})</field>
+            <field name="email_from">{{ object.company_id.email_formatted or user.email_formatted }}</field>
+            <field name="partner_to">{{ object.partner_id.id }}</field>
+            <field name="description">Sent automatically to customers when you cancel an order</field>
+            <field name="report_template_ids" eval="[(5, 0, 0)]"/>
+            <field name="lang">{{ object.partner_id.lang or 'fr_FR' }}</field>
+            <field name="auto_delete" eval="False"/>
+            <field name="template_fs">repair_custom/data/mail_templates.xml</field>
+            <field name="body_html" type="html">
+                <div style="font-family: Arial, Helvetica, sans-serif; color: #000; max-width: 600px; font-size: 14px; line-height: 1.5;">
+                    <p style="margin: 0 0 16px;">Bonjour,</p>
+
+                    <p style="margin: 0 0 16px;">
+                        Nous vous informons que votre commande <strong t-out="object.name or ''"/> a été annulée.
+                        Aucun montant supplémentaire ne vous sera facturé.
+                        Si un remboursement est nécessaire, il sera effectué dans les meilleurs délais.
+                    </p>
+
+                    <p style="margin: 0 0 16px;">
+                        N'hésitez pas à nous contacter si vous avez la moindre question.
+                    </p>
+
+                    <p style="margin: 32px 0 0;">Bien à vous,<br/>L'équipe Hifi Vintage Paris</p>
                 </div>
             </field>
         </record>
