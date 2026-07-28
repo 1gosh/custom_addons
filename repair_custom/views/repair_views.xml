@@ -989,9 +989,9 @@
                 <separator/>
                 
                     <filter string="À Faire" name="todo" domain="[('state', '=', 'confirmed')]"/>
-                    <filter string="En Cours" name="in_progress" domain="[('state', '=', 'under_repair'), ('quote_state', '!=', 'pending')]"/>
+                    <filter string="En Cours" name="in_progress" domain="[('state', '=', 'under_repair'), ('quote_state', 'not in', ['pending', 'sent'])]"/>
                     <filter string="Attente Pièces" name="parts" domain="[('parts_waiting', '=', True)]"/>
-                    <filter string="Devis en attente" name="quote_waiting" domain="[('state', '=', 'under_repair'), ('quote_state', '=', 'pending')]"/>
+                    <filter string="Devis en attente" name="quote_waiting" domain="[('state', '=', 'under_repair'), ('quote_state', 'in', ['pending', 'sent'])]"/>
                     <filter string="Devis validé" name="quote_validated" domain="[('state', '=', 'under_repair'), ('quote_state', '=', 'approved')]"/>
                 
                 <separator/>
@@ -1077,8 +1077,8 @@
                 </div>
                 <sheet>
                     <widget name="web_ribbon" title="Livré" bg_color="bg-success" invisible="state != 'delivered'"/>
-                    <widget name="web_ribbon" title="Attente Validation" bg_color="bg-warning" 
-                            invisible="quote_state != 'pending' or state != 'under_repair'"/>
+                    <widget name="web_ribbon" title="Attente Validation" bg_color="bg-warning"
+                            invisible="quote_state not in ('pending', 'sent') or state != 'under_repair'"/>
                     <widget name="web_ribbon" title="Devis Validé" bg_color="bg-info" 
                             invisible="quote_state != 'approved' or state != 'under_repair'"/>
                     <widget name="web_ribbon" title="Attente Pièces" bg_color="bg-info" invisible="not parts_waiting"/>

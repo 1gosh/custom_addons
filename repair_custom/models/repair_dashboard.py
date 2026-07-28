@@ -57,7 +57,7 @@ class AtelierDashboardTile(models.Model):
             elif record.category_type == 'progress':
                 domain = [
                     ('state', '=', 'under_repair'),
-                    ('quote_state', '!=', 'pending')
+                    ('quote_state', 'not in', ['pending', 'sent'])
                 ]
                 # Si on est en mode Kiosque (Pierre est là), on compte SES réparations
                 if employee_id:
@@ -76,8 +76,8 @@ class AtelierDashboardTile(models.Model):
                     domain.append(('user_id', '=', current_uid))
             elif record.category_type == 'quote_waiting':
                 domain = [
-                    ('state', '=', 'under_repair'), 
-                    ('quote_state', '=', 'pending')
+                    ('state', '=', 'under_repair'),
+                    ('quote_state', 'in', ['pending', 'sent'])
                 ]
                 # AJOUT DU FILTRE PROPRIÉTAIRE
                 if employee_id:
