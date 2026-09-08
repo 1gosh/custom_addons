@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Service product billed at drop-off. The income account is left to
+             the product category default on purpose: hard-coding a 706 account
+             xml_id would break installs on any chart of accounts other than the
+             French one. -->
+        <record id="product_intake_fee" model="product.product">
+            <field name="name">Prise en charge / Diagnostic</field>
+            <field name="default_code">DIAG</field>
+            <field name="type">service</field>
+            <field name="invoice_policy">order</field>
+            <field name="purchase_ok" eval="False"/>
+            <field name="sale_ok" eval="True"/>
+            <field name="list_price">50.00</field>
+            <field name="description_sale">Forfait de prise en charge et de diagnostic, déduit du montant final de la réparation.</field>
+        </record>
+
+        <record id="intake_fee_product_param" model="ir.config_parameter">
+            <field name="key">repair_custom.intake_fee_product_id</field>
+            <field name="value" eval="ref('repair_custom.product_intake_fee')"/>
+        </record>
+
+        <!-- Stored ex-VAT, like every other amount in this module (the pricing
+             wizard works in "Total HT Souhaité"). 50,00 € HT = 60,00 € TTC at 20 %. -->
+        <record id="intake_fee_amount_param" model="ir.config_parameter">
+            <field name="key">repair_custom.intake_fee_amount_ht</field>
+            <field name="value">50.00</field>
+        </record>
+
+        <!-- Repairs dropped off before this date are out of scope and must not
+             show up as "fee not collected". Set by the post-migration script. -->
+        <record id="intake_fee_start_date_param" model="ir.config_parameter">
+            <field name="key">repair_custom.intake_fee_start_date</field>
+            <field name="value"></field>
+        </record>
+
+    </data>
+</odoo>

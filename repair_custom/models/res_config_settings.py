@@ -12,6 +12,28 @@ class ResConfigSettings(models.TransientModel):
         domain=[('type_tax_use', '=', 'sale'), ('amount_type', '=', 'percent')],
     )
 
+    intake_fee_product_id = fields.Many2one(
+        'product.product',
+        string="Article Prise en charge / Diagnostic",
+        config_parameter='repair_custom.intake_fee_product_id',
+        domain=[('type', '=', 'service')],
+        help="Article facturé au dépôt et utilisé pour la ligne de déduction sur le devis de réparation.",
+    )
+
+    intake_fee_amount_ht = fields.Float(
+        string="Montant prise en charge (HT)",
+        config_parameter='repair_custom.intake_fee_amount_ht',
+        default=50.0,
+        help="Montant HT encaissé par appareil déposé. 50,00 € HT correspond à 60,00 € TTC à 20 %.",
+    )
+
+    intake_fee_start_date = fields.Date(
+        string="Date de bascule prise en charge",
+        config_parameter='repair_custom.intake_fee_start_date',
+        help="Les réparations déposées avant cette date ne sont pas concernées par la prise en charge "
+             "et ne remontent pas dans le filtre « Prise en charge non encaissée ».",
+    )
+
     quote_reminder_delay_days = fields.Integer(
         string="Délai avant relance devis (jours)",
         config_parameter='repair_custom.quote_reminder_delay_days',

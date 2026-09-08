@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_repair_intake_fee_wizard_form" model="ir.ui.view">
+        <field name="name">repair.intake.fee.wizard.form</field>
+        <field name="model">repair.intake.fee.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Encaisser la prise en charge">
+                <field name="batch_id" invisible="1"/>
+                <field name="currency_id" invisible="1"/>
+                <group>
+                    <field name="partner_id" readonly="1"/>
+                </group>
+                <field name="line_ids">
+                    <tree editable="bottom">
+                        <field name="repair_id" readonly="1" column_invisible="1"/>
+                        <field name="device_name" readonly="1"/>
+                        <field name="to_invoice"/>
+                        <field name="amount_ht" readonly="not to_invoice"/>
+                        <field name="exempt_reason" readonly="to_invoice"/>
+                        <field name="currency_id" column_invisible="1"/>
+                    </tree>
+                </field>
+                <group class="oe_subtotal_footer oe_right">
+                    <field name="amount_total_ht" widget="monetary"/>
+                    <field name="amount_total_ttc" widget="monetary" class="oe_subtotal_footer_separator"/>
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object"
+                            string="Facturer et encaisser"
+                            class="btn-primary"/>
+                    <button string="Annuler" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

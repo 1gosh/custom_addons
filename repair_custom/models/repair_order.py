@@ -1052,23 +1052,130 @@ class Repair(models.Model):
             self._create_repair_picking(customer_location, workshop_location)
         return self._action_repair_confirm()
 
+    # --- INTAKE FEE (Prise en charge / Diagnostic) ---
+    # Charged once per device at drop-off, non-refundable, deducted from the
+    # final repair quote. Invoiced per batch (one invoice can cover several
+    # devices of the same dossier), hence intake_fee_invoice_id is shared and
+    # cannot live on account.move.repair_id (that inverse only fits a single
+    # device per move).
+    intake_fee_invoice_id = fields.Many2one(
+        'account.move', string="Facture prise en charge",
+        readonly=True, copy=False,
+    )
+    intake_fee_amount_ht = fields.Monetary(
+        string="Montant prise en charge (HT)",
+        currency_field='currency_id', readonly=True, copy=False,
+        help="Montant figé au moment de l'encaissement : une évolution ultérieure du "
+             "tarif ne doit pas modifier l'historique.",
+    )
+    intake_fee_exempt = fields.Boolean(
+        string="Exonéré de prise en charge", copy=False, tracking=True,
+    )
+    intake_fee_exempt_reason = fields.Char(
+        string="Motif d'exonération", copy=False,
+    )
+    intake_fee_deduction_line_id = fields.Many2one(
+        'sale.order.line', string="Ligne de déduction sur le devis",
+        readonly=True, copy=False,
+    )
+    intake_fee_amount_ttc = fields.Monetary(
+        string="Montant prise en charge (TTC)",
+        compute='_compute_intake_fee_amount_ttc', currency_field='currency_id',
+        help="Montant TTC effectivement facturé, ou montant par défaut configuré "
+             "tant que la prise en charge n'a pas été encaissée.",
+    )
+
+    @api.depends('intake_fee_amount_ht')
+    def _compute_intake_fee_amount_ttc(self):
+        ICP = self.env['ir.config_parameter'].sudo()
+        tax_id = ICP.get_param('repair_custom.service_tax_id')
+        tax = self.env['account.tax'].browse(int(tax_id)).exists() if tax_id else self.env['account.tax']
+        rate = 1.0
+        if tax and tax.amount_type == 'percent':
+            rate += tax.amount / 100.0
+        default_amount_ht = float(ICP.get_param('repair_custom.intake_fee_amount_ht', 0.0) or 0.0)
+        for rec in self:
+            amount_ht = rec.intake_fee_amount_ht or default_amount_ht
+            rec.intake_fee_amount_ttc = amount_ht * rate
+    intake_fee_state = fields.Selection([
+        ('not_due', 'Non applicable'),
+        ('to_collect', 'À encaisser'),
+        ('invoiced', 'Facturée'),
+        ('paid', 'Encaissée'),
+        ('deducted', 'Déduite du devis'),
+    ], string="Statut prise en charge", compute='_compute_intake_fee_state',
+        store=True, tracking=True)
+
+    @api.depends(
+        'intake_fee_exempt', 'repair_warranty', 'state', 'entry_date',
+        'intake_fee_deduction_line_id',
+        'intake_fee_invoice_id.payment_state',
+        'intake_fee_invoice_id.state',
+    )
+    def _compute_intake_fee_state(self):
+        start_date_str = self.env['ir.config_parameter'].sudo().get_param(
+            'repair_custom.intake_fee_start_date'
+        )
+        start_date = fields.Date.from_string(start_date_str) if start_date_str else False
+        for rec in self:
+            if rec.intake_fee_deduction_line_id:
+                rec.intake_fee_state = 'deducted'
+            elif rec.intake_fee_exempt or rec.repair_warranty in ('sar', 'sav'):
+                rec.intake_fee_state = 'not_due'
+            elif start_date and rec.entry_date and fields.Date.to_date(rec.entry_date) < start_date:
+                # Dropped off before the intake fee went live: not in scope.
+                rec.intake_fee_state = 'not_due'
+            elif not rec.intake_fee_invoice_id or rec.intake_fee_invoice_id.state != 'posted':
+                rec.intake_fee_state = (
+                    'to_collect' if rec.state not in ('draft', 'cancel') else 'not_due'
+                )
+            elif rec.intake_fee_invoice_id.payment_state in ('paid', 'in_payment', 'reversed'):
+                rec.intake_fee_state = 'paid'
+            else:
+                rec.intake_fee_state = 'invoiced'
+
+    def action_open_intake_fee_wizard(self):
+        """Entry point from the repair form: routes to the dossier-level wizard,
+        since intake fees are invoiced per batch."""
+        self.ensure_one()
+        if not self.batch_id:
+            raise UserError(_("Cette réparation n'est rattachée à aucun dossier."))
+        return self.batch_id.action_open_intake_fee_wizard()
+
+    def action_apply_intake_fee_deduction(self):
+        """Catch-up: add the deduction line to an already-created quote when
+        the intake fee was only collected afterwards."""
+        self.ensure_one()
+        if self.intake_fee_state not in ('invoiced', 'paid'):
+            raise UserError(_("Aucune prise en charge encaissée à déduire pour cette réparation."))
+        if not self.sale_order_id:
+            raise UserError(_("Aucun devis à créditer pour cette réparation."))
+        if self.sale_order_id.state not in ('draft', 'sent'):
+            raise UserError(_("Le devis n'est plus modifiable (déjà confirmé ou facturé)."))
+        if self.intake_fee_deduction_line_id:
+            raise UserError(_("La déduction a déjà été appliquée à ce devis."))
+        self.env['repair.pricing.wizard']._add_intake_fee_deduction_line(self)
+        return True
+
     # --- INVOICING ---
     invoice_ids = fields.One2many('account.move', 'repair_id', string="Factures générées")
     invoice_count = fields.Integer(string="Nombre de factures", compute='_compute_invoice_count')
 
-    @api.depends('invoice_ids')
+    @api.depends('invoice_ids', 'intake_fee_invoice_id')
     def _compute_invoice_count(self):
         for rec in self:
-            rec.invoice_count = len(rec.invoice_ids)
+            moves = rec.invoice_ids | rec.intake_fee_invoice_id
+            rec.invoice_count = len(moves)
 
     def action_view_invoices(self):
         self.ensure_one()
+        moves = self.invoice_ids | self.intake_fee_invoice_id
         return {
             'name': "Factures",
             'type': 'ir.actions.act_window',
             'res_model': 'account.move',
             'view_mode': 'tree,form',
-            'domain': [('id', 'in', self.invoice_ids.ids)],
+            'domain': [('id', 'in', moves.ids)],
             'context': {'default_repair_id': self.id},
         }
 

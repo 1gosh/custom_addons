@@ -102,7 +102,8 @@ class RepairPricingWizard(models.TransientModel):
 
     def _get_invoice_lines_formatted(self):
         """Generate the list of line dicts for the sale.order: one header
-        section + N product lines + optional notes section."""
+        section + N product lines + optional intake-fee deduction + optional
+        notes section."""
         lines_data = self._prepare_lines_data()
         invoice_lines_vals = []
 
@@ -121,6 +122,10 @@ class RepairPricingWizard(models.TransientModel):
                 'price_unit': line['price_unit'],
                 'tax_ids': line['tax_ids'],
             })
+
+        deduction_vals = self._get_intake_fee_deduction_line_vals(lines_data)
+        if deduction_vals:
+            invoice_lines_vals.append(deduction_vals)
 
         if self.add_work_details and self.work_details:
             invoice_lines_vals.append({
@@ -197,6 +202,95 @@ class RepairPricingWizard(models.TransientModel):
 
         return lines_list
 
+    @api.model
+    def _get_intake_fee_product(self):
+        product_id = self.env['ir.config_parameter'].sudo().get_param(
+            'repair_custom.intake_fee_product_id'
+        )
+        if not product_id:
+            return self.env['product.product']
+        return self.env['product.product'].browse(int(product_id)).exists()
+
+    def _get_intake_fee_deduction_line_vals(self, lines_data):
+        """Build the negative line crediting an intake fee already collected
+        for this repair. The deduction is capped to the quote's own total:
+        the fee is never refunded, so the invoice must never go negative."""
+        repair = self.repair_id
+        if repair.intake_fee_state not in ('invoiced', 'paid'):
+            return None
+        if repair.intake_fee_deduction_line_id:
+            return None
+        fee_product = self._get_intake_fee_product()
+        if not fee_product:
+            _logger.warning(
+                "Aucun article de prise en charge configuré ; déduction ignorée pour %s.",
+                repair.name,
+            )
+            return None
+
+        lines_total_ht = sum(l['quantity'] * l['price_unit'] for l in lines_data)
+        deduction_ht = min(repair.intake_fee_amount_ht, lines_total_ht)
+        if deduction_ht <= 0:
+            return None
+        if deduction_ht < repair.intake_fee_amount_ht:
+            repair.message_post(body=_(
+                "Déduction de prise en charge plafonnée à %.2f € HT : le montant du devis "
+                "est inférieur à la prise en charge encaissée (%.2f € HT). La prise en "
+                "charge n'est jamais remboursée."
+            ) % (deduction_ht, repair.intake_fee_amount_ht))
+
+        return {
+            'display_type': 'product',
+            'product_id': fee_product.id,
+            'name': _("Acompte prise en charge déjà facturé (%s)") % (
+                repair.intake_fee_invoice_id.name or ''
+            ),
+            'quantity': 1,
+            'price_unit': -deduction_ht,
+            'tax_ids': fee_product.taxes_id.ids,
+        }
+
+    @api.model
+    def _add_intake_fee_deduction_line(self, repair):
+        """Catch-up path: add the deduction directly to an already-created,
+        still-editable quote when the intake fee was collected after the
+        quote was generated."""
+        sale_order = repair.sale_order_id
+        fee_product = self._get_intake_fee_product()
+        if not fee_product:
+            raise UserError(_(
+                "Aucun article de prise en charge configuré (Réglages > Réparations)."
+            ))
+        lines_total_ht = sum(
+            l.price_unit * l.product_uom_qty
+            for l in sale_order.order_line
+            if not l.display_type
+        )
+        deduction_ht = min(repair.intake_fee_amount_ht, lines_total_ht)
+        if deduction_ht <= 0:
+            raise UserError(_(
+                "Le devis ne comporte aucun montant sur lequel imputer la déduction."
+            ))
+        if deduction_ht < repair.intake_fee_amount_ht:
+            repair.message_post(body=_(
+                "Déduction de prise en charge plafonnée à %.2f € HT : le montant du devis "
+                "est inférieur à la prise en charge encaissée (%.2f € HT). La prise en "
+                "charge n'est jamais remboursée."
+            ) % (deduction_ht, repair.intake_fee_amount_ht))
+
+        new_line = self.env['sale.order.line'].create({
+            'order_id': sale_order.id,
+            'product_id': fee_product.id,
+            'name': _("Acompte prise en charge déjà facturé (%s)") % (
+                repair.intake_fee_invoice_id.name or ''
+            ),
+            'product_uom_qty': 1,
+            'price_unit': -deduction_ht,
+            'tax_id': [(6, 0, fee_product.taxes_id.ids)],
+        })
+        repair.intake_fee_deduction_line_id = new_line.id
+        return new_line
+
     def _get_header_label(self):
         device_name = self.device_name or "Appareil Inconnu"
         sn = self.repair_id.lot_id.name or ''
@@ -237,6 +331,14 @@ class RepairPricingWizard(models.TransientModel):
             'repair_order_ids': [(4, self.repair_id.id)],
         })
         self.repair_id.sale_order_id = sale_order.id
+
+        fee_product = self._get_intake_fee_product()
+        if fee_product:
+            deduction_line = sale_order.order_line.filtered(
+                lambda l: l.product_id == fee_product and l.price_unit < 0
+            )
+            if deduction_line:
+                self.repair_id.intake_fee_deduction_line_id = deduction_line[:1].id
 
         return {
             'name': _("Devis Généré"),

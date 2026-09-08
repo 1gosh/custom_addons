@@ -2,7 +2,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 {
     'name': 'repair_custom',
-    'version': '17.0.1.11.0',
+    'version': '17.0.1.12.0',
     'category': 'Inventory/Inventory',
     'summary': 'Custom repair management for workshop',
     "author": "martinl",
@@ -26,6 +26,7 @@ The following topics are covered by this module:
         'data/repair_order_sequence.xml',
         'data/sale_order_template_data.xml',
         'data/repair_data.xml',
+        'data/intake_fee_data.xml',
         'data/dashboard_data.xml',
         'data/mail_activity_data.xml',
         'data/mail_layout.xml',
@@ -44,6 +45,7 @@ The following topics are covered by this module:
         'views/account_move_views.xml',
         'views/repair_invoice_template_views.xml',
         'views/repair_pricing_wizard_views.xml',
+        'views/repair_intake_fee_wizard_views.xml',
         'views/repair_notes_template_views.xml',
         'views/repair_manager_wizard_views.xml',
         'views/repair_pickup_notify_wizard_views.xml',

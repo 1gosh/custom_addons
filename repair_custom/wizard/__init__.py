@@ -1,6 +1,7 @@
 # Fichier: wizard/__init__.py
 
 from . import repair_pricing_wizard
+from . import repair_intake_fee_wizard
 from . import repair_manager
 from . import device_stock_wizard
 from . import hifi_inventory_wizard

@@ -42,6 +42,7 @@
                 
                 <field name="repair_count" string="Nb Appareils"/>
                 <field name="delivery_state" optional="hide"/>
+                <field name="has_intake_fee_to_collect" optional="show" string="Prise en charge à encaisser" readonly="1"/>
             </tree>
         </field>
     </record>
@@ -57,6 +58,7 @@
                 <filter name="filter_create_date" date="create_date"/>
                 <filter string="Brouillons" name="filter_draft" domain="[('state', '=', 'draft')]"/>
                 <filter string="Traités" name="filter_processed" domain="[('state', '=', 'processed')]"/>
+                <filter string="Prise en charge non encaissée" name="filter_intake_fee_to_collect" domain="[('has_intake_fee_to_collect', '=', True)]"/>
                 <separator/>
                 <filter string="Date de dépôt" name="filter_date" date="date"/>
                 
@@ -76,6 +78,13 @@
             <form string="Dossier de Prise en Charge">
                 <header>
                     <field name="ready_for_pickup_notification" invisible="1"/>
+                    <field name="has_intake_fee_to_collect" invisible="1"/>
+                    <button name="action_open_intake_fee_wizard"
+                            type="object"
+                            string="Encaisser la prise en charge"
+                            class="btn-primary"
+                            icon="fa-euro"
+                            invisible="not has_intake_fee_to_collect"/>
                     <button name="action_invoice_approved_quotes"
                             type="object"
                             string="Facturer les devis acceptés"
@@ -170,6 +179,10 @@
                     decoration-muted="not activity_summary"/>
                 <field name="notes" optional="hide"/>
                 <field name="delivery_state" optional="hide"/>
+                <field name="intake_fee_state" optional="hide" widget="badge"
+                    decoration-warning="intake_fee_state == 'to_collect'"
+                    decoration-success="intake_fee_state in ('paid', 'deducted')"
+                    decoration-muted="intake_fee_state == 'not_due'"/>
             </tree>
         </field>
     </record>
@@ -188,6 +201,7 @@
                 <field name="product_tmpl_id" invisible="1"/>
                 <field name="category_id" invisible="1"/>
                 <field name="quote_state" invisible="1"/>
+                <field name="intake_fee_state" invisible="1"/>
                 <field name="delivery_state" invisible="1"/>
                 <field name="has_siblings" invisible="1"/>
                 <field name="is_quote_invoiceable" invisible="1"/>
@@ -219,6 +233,7 @@
                     <button name="action_repair_cancel" groups="repair_custom.group_repair_manager" string="Annuler" type="object" invisible="state in ('done', 'cancel')" data-hotkey="l" class="btn-danger"/>
                     <button name="action_print_repair_order" string="Bon" type="object" icon="fa-regular fa-print" invisible="state not in 'confirmed'" class="btn-info"/>
                     <button name="%(action_report_repair_label)d" string="Etiquette" type="action" icon="fa-regular fa-print" invisible="state not in 'confirmed'" class="btn-info"/>
+                    <button name="action_open_intake_fee_wizard" string="Encaisser la prise en charge" type="object" icon="fa-euro" class="btn-primary" invisible="intake_fee_state != 'to_collect'"/>
                     <button name="action_create_quotation_wizard" icon="fa-file"
                             string="Devis" type="object"
                             invisible="state == 'draft' or sale_order_id"/>
@@ -494,6 +509,20 @@
                                 <group string="Devis">
                                     <field name="quote_state" widget="badge" readonly="1"/>
                                 </group>
+                                <group string="Prise en charge / Diagnostic">
+                                    <field name="intake_fee_state" widget="badge" readonly="1"/>
+                                    <field name="intake_fee_amount_ht" readonly="1" invisible="intake_fee_state == 'not_due'"/>
+                                    <field name="intake_fee_amount_ttc" readonly="1" invisible="intake_fee_state == 'not_due'"/>
+                                    <field name="intake_fee_invoice_id" readonly="1" invisible="not intake_fee_invoice_id"/>
+                                    <field name="intake_fee_exempt" readonly="1" invisible="not intake_fee_exempt"/>
+                                    <field name="intake_fee_exempt_reason" readonly="1" invisible="not intake_fee_exempt"/>
+                                    <field name="intake_fee_deduction_line_id" invisible="1"/>
+                                    <button name="action_apply_intake_fee_deduction"
+                                            type="object"
+                                            string="Déduire du devis"
+                                            class="btn-secondary"
+                                            invisible="intake_fee_state not in ('invoiced', 'paid') or not sale_order_id or intake_fee_deduction_line_id"/>
+                                </group>
                             </group>
                         </page>
                     </notebook>
@@ -588,6 +617,7 @@
                 <filter string="Under Repair" name="filter_under_repair" domain="[('state', '=', 'under_repair')]"/>
                 <filter string="Repaired" name="filter_done" domain="[('state', '=', 'done')]"/>
                 <filter string="Cancelled" name="filter_cancel" domain="[('state', '=', 'cancel')]"/>
+                <filter string="Prise en charge non encaissée" name="filter_intake_fee_to_collect" domain="[('intake_fee_state', '=', 'to_collect')]"/>
                 <separator/>
                 <filter string="Ready" name="ready" domain="[('state', 'in', 'confirmed')]" invisible="True"/>
                 <filter name="filter_create_date" date="entry_date"/>

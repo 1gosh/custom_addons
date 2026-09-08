@@ -33,7 +33,12 @@
         <record id="tile_quote_done" model="atelier.dashboard.tile">
             <field name="name">Mes Réparations Terminées</field>
             <field name="category_type">done</field>
-            <field name="color">10</field> 
+            <field name="color">10</field>
+        </record>
+        <record id="tile_intake_fee" model="atelier.dashboard.tile">
+            <field name="name">Prise en charge non encaissée</field>
+            <field name="category_type">intake_fee</field>
+            <field name="color">2</field>
         </record>
     </data>
 </odoo>

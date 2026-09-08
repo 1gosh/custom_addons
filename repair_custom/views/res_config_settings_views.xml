@@ -13,6 +13,20 @@
                             <field name="repair_service_tax_id"/>
                         </setting>
                     </block>
+                    <block title="Prise en charge / Diagnostic">
+                        <setting string="Article facturé au dépôt"
+                                 help="Article de type service utilisé pour la facture d'acompte et pour la ligne de déduction sur le devis.">
+                            <field name="intake_fee_product_id"/>
+                        </setting>
+                        <setting string="Montant par appareil (HT)"
+                                 help="Montant HT encaissé pour chaque appareil déposé. 50,00 € HT = 60,00 € TTC à 20 %.">
+                            <field name="intake_fee_amount_ht"/>
+                        </setting>
+                        <setting string="Date de bascule"
+                                 help="Les réparations déposées avant cette date ne sont pas concernées par la prise en charge.">
+                            <field name="intake_fee_start_date"/>
+                        </setting>
+                    </block>
                     <block title="Cycle de vie du devis">
                         <setting string="Délai avant relance"
                                  help="Nombre de jours après l'envoi du devis avant qu'un rappel automatique soit envoyé au client.">

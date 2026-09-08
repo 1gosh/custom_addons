@@ -251,6 +251,38 @@ class RepairBatch(models.Model):
                 r.is_quote_invoiceable for r in batch.repair_ids
             )
 
+    has_intake_fee_to_collect = fields.Boolean(
+        compute='_compute_has_intake_fee_to_collect',
+        string="Prise en charge à encaisser",
+        store=True,
+    )
+
+    @api.depends('repair_ids.intake_fee_state')
+    def _compute_has_intake_fee_to_collect(self):
+        for batch in self:
+            batch.has_intake_fee_to_collect = any(
+                r.intake_fee_state == 'to_collect' for r in batch.repair_ids
+            )
+
+    def action_open_intake_fee_wizard(self):
+        """Counter entry point for the drop-off fee. Opens the intake-fee
+        wizard pre-filled with every device in this dossier still awaiting
+        collection."""
+        self.ensure_one()
+        eligible = self.repair_ids.filtered(lambda r: r.intake_fee_state == 'to_collect')
+        if not eligible:
+            raise UserError(_(
+                "Aucun appareil de ce dossier n'est en attente de prise en charge."
+            ))
+        return {
+            'name': _("Encaisser la prise en charge"),
+            'type': 'ir.actions.act_window',
+            'res_model': 'repair.intake.fee.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_batch_id': self.id},
+        }
+
     def action_invoice_approved_quotes(self):
         """Batch-form button: consolidate all eligible approved quotes into
         one account.move."""

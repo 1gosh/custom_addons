@@ -71,10 +71,30 @@
                                     [ GARANTIE : <span t-field="repair.repair_warranty"/> ]
                                 </div>
                             </t>
-                            
+
+                            <t t-if="repair.intake_fee_state != 'not_due'">
+                                <div style="font-size: 10px; font-weight: bold; margin-top: 1px;">
+                                    Prise en charge / Diagnostic :
+                                    <span t-esc="'%.2f' % repair.intake_fee_amount_ttc"/> € TTC
+                                    <span t-if="repair.intake_fee_state == 'to_collect'"> (à encaisser)</span>
+                                    <span t-else="">(encaissée)</span>
+                                </div>
+                            </t>
+
                             <div t-if="not repair_last" style="border-bottom: 1px dashed #000; margin: 2mm 0;"></div>
                         </div>
                     </t>
+
+                    <div style="font-size: 8px; margin-top: 3mm; border-top: 1px solid #000; padding-top: 1mm;">
+                        La prise en charge / diagnostic est déduite du montant final de la réparation.
+                        En cas de refus du devis, elle reste acquise et couvre le temps de diagnostic ;
+                        elle n'est pas remboursable.
+                    </div>
+
+                    <div style="margin-top: 5mm; font-size: 9px;">
+                        Signature du client (bon pour accord) :
+                        <div style="border-bottom: 1px solid #000; height: 10mm; margin-top: 1mm;"></div>
+                    </div>
 
                     <div style="text-align: center; margin-top: 4mm;">
                         <div style="width: 100%; margin: 0 auto;">

@@ -18,6 +18,7 @@ class AtelierDashboardTile(models.Model):
         ('waiting', 'Attente de pièces'),
         ('quote_waiting', 'Devis en attente'),
         ('quote_validated', 'Devis validé'),
+        ('intake_fee', 'Prise en charge non encaissée'),
         ('today', 'Activité du jour'),
         ('done', 'Terminées'),
     ], string="Type de catégorie", required=True)
@@ -94,6 +95,10 @@ class AtelierDashboardTile(models.Model):
                     domain.append(('technician_employee_id', '=', employee_id))
                 else:
                     domain.append(('user_id', '=', current_uid))
+            elif record.category_type == 'intake_fee':
+                # Shop-wide indicator, not filtered by technician: the counter
+                # is where this gets collected, not the workshop.
+                domain = [('intake_fee_state', '=', 'to_collect')]
             elif record.category_type == 'today':
                 today_start = datetime.combine(date.today(), dt_time.min)
                 # Réparations modifiées aujourd'hui PAR le technicien
@@ -153,6 +158,9 @@ class AtelierDashboardTile(models.Model):
             },
             'done': {
                 'search_defaults': {'search_default_done': 1, 'search_default_my_session': 1},
+            },
+            'intake_fee': {
+                'search_defaults': {'search_default_filter_intake_fee_to_collect': 1},
             },
             'today': {
                 'search_defaults': {'search_default_my_session': 1},
