@@ -71,7 +71,6 @@ class TestSectionHeaderInjection(RepairQuoteCase):
         self.repair_b = self.Repair.create({
             'partner_id': self.partner.id,
             'internal_notes': 'Diag B',
-            'quote_required': True,
             'technician_employee_id': self.tech_with_user.id,
             'batch_id': self.repair_a.batch_id.id,
         })
@@ -134,7 +133,6 @@ class TestSectionHeaderInjectionWizardSOs(RepairQuoteCase):
         self.repair_b = self.Repair.create({
             'partner_id': self.partner.id,
             'internal_notes': 'Diag B',
-            'quote_required': True,
             'technician_employee_id': self.tech_with_user.id,
             'batch_id': self.repair_a.batch_id.id,
         })
@@ -248,7 +246,6 @@ class TestInvoiceApprovedQuotes(RepairQuoteCase):
         self.repair_b = self.Repair.create({
             'partner_id': self.partner.id,
             'internal_notes': 'Diag B',
-            'quote_required': True,
             'technician_employee_id': self.tech_with_user.id,
             'batch_id': self.repair_a.batch_id.id,
         })
@@ -357,7 +354,6 @@ class TestBatchInvoiceAction(RepairQuoteCase):
         self.repair_b = self.Repair.create({
             'partner_id': self.partner.id,
             'internal_notes': 'B',
-            'quote_required': True,
             'technician_employee_id': self.tech_with_user.id,
             'batch_id': self.repair_a.batch_id.id,
         })
@@ -401,7 +397,6 @@ class TestPartialAcceptancePickup(RepairQuoteCase):
         self.repair_refused = self.Repair.create({
             'partner_id': self.partner.id,
             'internal_notes': 'Refused',
-            'quote_required': True,
             'technician_employee_id': self.tech_with_user.id,
             'batch_id': self.repair_ok.batch_id.id,
         })
@@ -455,7 +450,6 @@ class TestPartialAcceptancePickup(RepairQuoteCase):
         second = self.Repair.create({
             'partner_id': self.partner.id,
             'internal_notes': 'Second approved',
-            'quote_required': True,
             'technician_employee_id': self.tech_with_user.id,
             'batch_id': self.batch.id,
         })
@@ -491,7 +485,6 @@ class TestSaleOrderButtonReplacement(RepairQuoteCase):
         sibling = self.Repair.create({
             'partner_id': self.partner.id,
             'internal_notes': 'Sibling',
-            'quote_required': True,
             'technician_employee_id': self.tech_with_user.id,
             'batch_id': self.repair.batch_id.id,
         })

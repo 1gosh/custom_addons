@@ -368,20 +368,6 @@
                                 options="{'no_quick_create':True}"
                                 required="True"/>
 
-                            <label for="quote_required" string="Devis Exigé"/>
-                            
-                            <div class="o_row">
-                                <field name="quote_required" 
-                                    readonly="state not in 'draft' or batch_id"/>
-                                
-                                <field name="quote_threshold" 
-                                    placeholder="Seuil (0 = Toujours)"
-                                    invisible="not quote_required"
-                                    readonly="state not in 'draft' or batch_id"
-                                    nolabel="1"
-                                    class="oe_inline"/>
-                            </div>
-
                         </group>
                         <group>
                             <field name="repair_warranty" widget="radio" options="{'horizontal': True}" readonly="state not in 'draft'"/>
@@ -506,10 +492,7 @@
                                     <field name="has_open_refusal_activity" readonly="1"/>
                                 </group>
                                 <group string="Devis">
-                                    <field name="quote_required" readonly="1"/>
                                     <field name="quote_state" widget="badge" readonly="1"/>
-                                    <field name="quote_threshold" readonly="1"
-                                        invisible="not quote_required"/>
                                 </group>
                             </group>
                         </page>
@@ -543,7 +526,6 @@
                 <field name="partner_id"/>
                 <field name="state"/>
                 <field name="activity_state"/>
-                <field name="quote_required"/>
                 <field name="quote_state"/>
                 <field name="repair_warranty"/>
                 <progressbar field="activity_state" colors='{"planned": "success", "today": "warning", "overdue": "danger"}'/>
@@ -569,11 +551,6 @@
                                 </div>
                             </div>
                             <div class="d-flex flex-wrap align-items-center gap-1">
-
-                                <span t-if="record.quote_required.raw_value &amp;&amp; record.quote_state.raw_value != 'approved'" 
-                                      class="mt-2 badge text-bg-warning border border-warning text-dark rounded-pill">
-                                    <i class="fa fa-file-text-o me-1"/> Devis
-                                </span>
 
                                 <span t-if="record.repair_warranty.raw_value == 'sav'" 
                                     class="mt-2 badge text-bg-primary border border-primary rounded-pill">
@@ -860,7 +837,6 @@
                 <field name="entry_date"/>
                 <field name="waiting_time"/>
                 <field name="parts_waiting"/>
-                <field name="quote_required"/>
                 <field name="quote_state"/>
                 <field name="repair_warranty"/>
                 <field name="state"/>
@@ -898,11 +874,6 @@
                                     <i class="fa fa-cube me-1"/> Pièces
                                 </span>
 
-                                <span t-if="record.quote_required.raw_value &amp;&amp; record.quote_state.raw_value != 'approved'" 
-                                      class="mt-2 badge text-bg-warning border border-warning text-dark rounded-pill">
-                                    <i class="fa fa-file-text-o me-1"/> Devis
-                                </span>
-
                                 <span t-if="record.repair_warranty.raw_value == 'sav'" 
                                     class="mt-2 badge text-bg-primary border border-primary rounded-pill">
                                     <i class="fa fa-shield me-1"/> SAV
@@ -929,7 +900,6 @@
             <tree string="Atelier"
                   default_order="entry_date asc"
                   decoration-danger="priority == '1'"
-                  decoration-warning="quote_required == True"
                   decoration-info="parts_waiting == True"
                   sample="1">
                 <field name="state" optional="hide"/>
@@ -942,7 +912,6 @@
                 <field name="device_id_name" string="Appareil"/>
                 <field name="lot_id" string="N° de série" optional="show"/>
                 <field name="partner_id" widget="many2one_avatar"/>
-                <field name="quote_required" optional="show"/>
                 <field name="parts_waiting" optional="hide"/>
                 <field name="name" string="Réf."/>
             </tree>
@@ -1029,7 +998,6 @@
 
                     <field name="state" widget="statusbar" statusbar_visible="confirmed,under_repair,done"/>
 
-                    <field name="quote_required" invisible="1"/>
                     <field name="quote_state" invisible="1"/>
                     <field name="is_quote_invoiceable" invisible="1"/>
                     <field name="has_open_escalation" invisible="1"/>
@@ -1042,19 +1010,6 @@
                     <field name="unit_warranty_expiry" invisible="1"/>
                     <field name="unit_sale_date" invisible="1"/>
                 </header>
-                <div role="status" class="alert alert-danger text-center" 
-                    invisible="not quote_required or quote_threshold == 0 or quote_state == 'approved'">
-                    <i class="fa fa-exclamation-triangle me-1"/>
-                    <span>Devis &gt; </span>
-                    <field name="quote_threshold" 
-                        readonly="1" 
-                        class="d-inline fw-bold"/> €
-                </div>
-                <div role="status" class="alert alert-danger text-center" 
-                    invisible="not quote_required or quote_threshold > 0 or quote_state == 'approved'">
-                    <i class="fa fa-exclamation-triangle me-1"/>
-                    <span>Devis Exigé</span>
-                </div>
                 <div class="alert alert-info text-center" role="alert" invisible="repair_warranty == 'aucune'">
                     <div class="d-flex align-items-center justify-content-center" invisible="repair_warranty != 'sar'">
                         <i class="fa fa-info-circle me-1"/>
@@ -1156,34 +1111,6 @@
         </field>
     </record>
 
-    <record id="view_repair_start_wizard" model="ir.ui.view">
-        <field name="name">repair.start.wizard.form</field>
-        <field name="model">repair.start.wizard</field>
-        <field name="arch" type="xml">
-            <form string="Démarrer la réparation">
-                <p>Un devis est exigé pour cette réparation. Vous pouvez faire la demande maintenant ou passer.</p>
-                <footer>
-                    <button name="action_force_start" string="Passer" type="object" class="btn-success"/>
-                    <button name="action_go_to_quote" string="Faire le Devis" type="object" class="btn-warning"/>
-                </footer>
-            </form>
-        </field>
-    </record>
-
-    <record id="view_repair_warn_quote_wizard" model="ir.ui.view">
-        <field name="name">repair.warn.quote.wizard.form</field>
-        <field name="model">repair.warn.quote.wizard</field>
-        <field name="arch" type="xml">
-            <form string="Avertissement de clôture réparation">
-                <p>Cette réparation nécessite un devis</p>
-                <footer>
-                    <button name="action_go_to_quote" string="Faire le Devis" type="object" class="btn-success"/>
-                    <button name="action_force_terminate" string="Clôturer" type="object" class="btn-secondary"/>
-                </footer>
-            </form>
-        </field>
-    </record>
-    
     <record id="action_repair_order_atelier" model="ir.actions.act_window">
         <field name="name">Tableau de Bord Atelier</field>
         <field name="res_model">repair.order</field>

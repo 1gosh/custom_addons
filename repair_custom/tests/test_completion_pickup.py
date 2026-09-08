@@ -100,7 +100,7 @@ class TestReadyForPickupNotification(RepairQuoteCase):
             r.batch_id = batch
         r.action_validate()
         r.action_repair_start()
-        r.with_context(force_stop=True).action_repair_done()
+        r.action_repair_done()
         return r
 
     def test_single_done_repair_is_ready(self):
@@ -132,7 +132,7 @@ class TestPickupNotifyWizard(RepairQuoteCase):
         r = self._make_repair()
         r.action_validate()
         r.action_repair_start()
-        r.with_context(force_stop=True).action_repair_done()
+        r.action_repair_done()
         return r
 
     def test_notify_wizard_action_send_creates_appointment(self):
@@ -176,39 +176,39 @@ class TestPickupNotifyWizard(RepairQuoteCase):
 @tagged('post_install', '-at_install', 'repair_completion_pickup')
 class TestActionRepairDoneDialog(RepairQuoteCase):
 
-    def _start(self, quote_required=False):
-        r = self._make_repair(quote_required=quote_required)
+    def _start(self):
+        r = self._make_repair()
         r.action_validate()
         r.action_repair_start()
         return r
 
     def test_last_in_batch_returns_wizard_action(self):
         r = self._start()
-        res = r.with_context(force_stop=True).action_repair_done()
+        res = r.action_repair_done()
         self.assertIsInstance(res, dict)
         self.assertEqual(res.get('res_model'), 'repair.pickup.notify.wizard')
         self.assertEqual(res['context']['default_batch_id'], r.batch_id.id)
 
     def test_bulk_done_skips_dialog(self):
         r1 = self._start()
-        r2 = self._make_repair(quote_required=False)
+        r2 = self._make_repair()
         r2.batch_id = r1.batch_id
         r2.action_validate()
         r2.action_repair_start()
-        res = (r1 | r2).with_context(force_stop=True).action_repair_done()
+        res = (r1 | r2).action_repair_done()
         # Bulk path returns the write() truthy value, NOT the wizard action.
         self.assertIs(res, True)
 
     def test_skip_pickup_notify_prompt_context(self):
         r = self._start()
         res = r.with_context(
-            force_stop=True, skip_pickup_notify_prompt=True,
+            skip_pickup_notify_prompt=True,
         ).action_repair_done()
         self.assertIs(res, True)
 
     def test_no_legacy_activity_created(self):
         r = self._start()
-        r.with_context(force_stop=True).action_repair_done()
+        r.action_repair_done()
         pickup_type = self.env.ref('repair_custom.mail_act_repair_done')
         self.assertFalse(
             r.activity_ids.filtered(lambda a: a.activity_type_id == pickup_type),
@@ -223,7 +223,7 @@ class TestActionPickupStart(RepairQuoteCase):
         r = self._make_repair()
         r.action_validate()
         r.action_repair_start()
-        r.with_context(force_stop=True, skip_pickup_notify_prompt=True).action_repair_done()
+        r.with_context(skip_pickup_notify_prompt=True).action_repair_done()
         return r
 
     def test_pickup_start_with_sale_order(self):
@@ -273,7 +273,7 @@ class TestActionMarkDelivered(RepairQuoteCase):
         })
         r.action_validate()
         r.action_repair_start()
-        r.with_context(force_stop=True, skip_pickup_notify_prompt=True).action_repair_done()
+        r.with_context(skip_pickup_notify_prompt=True).action_repair_done()
         return r, lot
 
     def test_mark_delivered_stamps_sar_for_done(self):
@@ -314,7 +314,7 @@ class TestPickupDeliverWizard(RepairQuoteCase):
         r = self._make_repair()
         r.action_validate()
         r.action_repair_start()
-        r.with_context(force_stop=True, skip_pickup_notify_prompt=True).action_repair_done()
+        r.with_context(skip_pickup_notify_prompt=True).action_repair_done()
         return r
 
     def test_wizard_computes_eligible_repairs(self):
@@ -368,7 +368,7 @@ class TestAccountMovePostHook(RepairQuoteCase):
         r = self._make_repair()
         r.action_validate()
         r.action_repair_start()
-        r.with_context(force_stop=True, skip_pickup_notify_prompt=True).action_repair_done()
+        r.with_context(skip_pickup_notify_prompt=True).action_repair_done()
         return r
 
     def _invoice_for(self, repair, amount=100.0):
@@ -467,7 +467,7 @@ class TestEndToEndCompletionPickup(RepairQuoteCase):
         # 2. Validate + start + done (last in batch → returns notify wizard)
         r.action_validate()
         r.action_repair_start()
-        res = r.with_context(force_stop=True).action_repair_done()
+        res = r.action_repair_done()
         self.assertEqual(res['res_model'], 'repair.pickup.notify.wizard')
 
         # 3. Technician clicks "Envoyer la notification"

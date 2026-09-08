@@ -85,12 +85,11 @@ class RepairQuoteCase(TransactionCase):
             })
 
     @classmethod
-    def _make_repair(cls, tech=None, internal_notes='Notes de diagnostic', quote_required=True):
+    def _make_repair(cls, tech=None, internal_notes='Notes de diagnostic'):
         tech = tech or cls.tech_with_user
         repair = cls.Repair.create({
             'partner_id': cls.partner.id,
             'internal_notes': internal_notes,
-            'quote_required': quote_required,
             'technician_employee_id': tech.id,
         })
         # Sub-project 3 deferred batch creation to confirmation — confirm so

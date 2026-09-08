@@ -192,9 +192,6 @@ class Repair(models.Model):
     priority = fields.Selection([('0', 'Normal'), ('1', 'Urgent')], default='0', string="Priority")
     partner_id = fields.Many2one('res.partner', 'Customer', index=True, check_company=True, required=True)
 
-    # --- QUOTE LOGIC ---
-    quote_required = fields.Boolean(string="Devis Exigé", default=False, tracking=True)
-    quote_threshold = fields.Integer(string="Seuil du devis")
     parts_waiting = fields.Boolean(string="Attente de pièces", default=False, tracking=True)
 
     # --- HISTORY AND WARRANTY MANAGEMENT ---
@@ -791,18 +788,7 @@ class Repair(models.Model):
                     % rec.name
                 )
 
-        self.invalidate_recordset(['state', 'quote_state', 'quote_required'])
-
-        if (not self.env.context.get('force_stop')
-                and self.quote_required and self.quote_state != 'approved'):
-            return {
-                'name': _("Alerte : Devis non validé"),
-                'type': 'ir.actions.act_window',
-                'res_model': 'repair.warn.quote.wizard',
-                'view_mode': 'form',
-                'target': 'new',
-                'context': {'default_repair_id': self.id},
-            }
+        self.invalidate_recordset(['state', 'quote_state'])
 
         res = self.write({
             'state': 'done',
@@ -1209,31 +1195,12 @@ class Repair(models.Model):
 
         self.invalidate_recordset(['state', 'technician_employee_id'])
 
-        if self.quote_required and self.state == 'confirmed' and not self.env.context.get('force_start'):
-            return {
-                'name': _("Attention : Devis Requis"),
-                'type': 'ir.actions.act_window',
-                'res_model': 'repair.start.wizard',
-                'view_mode': 'form',
-                'target': 'new',
-                'context': {
-                    'default_repair_id': self.id,
-                    'atelier_employee_id': self.env.context.get('atelier_employee_id')
-                }
-            }
-
         self._assign_technician_if_needed()
         vals = {'state': 'under_repair'}
         self.write(vals)
 
         tech_name = self.technician_employee_id.name if self.technician_employee_id else self.env.user.name
-        if self.env.context.get('force_start'):
-            if self.env.context.get('start_with_quote'):
-                self.message_post(body=f"{tech_name} a commencé l'intervention (Devis demandé en parallèle).")
-            else:
-                self.message_post(body=f"⚠️ {tech_name} a forcé le démarrage (Devis ignoré).")
-        else:
-            self.message_post(body=f"{tech_name} a commencé l'intervention.")
+        self.message_post(body=f"{tech_name} a commencé l'intervention.")
 
         return True
 

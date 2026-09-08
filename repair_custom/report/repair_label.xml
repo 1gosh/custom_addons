@@ -70,14 +70,6 @@
                     font-size: 8px;
                     margin-top: 1mm;
                 }
-                .quote-box {
-                    margin-bottom: 1mm;
-                    font-weight: bold;
-                    font-size: 10px;
-                    border: 1px solid black;
-                    padding: 1px;
-                    text-align: center;
-                }
                 .tag-list {
                     font-size: 12px;
                     margin-top: -1px;
@@ -173,15 +165,6 @@
                             </td>
 
                             <td style="width: 55%; vertical-align: top;">
-                                <div t-if="o.quote_required" class="quote-box">
-                                    <t t-if="o.quote_threshold > 0">
-                                        Devis &gt; <span t-field="o.quote_threshold"
-                                                        t-options='{"widget": "monetary", "display_currency": o.company_id.currency_id}'/>
-                                    </t>
-                                    <t t-else="">
-                                        Devis Exigé
-                                    </t>
-                                </div>
                                 <div class="tag-list">
                                     <t t-foreach="o.tag_ids" t-as="tag">
                                         - <span t-field="tag.name"/><br/>
