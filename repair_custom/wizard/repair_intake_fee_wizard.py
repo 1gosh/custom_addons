@@ -121,7 +121,11 @@ class RepairIntakeFeeWizard(models.TransientModel):
             "Prise en charge encaissée : %d appareil(s), facture %s."
         ) % (len(to_invoice_lines), move.name))
 
-        return move.action_register_payment()
+        action = move.action_register_payment()
+        # Close back to the repair/batch form instead of landing on the
+        # created account.payment once the counter confirms the payment.
+        action['context'] = dict(action.get('context') or {}, dont_redirect_to_payments=True)
+        return action
 
 
 class RepairIntakeFeeWizardLine(models.TransientModel):
