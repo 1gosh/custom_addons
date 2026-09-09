@@ -233,7 +233,7 @@
                     <button name="action_repair_cancel" groups="repair_custom.group_repair_manager" string="Annuler" type="object" invisible="state in ('done', 'cancel')" data-hotkey="l" class="btn-danger"/>
                     <button name="action_print_repair_order" string="Bon" type="object" icon="fa-regular fa-print" invisible="state not in 'confirmed'" class="btn-info"/>
                     <button name="%(action_report_repair_label)d" string="Etiquette" type="action" icon="fa-regular fa-print" invisible="state not in 'confirmed'" class="btn-info"/>
-                    <button name="action_open_intake_fee_wizard" string="Encaisser la prise en charge" type="object" icon="fa-euro" class="btn-primary" invisible="intake_fee_state != 'to_collect'"/>
+                    <button name="action_open_intake_fee_wizard" string="Encaisser prise en charge" type="object" icon="fa-euro" class="btn-primary" invisible="intake_fee_state != 'to_collect'"/>
                     <button name="action_create_quotation_wizard" icon="fa-file"
                             string="Devis" type="object"
                             invisible="state == 'draft' or sale_order_id"/>
