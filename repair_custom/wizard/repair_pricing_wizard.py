@@ -340,6 +340,16 @@ class RepairPricingWizard(models.TransientModel):
             if deduction_line:
                 self.repair_id.intake_fee_deduction_line_id = deduction_line[:1].id
 
+        if self.add_work_details and self.work_details:
+            details_line = sale_order.order_line.filtered(
+                lambda l: l.display_type == 'line_note'
+            )
+            if details_line:
+                self.repair_id.write({
+                    'work_details_line_id': details_line[:1].id,
+                    'work_details_source_notes': self.internal_notes,
+                })
+
         return {
             'name': _("Devis Généré"),
             'type': 'ir.actions.act_window',

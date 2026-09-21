@@ -1078,6 +1078,23 @@ class Repair(models.Model):
         'sale.order.line', string="Ligne de déduction sur le devis",
         readonly=True, copy=False,
     )
+    work_details_line_id = fields.Many2one(
+        'sale.order.line', string="Ligne de détails des travaux sur le devis",
+        readonly=True, copy=False,
+        help="Ligne 'note' du devis portant le texte des détails de "
+             "réparation (work_details), une version reformulée par le "
+             "technicien à partir d'internal_notes au moment du devis.",
+    )
+    work_details_source_notes = fields.Text(
+        string="Notes techniciens (instantané au devis)",
+        readonly=True, copy=False,
+        help="Copie brute d'internal_notes prise au moment de la création "
+             "du devis, avant reformulation en work_details. Comparée à "
+             "internal_notes au moment de la facturation pour détecter si "
+             "les notes ont été modifiées depuis le devis — work_details "
+             "lui-même n'est pas comparable car il est volontairement "
+             "réécrit par le technicien.",
+    )
     intake_fee_amount_ttc = fields.Monetary(
         string="Montant prise en charge (TTC)",
         compute='_compute_intake_fee_amount_ttc', currency_field='currency_id',
@@ -1657,6 +1674,22 @@ class Repair(models.Model):
             'context': {
                 'default_repair_id': self.id,
                 'default_category_id': self.category_id.id
+            }
+        }
+
+    def action_open_template_save_wizard(self):
+        self.ensure_one()
+        if not self.internal_notes:
+            raise UserError(_("Aucune note technique à enregistrer comme gabarit."))
+        return {
+            'name': _("Ajouter aux Gabarits"),
+            'type': 'ir.actions.act_window',
+            'res_model': 'repair.template.save',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_repair_id': self.id,
+                'default_category_ids': [Command.set(self.category_id.ids)],
             }
         }
 

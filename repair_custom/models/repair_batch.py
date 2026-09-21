@@ -1,4 +1,4 @@
-from odoo import api, Command, fields, models, _
+from odoo import api, Command, fields, models, tools, _
 from odoo.exceptions import UserError
 
 class RepairBatch(models.Model):
@@ -320,6 +320,8 @@ class RepairBatch(models.Model):
                 move.batch_id = self.id
             # repair_id auto-stamped via account.move.create override when unique
 
+        self._sync_work_details_on_invoice(moves, repairs)
+
         if len(moves) == 1:
             return {
                 'name': _("Facture Générée"),
@@ -335,6 +337,42 @@ class RepairBatch(models.Model):
             'view_mode': 'tree,form',
             'domain': [('id', 'in', moves.ids)],
         }
+
+    def _sync_work_details_on_invoice(self, moves, repairs):
+        """Refresh the invoiced 'work details' note line when the repair's
+        internal_notes changed since the quote was generated.
+
+        work_details (and the note line copied from it) is a reformulated,
+        customer-presentable version of internal_notes written by the
+        technician in repair.pricing.wizard — it is NOT expected to match
+        internal_notes verbatim, so it can't be compared directly. Instead we
+        compare internal_notes' current text against work_details_source_notes,
+        the raw snapshot taken at quote time. Only a real edit of
+        internal_notes since then triggers a refresh (with the raw current
+        text, since the previous reformulation is now stale) and a warning."""
+        updated = False
+        for repair in repairs.filtered('work_details_line_id'):
+            line = moves.invoice_line_ids.filtered(
+                lambda l, repair=repair: repair.work_details_line_id in l.sale_line_ids
+            )[:1]
+            if not line:
+                continue
+            fresh_notes = tools.html2plaintext(repair.internal_notes or "").strip()
+            source_notes = (repair.work_details_source_notes or "").strip()
+            if fresh_notes and fresh_notes != source_notes:
+                line.name = fresh_notes
+                updated = True
+
+        if updated:
+            self.env['bus.bus']._sendone(
+                self.env.user.partner_id, 'simple_notification', {
+                    'type': 'warning',
+                    'title': _("Détails de réparation mis à jour"),
+                    'message': _(
+                        "Les détails de la réparation ont été mis à jour"
+                    ),
+                }
+            )
 
     def _inject_repair_section_headers(self, move):
         """Re-sequence the consolidated move's lines so each source SO's lines

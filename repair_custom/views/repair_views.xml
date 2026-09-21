@@ -853,6 +853,25 @@
         </field>
     </record>
 
+    <record id="view_repair_template_save_form" model="ir.ui.view">
+        <field name="name">repair.template.save.form</field>
+        <field name="model">repair.template.save</field>
+        <field name="arch" type="xml">
+            <form string="Ajouter aux Gabarits">
+                <field name="repair_id" invisible="1"/>
+                <group>
+                    <field name="name" placeholder="Ex: Protocole Ampli Intégré (Standard)"/>
+                    <field name="category_ids" widget="many2many_tags"
+                           placeholder="Laisser vide pour appliquer à tous les appareils"/>
+                </group>
+                <footer>
+                    <button name="action_confirm" string="Enregistrer" type="object" class="btn-primary"/>
+                    <button string="Annuler" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
     <record id="view_repair_order_atelier_kanban" model="ir.ui.view">
         <field name="name">repair.atelier.kanban</field>
         <field name="model">repair.order</field>
@@ -1095,16 +1114,24 @@
                                 <group>
                                     <field name="work_time" readonly="state in 'delivered'"/>
                                     <label for="internal_notes" string="Notes Techniques"/>
-                                    <div class="o_row">
-                                        <button name="action_open_template_selector"
-                                                invisible="state in 'delivered'"
-                                                type="object" 
-                                                string=" Insérer un modèle..." 
-                                                icon="fa-list-ul" 
-                                                class="btn-link pt-0 pb-0"/>
+                                    <div>
+                                        <div class="o_row justify-content-between mb-2">
+                                            <button name="action_open_template_selector"
+                                                    invisible="state in 'delivered'"
+                                                    type="object"
+                                                    string=" Insérer un modèle"
+                                                    icon="fa-list-ul"
+                                                    class="btn-link pt-0 pb-0"/>
+                                            <button name="action_open_template_save_wizard"
+                                                    invisible="state in 'delivered' or not internal_notes"
+                                                    type="object"
+                                                    string="Ajouter aux gabarits"
+                                                    icon="fa-plus"
+                                                    class="btn-link btn-add-template pt-0 pb-0"/>
+                                        </div>
+                                        <!-- <field name="notes_template_id" invisible="state in 'delivered'" domain="['|', ('category_ids', '=', False), ('category_ids', 'parent_of', category_id)]" options="{'no_create': True, 'no_open': True}"/> -->
+                                        <field name="internal_notes" nolabel="1" readonly="state in 'delivered'" style="background: rgb(245, 245, 245); font-family: monospace; padding: 10px; border: 1px solid #ccc; min-height: 100px;"/>
                                     </div>
-                                    <!-- <field name="notes_template_id" invisible="state in 'delivered'" domain="['|', ('category_ids', '=', False), ('category_ids', 'parent_of', category_id)]" options="{'no_create': True, 'no_open': True}"/> -->
-                                    <field name="internal_notes" readonly="state in 'delivered'" style="background: rgb(245, 245, 245); font-family: monospace; padding: 10px; border: 1px solid #ccc; min-height: 100px;"/> 
                                 </group>
                             </group> 
                         </page>
