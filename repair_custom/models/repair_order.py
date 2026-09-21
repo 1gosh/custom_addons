@@ -1116,7 +1116,7 @@ class Repair(models.Model):
         start_date_str = self.env['ir.config_parameter'].sudo().get_param(
             'repair_custom.intake_fee_start_date'
         )
-        start_date = fields.Date.from_string(start_date_str) if start_date_str else False
+        start_date = fields.Datetime.from_string(start_date_str).date() if start_date_str else False
         for rec in self:
             if rec.intake_fee_deduction_line_id:
                 rec.intake_fee_state = 'deducted'

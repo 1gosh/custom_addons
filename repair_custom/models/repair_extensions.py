@@ -815,6 +815,12 @@ class StockMove(models.Model):
 class HrEmployee(models.Model):
     _inherit = 'hr.employee'
 
+    show_in_atelier_kiosk = fields.Boolean(
+        string="Afficher dans le kiosque Atelier",
+        default=False,
+        help="Si coché, cet employé apparaît dans l'écran de sélection du kiosque Atelier.",
+    )
+
     def action_login_atelier(self):
         self.ensure_one()
         dashboard_view = self.env.ref('repair_custom.view_atelier_dashboard_kanban', raise_if_not_found=False)
