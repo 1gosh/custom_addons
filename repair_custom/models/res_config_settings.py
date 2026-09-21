@@ -24,10 +24,10 @@ class ResConfigSettings(models.TransientModel):
         string="Montant prise en charge (HT)",
         config_parameter='repair_custom.intake_fee_amount_ht',
         default=50.0,
-        help="Montant HT encaissé par appareil déposé. 50,00 € HT correspond à 60,00 € TTC à 20 %.",
+        help="Montant HT encaissé par appareil déposé.",
     )
 
-    intake_fee_start_date = fields.Date(
+    intake_fee_start_date = fields.Datetime(
         string="Date de bascule prise en charge",
         config_parameter='repair_custom.intake_fee_start_date',
         help="Les réparations déposées avant cette date ne sont pas concernées par la prise en charge "

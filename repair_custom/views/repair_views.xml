@@ -1246,11 +1246,23 @@
         </field>
     </record>
 
+    <record id="view_employee_form_atelier_kiosk" model="ir.ui.view">
+        <field name="name">hr.employee.form.atelier.kiosk</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <group name="identification_group" position="inside">
+                <field name="show_in_atelier_kiosk"/>
+            </group>
+        </field>
+    </record>
+
     <record id="action_atelier_kiosk_entry" model="ir.actions.act_window">
         <field name="name">Qui êtes-vous ?</field>
         <field name="res_model">hr.employee</field>
         <field name="view_mode">kanban</field>
         <field name="view_id" ref="view_employee_atelier_kanban"/>
+        <field name="domain">[('show_in_atelier_kiosk', '=', True)]</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 Bienvenue à l'Atelier. Sélectionnez votre profil.

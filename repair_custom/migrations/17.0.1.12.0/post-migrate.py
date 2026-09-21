@@ -9,6 +9,7 @@ this upgrade as out of scope. Skipped on a fresh install (no existing repairs,
 nothing to protect) or if the parameter was already set by a prior run.
 """
 import logging
+from datetime import datetime
 
 from odoo import api, fields, SUPERUSER_ID
 
@@ -27,7 +28,9 @@ def migrate(cr, version):
     if not existing_count:
         return
 
-    today = fields.Date.context_today(env.user)
+    today = fields.Datetime.to_string(
+        datetime.combine(fields.Date.context_today(env.user), datetime.min.time())
+    )
     ICP.set_param('repair_custom.intake_fee_start_date', today)
     _logger.info(
         "post-migrate 17.0.1.12.0: set repair_custom.intake_fee_start_date=%s "

@@ -24,7 +24,7 @@
                         </setting>
                         <setting string="Date de bascule"
                                  help="Les réparations déposées avant cette date ne sont pas concernées par la prise en charge.">
-                            <field name="intake_fee_start_date"/>
+                            <field name="intake_fee_start_date" widget="date"/>
                         </setting>
                     </block>
                     <block title="Cycle de vie du devis">
