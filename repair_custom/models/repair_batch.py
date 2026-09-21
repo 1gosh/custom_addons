@@ -60,14 +60,21 @@ class RepairBatch(models.Model):
                 batch.state = 'draft'
                 continue
             states = set(batch.repair_ids.mapped('state'))
+            non_cancel_states = states - {'cancel'}
             # Processed: all repairs are done, cancelled, or irreparable
             if states.issubset({'done', 'cancel', 'irreparable'}): batch.state = 'processed'
-            # Under repair: any repair is under_repair
+            # Under repair: any repair is literally under_repair (takes
+            # priority over a lingering draft repair elsewhere in the batch)
             elif 'under_repair' in states: batch.state = 'under_repair'
-            # Confirmed: all non-cancelled repairs are confirmed
-            elif all(r.state == 'confirmed' for r in batch.repair_ids if r.state != 'cancel'): batch.state = 'confirmed'
-            # Draft: fallback for mixed states or all draft
-            else: batch.state = 'draft'
+            # Draft: at least one repair hasn't even been confirmed yet
+            elif 'draft' in states: batch.state = 'draft'
+            # Confirmed: no progress at all — every non-cancelled repair is
+            # still just 'confirmed'
+            elif non_cancel_states <= {'confirmed'}: batch.state = 'confirmed'
+            # Under repair: partial progress (e.g. one device done, another
+            # still confirmed) without any repair literally under_repair —
+            # the dossier is clearly no longer idle, so treat it as active
+            else: batch.state = 'under_repair'
 
     delivery_state = fields.Selection(
         [
