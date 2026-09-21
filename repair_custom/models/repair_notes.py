@@ -14,6 +14,30 @@ class RepairNotesTemplate(models.Model):
         string="Catégories d'appareils",
     )
 
+class RepairTemplateSave(models.TransientModel):
+    _name = 'repair.template.save'
+    _description = "Assistant d'ajout aux gabarits"
+
+    repair_id = fields.Many2one('repair.order', required=True)
+    name = fields.Char("Nom du Gabarit", required=True)
+    category_ids = fields.Many2many(
+        'product.category',
+        relation='repair_template_save_product_category_rel',
+        column1='wizard_id',
+        column2='product_category_id',
+        string="Catégories d'appareils",
+    )
+
+    def action_confirm(self):
+        self.ensure_one()
+        self.env['repair.notes.template'].create({
+            'name': self.name,
+            'template_content': self.repair_id.internal_notes,
+            'category_ids': [Command.set(self.category_ids.ids)],
+        })
+        return {'type': 'ir.actions.act_window_close'}
+
+
 class RepairTemplateSelector(models.TransientModel):
     _name = 'repair.template.selector'
     _description = "Assistant d'import de gabarit"

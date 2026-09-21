@@ -1660,6 +1660,22 @@ class Repair(models.Model):
             }
         }
 
+    def action_open_template_save_wizard(self):
+        self.ensure_one()
+        if not self.internal_notes:
+            raise UserError(_("Aucune note technique à enregistrer comme gabarit."))
+        return {
+            'name': _("Ajouter aux Gabarits"),
+            'type': 'ir.actions.act_window',
+            'res_model': 'repair.template.save',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_repair_id': self.id,
+                'default_category_ids': [Command.set(self.category_id.ids)],
+            }
+        }
+
     def action_merge_into_batch(self):
         partners = self.mapped('partner_id')
         if len(partners) > 1:
