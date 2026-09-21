@@ -201,6 +201,89 @@ class TestBatchDeliveryState(RepairBatchUxCommon):
 
 
 @tagged('-at_install', 'post_install', 'repair_custom')
+class TestBatchState(RepairBatchUxCommon):
+    def _confirmed(self, **overrides):
+        r = self._new_draft_repair(**overrides)
+        r._action_repair_confirm()
+        return r
+
+    def _make_batch_with_repairs(self, n=2):
+        r1 = self._confirmed()
+        batch = r1.batch_id
+        repairs = r1
+        for _ in range(n - 1):
+            r = self.Repair.create({
+                'partner_id': self.partner.id,
+                'product_tmpl_id': self.product_tmpl.id,
+                'batch_id': batch.id,
+            })
+            r._action_repair_confirm()
+            repairs |= r
+        return batch, repairs
+
+    def test_state_empty_batch_is_draft(self):
+        batch = self.Batch.create({'partner_id': self.partner.id})
+        self.assertEqual(batch.state, 'draft')
+
+    def test_state_all_draft_repairs_is_draft(self):
+        batch = self.Batch.create({'partner_id': self.partner.id})
+        self.Repair.create({
+            'partner_id': self.partner.id,
+            'product_tmpl_id': self.product_tmpl.id,
+            'batch_id': batch.id,
+        })
+        self.assertEqual(batch.state, 'draft')
+
+    def test_state_all_confirmed_is_confirmed(self):
+        batch, _ = self._make_batch_with_repairs(2)
+        self.assertEqual(batch.state, 'confirmed')
+
+    def test_state_any_under_repair_is_under_repair(self):
+        batch, repairs = self._make_batch_with_repairs(2)
+        repairs[0].action_repair_start()
+        self.assertEqual(batch.state, 'under_repair')
+
+    def test_state_all_terminal_is_processed(self):
+        batch, repairs = self._make_batch_with_repairs(2)
+        repairs.write({'state': 'done'})
+        self.assertEqual(batch.state, 'processed')
+
+    def test_state_mixed_confirmed_and_done_is_under_repair(self):
+        # Regression: a dossier where one device is already fully repaired
+        # and another is still queued used to fall back to 'draft'. Real
+        # progress has been made, so it now reads as 'under_repair' rather
+        # than 'confirmed' (which is reserved for zero-progress dossiers).
+        batch, repairs = self._make_batch_with_repairs(2)
+        repairs[0].state = 'done'
+        self.assertEqual(batch.state, 'under_repair')
+
+    def test_state_all_confirmed_no_progress_stays_confirmed(self):
+        batch, repairs = self._make_batch_with_repairs(2)
+        self.assertEqual(batch.state, 'confirmed')
+
+    def test_state_mixed_draft_and_confirmed_is_draft(self):
+        batch, repairs = self._make_batch_with_repairs(1)
+        self.Repair.create({
+            'partner_id': self.partner.id,
+            'product_tmpl_id': self.product_tmpl.id,
+            'batch_id': batch.id,
+        })
+        self.assertEqual(batch.state, 'draft')
+
+    def test_state_mixed_draft_and_under_repair_is_under_repair(self):
+        # A lingering draft repair elsewhere in the batch must not mask an
+        # actively under_repair one.
+        batch, repairs = self._make_batch_with_repairs(1)
+        repairs[0].action_repair_start()
+        self.Repair.create({
+            'partner_id': self.partner.id,
+            'product_tmpl_id': self.product_tmpl.id,
+            'batch_id': batch.id,
+        })
+        self.assertEqual(batch.state, 'under_repair')
+
+
+@tagged('-at_install', 'post_install', 'repair_custom')
 class TestSiblingBanner(RepairBatchUxCommon):
     def _confirmed(self, batch=None):
         overrides = {'batch_id': batch.id} if batch else {}
