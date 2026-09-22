@@ -892,27 +892,18 @@
                 <templates>
                     <t t-name="kanban-box">
                         <div t-attf-class="oe_kanban_card oe_kanban_global_click p-3">
-                            
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div class="o_kanban_record_title overflow-hidden me-2">
-                                    <strong style="font-size: 1.1rem;">
-                                        <span t-if="record.device_id_name.raw_value"><field name="device_id_name"/></span>
-                                        <span t-else=""><field name="name"/></span>
-                                    </strong>
-                                </div>
-                                <div class="flex-shrink-0">
-                                    <field name="priority" readonly="1" widget="priority"/>
-                                </div>
-                            </div>
                             <div class="row">
-                                <div class="col-7 text-truncate">
+                                <div class="col-7">
+                                    <div>
+                                    <strong style="font-size: 1.1rem;"><field name="device_id_name"/></strong>
+                                    </div>
                                     <field name="partner_id"/>
                                 </div>
                                 <div class="col-5 text-end">
                                     <field name="entry_date" widget="datetime" options="{'show_time':false}"/>
-                                    <span t-if="record.waiting_time.raw_value" class="text-muted small ms-1">
+                                    <div t-if="record.waiting_time.raw_value" class="text-muted small ms-1">
                                         (<field name="waiting_time"/>)
-                                    </span>
+                                    </div>
                                 </div>
                             </div>
 
