@@ -11,16 +11,19 @@
                       decoration-warning="quote_state == 'sent' and last_reminder_sent_at"
                       decoration-danger="has_open_escalation">
                     <field name="name" optional="hide"/>
+                    <field name="quote_requested_date" widget="datetime" options="{'show_time':false}"/>
                     <field name="partner_id"/>
                     <field name="device_id_name"/>
                     <field name="technician_employee_id"/>
                     <field name="internal_notes" widget="text" optional="show"/>
-                    <field name="quote_requested_date" widget="datetime" options="{'show_time':false}"/>
                     <field name="quote_sent_date" widget="date" optional="show"/>
                     <field name="quote_state" optional="hide" widget="badge"
                            decoration-info="quote_state == 'pending'"
                            decoration-primary="quote_state == 'sent'"/>
                     <field name="sale_order_id" optional="hide"/>
+                    <field name="has_open_escalation" optional="hide"/>
+                    <field name="has_open_refusal_activity" optional="hide"/>
+                    <field name="last_reminder_sent_at" optional="hide"/>
                 </tree>
             </field>
         </record>
